@@ -33,15 +33,15 @@ The browser prototype deliberately uses local storage only. Production gameplay 
 
 The product specification remains the source of truth: [pokemon-daily-game-spec.md](pokemon-daily-game-spec.md).
 
-## Deployment
+## Local development
 
-GitHub Actions publishes `dist/` to GitHub Pages after every push to `main`. The repository's **Settings → Pages → Build and deployment → Source** must be set to **GitHub Actions** once before the first deployment.
+Nuzzle is intentionally local-only during initial development. There is no active GitHub Pages workflow and pushes to `main` do not deploy the site.
 
-Because this repository is private, GitHub Pages requires a GitHub plan that supports Pages for private repositories. The resulting personal-account Pages site is normally public even when its source repository is private.
+The planned local stack is a browser frontend, a Node.js/TypeScript API containing Pokémon Showdown, and PostgreSQL. The frontend and API will run on localhost while development continues. Keeping deployable services separated from machine-specific configuration will allow the frontend to move to GitHub Pages and the API/database to managed hosts later without rewriting game logic.
 
 ## Battle backend
 
-The current browser prototype has no backend and cannot safely run official battles. The proposed service boundary, persistence model, simulator lifecycle, and implementation milestones are documented in [docs/battle-backend.md](docs/battle-backend.md).
+The current browser prototype has no backend and cannot safely run official battles. The proposed local-first service boundary, persistence model, simulator lifecycle, and implementation milestones are documented in [docs/battle-backend.md](docs/battle-backend.md).
 
 ## Attribution and status
 

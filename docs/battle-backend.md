@@ -4,12 +4,14 @@ The current `dist/` application is a browser-only product prototype. Its local-s
 
 ## Recommended first production shape
 
-Use one TypeScript/Node.js application service with PostgreSQL and the pinned `pokemon-showdown` package. Keep the static client on GitHub Pages and host the API separately behind HTTPS. The API can start as one deployable service; no microservices or full Pokémon Showdown community server are needed.
+Use one TypeScript/Node.js application service with PostgreSQL and the pinned `pokemon-showdown` package. During development, serve the client and API on localhost and run PostgreSQL locally. The API can start as one deployable service; no microservices or full Pokémon Showdown community server are needed.
+
+Keep environment-specific values in ignored `.env` files and make browser/API origins configurable. Later, the same built frontend can move to GitHub Pages while the API and PostgreSQL move to managed hosts.
 
 The Showdown package currently exposes a Node-only `BattleStream`. The backend starts a stream with the approved format and frozen teams, submits player and AI choices, parses the simulator protocol, and returns only information the player is allowed to see.
 
 ```text
-GitHub Pages client
+Local browser client
         |
         | HTTPS + authenticated player session
         v
@@ -66,11 +68,15 @@ Recommended first-playable defaults for owner approval:
 
 ## Delivery milestones
 
-1. Install Node.js 22+ and scaffold the TypeScript API, tests, PostgreSQL schema, and local environment.
+1. Install Node.js 22+ and PostgreSQL (directly or through Docker), then scaffold the TypeScript API, tests, schema, and local environment.
 2. Pin Pokémon Showdown and prove one fixture battle through `BattleStream` with legal moves and switches.
 3. Implement the encounter/move generator as tested server-side domain logic.
 4. Add accounts, daily challenge persistence, run state, and the unique user/date attempt constraint.
 5. Implement resumable battle actions and the simple documented AI.
 6. Finalize results transactionally and connect the existing UI to the API.
 7. Test refreshes, retries, two tabs, month boundaries, losses, and simulator reconstruction.
+
+## Later deployment boundary
+
+The browser must obtain its API base URL from configuration rather than assuming `localhost`. The API must use explicit CORS origins, secure cookies or bearer sessions, database migrations, and environment-provided secrets. With those boundaries in place, moving the static build to GitHub Pages and changing the API/database URLs is configuration work rather than a redesign.
 
