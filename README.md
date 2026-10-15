@@ -6,10 +6,10 @@ This repository currently contains the first interactive product slice. It focus
 
 ## Run locally
 
-The prototype is buildless. Open `index.html` directly, or serve the repository with any static file server.
+The prototype is buildless. Open `dist/index.html` directly, or serve the `dist` directory with any static file server.
 
 ```powershell
-python -m http.server 4173
+python -m http.server 4173 --directory dist
 ```
 
 Then visit `http://localhost:4173`.
