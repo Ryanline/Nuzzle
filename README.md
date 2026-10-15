@@ -33,6 +33,16 @@ The browser prototype deliberately uses local storage only. Production gameplay 
 
 The product specification remains the source of truth: [pokemon-daily-game-spec.md](pokemon-daily-game-spec.md).
 
+## Deployment
+
+GitHub Actions publishes `dist/` to GitHub Pages after every push to `main`. The repository's **Settings → Pages → Build and deployment → Source** must be set to **GitHub Actions** once before the first deployment.
+
+Because this repository is private, GitHub Pages requires a GitHub plan that supports Pages for private repositories. The resulting personal-account Pages site is normally public even when its source repository is private.
+
+## Battle backend
+
+The current browser prototype has no backend and cannot safely run official battles. The proposed service boundary, persistence model, simulator lifecycle, and implementation milestones are documented in [docs/battle-backend.md](docs/battle-backend.md).
+
 ## Attribution and status
 
 This is an independent fan project and is not affiliated with or endorsed by Nintendo, Game Freak, Creatures, or The Pokémon Company. Creature sprites are loaded from Pokémon Showdown's public sprite host for development preview purposes; launch licensing and asset review remain outstanding.
