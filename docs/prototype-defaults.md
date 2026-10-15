@@ -7,16 +7,16 @@ These choices exist only to make the browser prototype testable. They do not res
 ## Temporary prototype defaults
 
 - Fresh-run encounters replace the day's ordinary encounters (proposed default from D05).
-- Encounter selection is uniform over the small curated demo pool.
+- Encounter selection is uniform over all 146 eligible Generation 1 species; Articuno, Zapdos, Moltres, Mewtwo, and Mew are excluded.
 - Move selection is uniform within each candidate pool (proposed default from D04).
-- The demo roster uses curated learnsets rather than a cross-generation simulator dataset.
+- Prototype movesets are generated deterministically from the pinned Pokémon Showdown learnset data.
 - Browser-local state is scoped to one anonymous profile and one browser.
 - Prototype shop values start at ₽2,400 and use clearly labeled placeholder prices.
 - Game-date presentation uses `America/New_York` only for the static prototype.
 
 ## Decisions needed before the next subsystem
 
-The next implementation milestone is the official battle loop. Before integrating it, decide:
+The prototype now has a playable in-memory battle loop. Before making it the official daily attempt, decide:
 
 1. D01: mechanics generation/format, Pokémon Showdown version, learnset policy, and whether special mechanics are disabled.
 2. D03: initial IVs, EVs, natures, and abilities.

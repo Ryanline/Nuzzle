@@ -2,7 +2,7 @@
 
 Nuzzle is a calm, daily monster-battling puzzle inspired by Nuzlocke rules: build a persistent roster, prepare for a shared daily trainer, and live with every casualty.
 
-This repository currently contains the first interactive product slice. It focuses on the daily-trainer presentation, persistent fresh-run encounters, party management, and a small prototype shop. The official battle engine and server-authoritative persistence are intentionally held behind documented product decisions rather than approximated in client code.
+This repository contains the first playable product slice: daily-trainer preparation, persistent fresh-run encounters, party management, a prototype shop, and turn-by-turn battles powered by Pokémon Showdown.
 
 ## Run locally
 
@@ -18,11 +18,13 @@ Open a new PowerShell window first so it picks up the Node.js path added during 
 
 Then visit `http://127.0.0.1:3000`. The same local process serves the static frontend and the `/api` routes.
 
-The Battle flow currently runs a development fixture through the real server-side Pokémon Showdown simulator and saves its transcript to PostgreSQL. It is intentionally labeled as a fixture and does not consume the daily attempt or change the roster.
+The Battle flow is playable: choose moves or switch party members in a Showdown-style interface while the local API owns the simulator session and selects the trainer's actions. Battle sessions are currently held in server memory and do not yet consume the daily attempt or apply Nuzlocke deaths to the roster.
 
 ## What works
 
 - Responsive Today, Encounters, PC, Shop, and Records views
+- All 146 non-legendary and non-mythical Generation 1 species
+- Playable, turn-by-turn Pokémon Showdown battles with moves, PP, HP, switching, forced switches, and results
 - Calendar-aware trainer tier and finale labeling
 - A persisted 10-creature fresh-run package with a fully evolved starter first
 - Duplicate-safe encounter batches
@@ -45,7 +47,7 @@ The local stack is a browser frontend, a Node.js/TypeScript API containing Poké
 
 ## Battle backend
 
-The repository now has the first backend slice: a health endpoint and a deterministic Pokémon Showdown fixture that persists its result and transcript. It is development scaffolding, not yet the stateful, server-authoritative daily battle. The service boundary, persistence model, simulator lifecycle, and implementation milestones are documented in [docs/battle-backend.md](docs/battle-backend.md).
+The backend now exposes an in-memory interactive Pokémon Showdown battle session in addition to the original persistence fixture. It validates Kanto parties, returns only legal choices, and advances the opponent after each player action. Durable attempts, reconnect support, and transactional Nuzlocke consequences remain the next server milestone. The service boundary and persistence plan are documented in [docs/battle-backend.md](docs/battle-backend.md).
 
 ## Attribution and status
 

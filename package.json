@@ -18,6 +18,8 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
+    "data:gen1": "node scripts/generate-gen1-data.mjs",
+    "qa:battle": "node scripts/qa-battle.mjs",
     "db:up": "node scripts/db.mjs up -d",
     "db:down": "node scripts/db.mjs down",
     "db:logs": "node scripts/db.mjs logs --tail=100"
@@ -33,6 +35,7 @@
   "devDependencies": {
     "@types/node": "26.6.5",
     "@types/pg": "8.23.1",
+    "playwright-core": "^1.64.1",
     "tsx": "4.23.15",
     "typescript": "7.0.2",
     "vitest": "5.0.4"

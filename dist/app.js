@@ -2,12 +2,15 @@
   "use strict";
 
   const DATA = window.NUZZLE_DATA;
-  const STORAGE_KEY = "nuzzle-preview-v1";
+  const STORAGE_KEY = "nuzzle-preview-v2";
   const spriteBase = "https://play.pokemonshowdown.com/sprites/gen5/";
+  const backSpriteBase = "https://play.pokemonshowdown.com/sprites/gen5-back/";
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   let currentRoute = "today";
   let toastTimer;
+  let battleState = null;
+  let battleBusy = false;
 
   function gameDate() {
     const parts = new Intl.DateTimeFormat("en-US", {
@@ -58,7 +61,7 @@
       revealed: false
     }));
     return {
-      version: 1, date, profileSeed, encounters, roster: [], party: [], lead: null,
+      version: 2, date, profileSeed, encounters, roster: [], party: [], lead: null,
       money: 2400, inventory: {}, streak: 0, wipes: 0, badges: 0, eliteWins: 0, championWins: 0
     };
   }
@@ -66,7 +69,7 @@
   function loadState() {
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-      if (saved?.version === 1) return saved;
+      if (saved?.version === 2) return saved;
     } catch (error) {
       console.warn("Could not load Nuzzle preview state", error);
     }
@@ -145,6 +148,7 @@
 
   function route(name) {
     currentRoute = name;
+    document.body.classList.toggle("battle-mode", name === "battle");
     $$('[data-view]').forEach((view) => { view.hidden = view.dataset.view !== name; });
     $$('[data-route]').forEach((button) => {
       if (button.closest("nav")) button.setAttribute("aria-current", button.dataset.route === name ? "page" : "false");
@@ -156,6 +160,72 @@
 
   function typeTags(types) {
     return `<div class="types">${types.map((type) => `<span class="type">${type}</span>`).join("")}</div>`;
+  }
+
+  function battleLogLine(line) {
+    const parts = line.split("|");
+    const actor = (parts[2] || "").replace(/^p[12]a: /, "");
+    if (parts[1] === "turn") return `<strong>Turn ${parts[2]}</strong>`;
+    if (parts[1] === "move") return `<span><b>${actor}</b> used ${parts[3]}!</span>`;
+    if (parts[1] === "switch" || parts[1] === "drag") return `<span><b>${actor}</b> entered the battle.</span>`;
+    if (parts[1] === "faint") return `<span><b>${actor}</b> fainted!</span>`;
+    if (parts[1] === "-supereffective") return "<span>It's super effective!</span>";
+    if (parts[1] === "-resisted") return "<span>It's not very effective…</span>";
+    if (parts[1] === "-crit") return "<span>A critical hit!</span>";
+    if (parts[1] === "-status") return `<span><b>${actor}</b> was afflicted with ${parts[3]}.</span>`;
+    if (parts[1] === "cant") return `<span><b>${actor}</b> couldn't move.</span>`;
+    if (parts[1] === "win") return `<strong>${parts[2]} won the battle!</strong>`;
+    if (parts[1] === "tie") return "<strong>The battle ended in a tie.</strong>";
+    return "";
+  }
+
+  function hpClass(percent) {
+    return percent <= 20 ? "critical" : percent <= 50 ? "warning" : "";
+  }
+
+  function renderBattle() {
+    const view = $("#battleView");
+    if (!battleState) {
+      view.innerHTML = '<div class="battle-loading"><div class="battle-spinner"></div><h2>Preparing the field…</h2><p>Pokémon Showdown is creating your battle.</p></div>';
+      return;
+    }
+    const player = battleState.player || {};
+    const foe = battleState.opponent || {};
+    const playerId = DATA.species.find((mon) => mon.name === player.species)?.id || "missingno";
+    const party = battleState.request?.party || [];
+    const moves = battleState.request?.moves || [];
+    const log = battleState.log.map(battleLogLine).filter(Boolean).filter((entry, index, entries) => entry !== entries[index - 1]).slice(-80);
+    const trainer = opponent();
+    const result = battleState.ended
+      ? `<div class="battle-result"><strong>${battleState.winner === "You" ? "Victory!" : "Battle over"}</strong><span>${battleState.winner ? `${battleState.winner} won.` : "The battle ended in a tie."}</span><button type="button" data-leave-battle>Return to Nuzzle</button></div>`
+      : "";
+    view.innerHTML = `
+      <div class="showdown-shell" aria-label="Pokémon battle">
+        <section class="battle-left">
+          <div class="battlefield">
+            <div class="turn-badge">Turn ${battleState.turn}</div>
+            <div class="battle-trainer foe-trainer"><span>${trainer.title} ${trainer.name}</span><div class="team-pips">${Array.from({ length: 3 }, (_, i) => `<i class="team-pip ${i === 0 && foe.fainted ? "fainted" : ""}"></i>`).join("")}</div></div>
+            <div class="battle-trainer player-trainer"><span>You</span><div class="team-pips">${party.map((mon) => `<i class="team-pip ${mon.fainted ? "fainted" : ""}"></i>`).join("")}</div></div>
+            <div class="status-box foe-status"><strong>${foe.species || "Opponent"} <small>Lv. 100</small></strong><div class="hp-track"><span class="${hpClass(foe.hpPercent)}" style="width:${foe.hpPercent || 0}%"></span></div><small>${foe.hpPercent || 0}%</small></div>
+            <img class="battle-sprite foe-sprite" src="${spriteBase}${foe.id || "missingno"}.png" alt="${foe.species || "Opponent Pokémon"}" />
+            <div class="status-box player-status"><strong>${player.species || "Your Pokémon"} <small>Lv. 100</small></strong><div class="hp-track"><span class="${hpClass(player.hpPercent)}" style="width:${player.hpPercent || 0}%"></span></div><small>${player.condition || ""}</small></div>
+            <img class="battle-sprite player-sprite" src="${backSpriteBase}${playerId}.png" alt="${player.species || "Your Pokémon"}" />
+          </div>
+          <div class="battle-controls">
+            ${result || `<p class="choice-prompt">${battleBusy ? "Waiting for the trainer…" : battleState.request.forceSwitch ? `Choose a Pokémon to replace ${player.species}.` : `What will ${player.species} do?`}</p>
+            ${battleState.request.forceSwitch ? "" : `<div class="move-choices">${moves.map((move) => `<button type="button" class="move-button type-${(move.type || "normal").toLowerCase()}" data-battle-choice="move ${move.slot}" ${battleBusy || move.disabled ? "disabled" : ""}><strong>${move.name}</strong><span>${move.type || "Normal"}</span>${move.maxpp == null ? "" : `<small>${move.pp}/${move.maxpp}</small>`}</button>`).join("")}</div>`}
+            <div class="switch-label">Switch</div>
+            <div class="switch-choices">${party.map((mon) => `<button type="button" data-battle-choice="switch ${mon.slot}" ${battleBusy || mon.active || mon.fainted || battleState.request.trapped ? "disabled" : ""}><img src="${spriteBase}${DATA.species.find((item) => item.name === mon.species)?.id || "missingno"}.png" alt=""/><span>${mon.species}</span><i><b style="width:${mon.hpPercent}%"></b></i></button>`).join("")}</div>`}
+          </div>
+        </section>
+        <aside class="battle-log-panel">
+          <header><strong>Nuzzle Daily Battle</strong><button type="button" data-leave-battle>Exit battle</button></header>
+          <div class="battle-format"><b>Format:</b><strong>[Gen 9] Nuzzle Kanto</strong><span>Species Clause · No legendaries · Level 100</span></div>
+          <div class="battle-log" role="log" aria-live="polite">${log.map((entry) => `<p>${entry}</p>`).join("")}</div>
+        </aside>
+      </div>`;
+    const logElement = $(".battle-log", view);
+    if (logElement) logElement.scrollTop = logElement.scrollHeight;
   }
 
   function renderToday() {
@@ -266,6 +336,7 @@
     renderPC();
     renderShop();
     renderRecords();
+    renderBattle();
     $("#streakCount").textContent = state.streak;
     const waiting = state.encounters.filter((entry) => !entry.revealed).length;
     $("#encounterBadge").textContent = waiting || "";
@@ -325,24 +396,54 @@
     }));
     $("#commitBattle", dialog).addEventListener("click", async () => {
       state.lead = selected; save();
-      dialog.innerHTML = `<div class="dialog-inner"><p class="eyebrow">Local battle service</p><h2>Running fixture battle…</h2><p>The backend is asking Pokémon Showdown to resolve a development-only test battle.</p></div>`;
+      dialog.close();
+      battleState = null;
+      route("battle");
       try {
-        const response = await fetch("/api/dev/fixture-battle", {
+        const party = state.party.map((id) => {
+          const entry = state.roster.find((candidate) => candidate.speciesId === id);
+          return { speciesId: id, moves: entry?.moves || [] };
+        });
+        const response = await fetch("/api/battles", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: "{}",
+          body: JSON.stringify({ party, leadId: selected, trainerTier: dateInfo().tier }),
         });
-        if (!response.ok) throw new Error(`Battle service returned ${response.status}`);
         const result = await response.json();
-        dialog.innerHTML = `<div class="dialog-inner"><div class="dialog-head"><div><p class="eyebrow">Backend connected</p><h2>Fixture complete</h2></div><button class="dialog-close" type="button" aria-label="Close">×</button></div><p><strong>${result.winner}</strong> won the server-simulated battle in ${result.turns} turns.</p><ul class="move-list"><li><strong>Ruleset</strong><small>${result.formatId}</small></li><li><strong>Simulator</strong><small>${result.simulatorVersion}</small></li><li><strong>Saved run</strong><small>${result.id.slice(0, 8)}…</small></li></ul><p class="battle-note">Development fixture only · no official attempt or roster changes</p><button class="secondary" type="button" style="width:100%" data-route="today">Return to today</button></div>`;
-        $(".dialog-close", dialog).addEventListener("click", () => dialog.close());
-        $('[data-route="today"]', dialog).addEventListener("click", () => { dialog.close(); route("today"); });
+        if (!response.ok) throw new Error(result.error || `Battle service returned ${response.status}`);
+        battleState = result;
+        render();
       } catch (error) {
-        dialog.innerHTML = `<div class="dialog-inner"><div class="dialog-head"><div><p class="eyebrow">Local service unavailable</p><h2>Fixture could not run</h2></div><button class="dialog-close" type="button" aria-label="Close">×</button></div><p>${error.message}. Start PostgreSQL and the Nuzzle server, then try again.</p></div>`;
+        route("today");
+        dialog.innerHTML = `<div class="dialog-inner"><div class="dialog-head"><div><p class="eyebrow">Local service unavailable</p><h2>Battle could not start</h2></div><button class="dialog-close" type="button" aria-label="Close">×</button></div><p>${error.message}. Start PostgreSQL and the Nuzzle server, then try again.</p></div>`;
         $(".dialog-close", dialog).addEventListener("click", () => dialog.close());
+        dialog.showModal();
       }
     });
     dialog.showModal();
+  }
+
+  async function submitBattleChoice(choice) {
+    if (!battleState || battleBusy || battleState.ended) return;
+    battleBusy = true;
+    renderBattle();
+    bindDynamicEvents();
+    try {
+      const response = await fetch(`/api/battles/${battleState.id}/actions`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ choice }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "The battle action failed.");
+      battleState = result;
+    } catch (error) {
+      showToast(error.message);
+    } finally {
+      battleBusy = false;
+      renderBattle();
+      bindDynamicEvents();
+    }
   }
 
   function buy(id) {
@@ -373,6 +474,8 @@
     if ($("#revealNext")) $("#revealNext").onclick = () => reveal(1);
     if ($("#revealAll")) $("#revealAll").onclick = () => reveal(state.encounters.length);
     if ($("#battleButton")) $("#battleButton").onclick = showLeadDialog;
+    $$('[data-battle-choice]').forEach((button) => button.onclick = () => submitBattleChoice(button.dataset.battleChoice));
+    $$('[data-leave-battle]').forEach((button) => button.onclick = () => route("today"));
   }
 
   $("#resetPreview").addEventListener("click", () => {
