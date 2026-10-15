@@ -9,10 +9,12 @@ This repository currently contains the first interactive product slice. It focus
 Install Node.js 22+ and make Docker available. This checkout uses Node.js on Windows and Docker Engine in Ubuntu WSL.
 
 ```powershell
-npm install
-npm run db:up
-npm run dev
+npm.cmd install
+npm.cmd run db:up
+npm.cmd run dev
 ```
+
+Open a new PowerShell window first so it picks up the Node.js path added during setup. Using `npm.cmd` avoids PowerShell execution-policy conflicts with `npm.ps1`.
 
 Then visit `http://127.0.0.1:3000`. The same local process serves the static frontend and the `/api` routes.
 
@@ -39,11 +41,11 @@ The product specification remains the source of truth: [pokemon-daily-game-spec.
 
 Nuzzle is intentionally local-only during initial development. There is no active GitHub Pages workflow and pushes to `main` do not deploy the site.
 
-The planned local stack is a browser frontend, a Node.js/TypeScript API containing Pokémon Showdown, and PostgreSQL. The frontend and API will run on localhost while development continues. Keeping deployable services separated from machine-specific configuration will allow the frontend to move to GitHub Pages and the API/database to managed hosts later without rewriting game logic.
+The local stack is a browser frontend, a Node.js/TypeScript API containing Pokémon Showdown, and PostgreSQL. The frontend and API run on localhost while development continues. Keeping deployable services separated from machine-specific configuration will allow the frontend to move to GitHub Pages and the API/database to managed hosts later without rewriting game logic.
 
 ## Battle backend
 
-The current browser prototype has no backend and cannot safely run official battles. The proposed local-first service boundary, persistence model, simulator lifecycle, and implementation milestones are documented in [docs/battle-backend.md](docs/battle-backend.md).
+The repository now has the first backend slice: a health endpoint and a deterministic Pokémon Showdown fixture that persists its result and transcript. It is development scaffolding, not yet the stateful, server-authoritative daily battle. The service boundary, persistence model, simulator lifecycle, and implementation milestones are documented in [docs/battle-backend.md](docs/battle-backend.md).
 
 ## Attribution and status
 
