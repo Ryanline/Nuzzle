@@ -6,15 +6,17 @@ This repository currently contains the first interactive product slice. It focus
 
 ## Run locally
 
-The prototype is buildless. Open `dist/index.html` directly, or serve the `dist` directory with any static file server.
+Install Node.js 22+ and make Docker available. This checkout uses Node.js on Windows and Docker Engine in Ubuntu WSL.
 
 ```powershell
-python -m http.server 4173 --directory dist
+npm install
+npm run db:up
+npm run dev
 ```
 
-Then visit `http://localhost:4173`.
+Then visit `http://127.0.0.1:3000`. The same local process serves the static frontend and the `/api` routes.
 
-> The current machine does not have a working Python or Node runtime on `PATH`; the command above is the expected setup once either runtime is installed.
+The Battle flow currently runs a development fixture through the real server-side Pokémon Showdown simulator and saves its transcript to PostgreSQL. It is intentionally labeled as a fixture and does not consume the daily attempt or change the roster.
 
 ## What works
 

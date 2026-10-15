@@ -2,6 +2,10 @@
 Thumbs.db
 node_modules/
 .env
+build/
+coverage/
+nuzzle-data/
+.env
 .env.*
 !.env.example
 

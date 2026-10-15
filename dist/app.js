@@ -323,11 +323,24 @@
       selected = button.dataset.lead;
       $$('[data-lead]', dialog).forEach((option) => option.classList.toggle("selected", option === button));
     }));
-    $("#commitBattle", dialog).addEventListener("click", () => {
+    $("#commitBattle", dialog).addEventListener("click", async () => {
       state.lead = selected; save();
-      dialog.innerHTML = `<div class="dialog-inner"><div class="dialog-head"><div><p class="eyebrow">Next milestone</p><h2>Team locked in</h2></div><button class="dialog-close" type="button" aria-label="Close">×</button></div><p><strong>${species(selected).name}</strong> will lead. The official battle is not simulated by the browser prototype: ruleset, Showdown version, AI information policy, and exceptional-result handling still need approval.</p><p>This boundary prevents a placeholder combat model from becoming an accidental product rule.</p><button class="secondary" type="button" style="width:100%" data-route="today">Return to today</button></div>`;
-      $(".dialog-close", dialog).addEventListener("click", () => dialog.close());
-      $('[data-route="today"]', dialog).addEventListener("click", () => { dialog.close(); route("today"); });
+      dialog.innerHTML = `<div class="dialog-inner"><p class="eyebrow">Local battle service</p><h2>Running fixture battle…</h2><p>The backend is asking Pokémon Showdown to resolve a development-only test battle.</p></div>`;
+      try {
+        const response = await fetch("/api/dev/fixture-battle", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: "{}",
+        });
+        if (!response.ok) throw new Error(`Battle service returned ${response.status}`);
+        const result = await response.json();
+        dialog.innerHTML = `<div class="dialog-inner"><div class="dialog-head"><div><p class="eyebrow">Backend connected</p><h2>Fixture complete</h2></div><button class="dialog-close" type="button" aria-label="Close">×</button></div><p><strong>${result.winner}</strong> won the server-simulated battle in ${result.turns} turns.</p><ul class="move-list"><li><strong>Ruleset</strong><small>${result.formatId}</small></li><li><strong>Simulator</strong><small>${result.simulatorVersion}</small></li><li><strong>Saved run</strong><small>${result.id.slice(0, 8)}…</small></li></ul><p class="battle-note">Development fixture only · no official attempt or roster changes</p><button class="secondary" type="button" style="width:100%" data-route="today">Return to today</button></div>`;
+        $(".dialog-close", dialog).addEventListener("click", () => dialog.close());
+        $('[data-route="today"]', dialog).addEventListener("click", () => { dialog.close(); route("today"); });
+      } catch (error) {
+        dialog.innerHTML = `<div class="dialog-inner"><div class="dialog-head"><div><p class="eyebrow">Local service unavailable</p><h2>Fixture could not run</h2></div><button class="dialog-close" type="button" aria-label="Close">×</button></div><p>${error.message}. Start PostgreSQL and the Nuzzle server, then try again.</p></div>`;
+        $(".dialog-close", dialog).addEventListener("click", () => dialog.close());
+      }
     });
     dialog.showModal();
   }
