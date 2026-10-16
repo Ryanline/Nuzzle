@@ -1,43 +1,12 @@
 {
-  "name": "nuzzle",
-  "version": "0.1.0",
+  "name": "nuzzle-ui-prototype",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
-  "engines": {
-    "node": ">=22"
-  },
-  "overrides": {
-    "@tootallnate/once": "3.0.1",
-    "nodemailer": "10.1.1",
-    "tar": "7.5.22",
-    "uuid": "14.0.3"
-  },
   "scripts": {
-    "dev": "tsx watch server/index.ts",
-    "start": "tsx server/index.ts",
-    "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run",
-    "data:gen1": "node scripts/generate-gen1-data.mjs",
-    "qa:battle": "node scripts/qa-battle.mjs",
-    "db:up": "node scripts/db.mjs up -d",
-    "db:down": "node scripts/db.mjs down",
-    "db:logs": "node scripts/db.mjs logs --tail=100"
-  },
-  "dependencies": {
-    "@fastify/cors": "11.3.1",
-    "@fastify/static": "10.1.6",
-    "dotenv": "18.0.8",
-    "fastify": "5.12.7",
-    "pg": "8.23.1",
-    "pokemon-showdown": "0.11.11"
+    "test": "node scripts/qa-static.mjs"
   },
   "devDependencies": {
-    "@types/node": "26.6.5",
-    "@types/pg": "8.23.1",
-    "playwright-core": "^1.64.1",
-    "tsx": "4.23.15",
-    "typescript": "7.0.2",
-    "vitest": "5.0.4"
+    "playwright-core": "1.64.1"
   }
 }
