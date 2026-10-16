@@ -42,6 +42,7 @@
   let playerHp = 100;
   let turn = 1;
   let battleMessage = "";
+  let balance = 2500;
 
   function title() {
     return "Nuzzle #1: Brock (10/15/2026)";
@@ -61,14 +62,16 @@
     return `<nav class="${className}" aria-label="Game sections">
       <button class="gloss-button red${currentClass("battle")}"${currentPage("battle")} data-route="lead">battle</button>
       <button class="gloss-button orange${currentClass("pc")}"${currentPage("pc")} data-route="pc">pc box</button>
-      <button class="gloss-button gold" type="button">leaderboard</button>
+      <button class="gloss-button gold${currentClass("bag")}"${currentPage("bag")} data-route="bag">bag</button>
       <button class="gloss-button green${currentClass("encounters")}"${currentPage("encounters")} data-route="encounters">encounter (${encounters.filter((item) => !item).length})</button>
-      <button class="gloss-button slate" type="button">settings</button>
+      <button class="gloss-button blue${currentClass("mart")}"${currentPage("mart")} data-route="mart">mart</button>
+      <button class="gloss-button purple${currentClass("leaderboard")}"${currentPage("leaderboard")} data-route="leaderboard">leaderboard</button>
+      <button class="gloss-button slate${currentClass("settings")}"${currentPage("settings")} data-route="settings">settings</button>
     </nav>`;
   }
 
   function menu() {
-    const current = route === "pc" ? "pc" : route === "encounters" ? "encounters" : route === "lead" || route === "battle" ? "battle" : "";
+    const current = route === "lead" || route === "battle" ? "battle" : route;
     return navigation(current, "menu-panel");
   }
 
@@ -77,7 +80,6 @@
       <div class="trainer-wrap"><img class="sprite trainer" src="${trainerSprite}" alt="Gym Leader Brock" /></div>
       <div class="opponent-team" aria-label="Brock's team">${opponent.map((id) => `<button type="button" aria-label="${id}"><img class="sprite" src="${sprite(id)}" alt="${id}" /></button>`).join("")}</div>
       ${navigation()}
-      <div class="ad-slot">ADVERTISEMENT</div>
     </div></section>`;
   }
 
@@ -110,24 +112,57 @@
   }
 
   function pc() {
-    return `<section class="screen">${header()}<p class="pc-help">Tap to add or remove a party star. Hold, then drag to rearrange.</p>
+    return `<section class="screen">${header()}<div class="pc-stage"><p class="pc-help">Tap to select your party. Hold, then drag to rearrange.</p>
       <div class="pc-wallpaper"><div class="pc-title">pc box</div><div class="pc-box">${pcOrder.map((id) => { const mon = mons[id]; return `<button class="pc-mon" type="button" draggable="false" data-pc-mon="${id}" data-mon-tip="${id}" aria-label="${mon.name}${team.has(id) ? ", in party" : ""}"><img class="sprite" src="${sprite(id)}" alt="${mon.name}"/>${team.has(id) ? '<span class="party-star" aria-label="In party">★</span>' : ""}</button>`; }).join("")}</div></div>
-      ${navigation("pc")}
-    </section>`;
+      ${backButton()}</div></section>`;
   }
 
   function encountersScreen() {
     const remaining = encounters.filter((item) => !item).length;
     return `<section class="screen">${header()}<div class="encounter-stage"><p class="encounter-count">${remaining ? `${remaining} encounter${remaining === 1 ? "" : "s"} waiting` : "All encounters revealed"}</p>
       <div class="grass-grid">${encounters.map((id, index) => `<button class="grass-card" type="button" data-encounter="${index}" ${id ? "disabled" : ""} aria-label="${id ? mons[id].name : `Reveal encounter ${index + 1}`}">${id ? `<span class="revealed" data-mon-tip="${id}"><img class="sprite" src="${sprite(id)}" alt="${mons[id].name}"/><span>${mons[id].name}</span></span>` : grassIcon()}</button>`).join("")}</div>
-      ${remaining ? '<button class="gloss-button green reveal-all" type="button" data-reveal-all>reveal all</button>' : ""}
-      ${navigation("encounters")}
+      ${backButton()}
     </div></section>`;
+  }
+
+  function backButton() {
+    return '<button class="gloss-button purple page-back" data-route="home">back</button>';
+  }
+
+  const shopItems = [
+    ["Vitamins", "HP Up", "+10 HP EVs", 100],
+    ["Vitamins", "Protein", "+10 Attack EVs", 100],
+    ["Vitamins", "Iron", "+10 Defense EVs", 100],
+    ["Vitamins", "Calcium", "+10 Sp. Atk EVs", 100],
+    ["Vitamins", "Zinc", "+10 Sp. Def EVs", 100],
+    ["Vitamins", "Carbos", "+10 Speed EVs", 100],
+    ["Training", "Bottle Cap", "Max one IV", 500],
+    ["Training", "Nature Mint", "Choose a nature", 300],
+  ];
+
+  function mart() {
+    let section = "";
+    return `<section class="screen">${header()}<div class="mart-stage"><p class="balance">Balance: <strong>${balance.toLocaleString()} coins</strong></p>
+      <div class="shop-list">${shopItems.map(([group, name, detail, price], index) => {
+        const heading = group !== section ? `<h2>${group}</h2>` : "";
+        section = group;
+        return `${heading}<div class="shop-item"><span class="item-icon" aria-hidden="true"></span><span class="item-copy"><strong>${name}</strong><small>${detail}</small></span><button class="price-button" type="button" data-buy="${index}" ${balance < price ? "disabled" : ""}>${price} coins</button></div>`;
+      }).join("")}</div>${backButton()}</div></section>`;
+  }
+
+  function simpleScreen(kind) {
+    const content = kind === "bag"
+      ? '<h2>Bag</h2><p>Your usable items will appear here.</p><div class="bag-slots"><span></span><span></span><span></span><span></span><span></span><span></span></div>'
+      : kind === "leaderboard"
+        ? '<h2>Leaderboard</h2><p>Daily results and streaks will appear here.</p>'
+        : '<h2>Settings</h2><p>Game, sound, and accessibility options will appear here.</p>';
+    return `<section class="screen">${header()}<div class="simple-stage">${content}${backButton()}</div></section>`;
   }
 
   function render() {
     hideTooltip();
-    app.innerHTML = route === "home" ? home() : route === "lead" ? lead() : route === "battle" ? battle() : route === "pc" ? pc() : encountersScreen();
+    const screens = { home, lead, battle, pc, encounters: encountersScreen, mart };
+    app.innerHTML = screens[route] ? screens[route]() : simpleScreen(route);
     bind();
   }
 
@@ -198,6 +233,7 @@
     document.querySelectorAll("[data-move]").forEach((button) => button.addEventListener("click", () => { if (button.dataset.held) return; const move = moves[button.dataset.move]; foeHp = Math.max(0, foeHp - (move.power === "—" ? 0 : 18)); playerHp = Math.max(0, playerHp - 9); battleMessage = `${mons[activeId].name} used ${move.name}!${foeHp === 0 ? " Steelix fainted!" : ""}`; turn += 1; render(); }));
     document.querySelectorAll("[data-encounter]").forEach((button) => button.addEventListener("click", () => { const index = Number(button.dataset.encounter); if (!encounters[index]) { encounters[index] = encounterIds[index]; if (!pcOrder.includes(encounterIds[index])) pcOrder.push(encounterIds[index]); render(); } }));
     document.querySelector("[data-reveal-all]")?.addEventListener("click", () => { encounters = encounterIds.slice(); for (const id of encounterIds) if (!pcOrder.includes(id)) pcOrder.push(id); render(); });
+    document.querySelectorAll("[data-buy]").forEach((button) => button.addEventListener("click", () => { const price = shopItems[Number(button.dataset.buy)][3]; if (balance >= price) { balance -= price; render(); } }));
     document.querySelectorAll("[data-mon-tip]").forEach((element) => addInfoInteractions(element, () => monTip(element.dataset.monTip)));
     document.querySelectorAll("[data-move-tip]").forEach((element) => addInfoInteractions(element, () => moveTip(element.dataset.moveTip)));
     bindPcDrag();

@@ -11,6 +11,8 @@
   --gold-b: #d8a91d;
   --green-a: #a1d5a9;
   --green-b: #5b9e69;
+  --blue-a: #78b8ed;
+  --blue-b: #287ac4;
   --slate-a: #b8c4d1;
   --slate-b: #77879a;
   --purple-a: #d4a2ea;
@@ -44,6 +46,7 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .orange { background: linear-gradient(var(--orange-a), var(--orange-b)); }
 .gold { background: linear-gradient(var(--gold-a), var(--gold-b)); }
 .green { background: linear-gradient(var(--green-a), var(--green-b)); }
+.blue { background: linear-gradient(var(--blue-a), var(--blue-b)); }
 .slate { background: linear-gradient(var(--slate-a), var(--slate-b)); }
 .purple { background: linear-gradient(var(--purple-a), var(--purple-b)); }
 
@@ -55,7 +58,6 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .opponent-team button { position: relative; min-height: 105px; padding: 0; border: 0; background: transparent; cursor: default; }
 .opponent-team img { width: 112px; height: 100px; max-width: 100%; }
 .home-actions { display: grid; gap: 7px; margin-top: auto; }
-.ad-slot { display: grid; min-height: 78px; margin-top: 27px; place-items: center; border: 2px solid #111; font-size: 20px; }
 
 .arena { position: relative; height: clamp(370px, 56vh, 560px); margin: 0 -26px; overflow: hidden; background: white url("arena.png") center / 100% 100% no-repeat; }
 .arena .trainer { position: absolute; top: 4%; right: 9%; width: 98px; height: 142px; }
@@ -103,7 +105,8 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .give-up { width: calc(100% - 78px); margin: 28px 39px 0; }
 .battle-message { margin: 8px 0 0; min-height: 20px; color: #444; font-size: 13px; }
 
-.pc-help { margin: 0 0 7px; color: var(--muted); font-size: 12px; text-align: center; }
+.pc-stage { display: flex; min-height: calc(100vh - 104px); flex-direction: column; }
+.pc-help { margin: 0; color: var(--muted); font-size: 12px; text-align: center; }
 .pc-wallpaper { position: relative; width: 100%; aspect-ratio: 156 / 173; margin: 0 auto 11px; background: url("pc_wallpaper.png") center / 100% 100% no-repeat; image-rendering: pixelated; }
 .pc-title { position: absolute; top: 1.2%; right: 6%; left: 6%; height: 12%; color: white; font-size: clamp(19px, 5vw, 27px); font-weight: 700; line-height: 1.95; text-align: center; text-shadow: 0 2px 2px rgba(0,0,0,.25); }
 .pc-box { position: absolute; top: 18%; right: 5.5%; bottom: 4.5%; left: 5.5%; display: grid; grid-template-columns: repeat(6, 1fr); grid-auto-rows: 13.5%; align-content: start; gap: 2.1% 1.2%; padding: 2.5%; }
@@ -112,6 +115,9 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .party-star { position: absolute; top: -5px; right: -2px; display: grid; width: 20px; height: 20px; place-items: center; border-radius: 50%; background: #ffd33d; color: #8b5f00; filter: drop-shadow(0 1px 1px #fff); font-size: 14px; }
 .pc-mon.dragging { opacity: .35; cursor: grabbing; }
 .pc-mon.drag-over { border-radius: 8px; background: rgba(255,255,255,.35); }
+.page-back { width: calc(100% - 58px); margin: 24px 29px 0; }
+.pc-stage .pc-wallpaper { margin-top: auto; }
+.pc-stage .page-back { margin-top: auto; margin-bottom: 12px; }
 
 .encounter-stage { display: flex; min-height: calc(100vh - 130px); flex-direction: column; }
 .encounter-count { margin: 0; color: #597063; font-size: 14px; text-align: center; }
@@ -124,6 +130,24 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .grass-card .revealed span { align-self: end; margin-top: -17px; font-size: 12px; font-weight: 700; }
 @keyframes reveal { from { opacity: 0; transform: scale(.72) rotate(-7deg); } }
 .reveal-all { width: 100%; margin: 0 0 10px; }
+.encounter-stage .page-back { margin-top: 0; margin-bottom: 12px; }
+
+.mart-stage, .simple-stage { display: flex; min-height: calc(100vh - 104px); flex-direction: column; }
+.balance { margin: 0 0 4px; text-align: right; }
+.shop-list h2, .simple-stage h2 { margin: 6px 0 3px; border-bottom: 1px solid #c2cad4; color: #2d5d9c; font-size: 21px; font-style: italic; }
+.shop-item { display: grid; grid-template-columns: 48px 1fr auto; min-height: 58px; align-items: center; gap: 10px; border-bottom: 1px solid #d4d8dd; }
+.item-icon { width: 44px; height: 44px; border: 1px solid #aeb4ba; border-radius: 3px; background: linear-gradient(135deg, #fff, #e6e8eb); }
+.item-copy { display: grid; }
+.item-copy strong { font-weight: 400; }
+.item-copy small { color: #656565; }
+.price-button { min-width: 111px; min-height: 38px; border: 2px solid #1d5f99; border-radius: 6px; background: linear-gradient(#6eb7ed, #287bc5); color: white; box-shadow: inset 0 1px rgba(255,255,255,.55), 0 1px 2px rgba(0,0,0,.22); cursor: pointer; text-shadow: 0 1px rgba(0,0,0,.3); }
+.price-button:disabled { opacity: .48; cursor: default; }
+.mart-stage .page-back, .simple-stage .page-back { margin-top: auto; margin-bottom: 12px; }
+.simple-stage { text-align: center; }
+.simple-stage p { color: var(--muted); }
+.simple-stage h2 { margin-top: 28vh; }
+.bag-slots { display: grid; grid-template-columns: repeat(3, 60px); justify-content: center; gap: 12px; margin-top: 24px; }
+.bag-slots span { aspect-ratio: 1; border: 1px solid #aaa; border-radius: 7px; background: linear-gradient(#fff, #e9e9e9); box-shadow: 0 2px 3px rgba(0,0,0,.15); }
 
 .info-tooltip { position: fixed; z-index: 100; width: min(300px, calc(100vw - 20px)); padding: 0; overflow: hidden; border: 1px solid #888; border-radius: 6px; background: rgba(244,244,244,.97); box-shadow: 0 3px 8px rgba(0,0,0,.28); color: #111; font: 13px/1.3 Arial, sans-serif; pointer-events: none; }
 .info-tooltip .tip-head { padding: 4px 7px; border-bottom: 1px solid #aaa; font-size: 17px; font-weight: 700; }
@@ -143,7 +167,7 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
   .screen-title { padding-right: 37px; font-size: 17px; }
   .menu-toggle { top: 12px; right: -3px; }
   .menu-panel { top: 54px; right: 14px; left: 14px; gap: 5px; padding: 10px; }
-  .landing, .encounter-stage { min-height: 0; height: calc(100% - 62px); }
+  .landing, .encounter-stage, .pc-stage, .mart-stage, .simple-stage { min-height: 0; height: calc(100% - 62px); }
   .home-actions { gap: 4px; }
   .home-actions .gloss-button { min-height: 37px; padding: 2px 10px 4px; border-radius: 6px; font-size: 17px; }
   .arena { margin-right: -14px; margin-left: -14px; }
@@ -152,9 +176,7 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
   .opponent-team { gap: 0 6px; margin: 0 auto 9px; }
   .opponent-team button { min-height: 72px; }
   .opponent-team img { width: 82px; height: 70px; }
-  .ad-slot { min-height: 43px; margin-top: 7px; font-size: 15px; }
-
-  .pc-help { margin-bottom: 5px; font-size: 11px; line-height: 1.2; }
+  .pc-help { font-size: 11px; line-height: 1.2; }
   .pc-wallpaper { width: min(100%, 350px); height: 322px; aspect-ratio: auto; margin-bottom: 6px; }
   .pc-box { top: 18%; right: 5%; bottom: 4%; left: 5%; grid-template-columns: repeat(6, 1fr); grid-auto-rows: 18%; gap: .5% 0; padding: 1%; }
   .pc-mon img { width: 112%; height: 112%; max-width: none; transform: translate(-6%, -6%); }
@@ -164,6 +186,13 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
   .grass-grid { gap: 10px; margin: auto 0; }
   .grass-card { max-height: 116px; }
   .reveal-all { min-height: 37px; margin-bottom: 6px; padding: 2px 10px 4px; font-size: 17px; }
+  .page-back { min-height: 39px; padding: 2px 10px 4px; font-size: 18px; }
+  .pc-stage .page-back, .encounter-stage .page-back, .mart-stage .page-back, .simple-stage .page-back { margin-bottom: 0; }
+  .balance { font-size: 13px; }
+  .shop-list h2 { margin-top: 3px; font-size: 18px; }
+  .shop-item { grid-template-columns: 42px 1fr auto; min-height: 52px; gap: 8px; font-size: 14px; }
+  .item-icon { width: 39px; height: 39px; }
+  .price-button { min-width: 105px; min-height: 34px; }
   .lead-choice, .switch-choice { padding: 2px; }
   .lead-choice span, .switch-choice span { font-size: 12px; }
   .lead-choice img, .switch-choice img { width: 36px; height: 36px; flex-basis: 36px; }

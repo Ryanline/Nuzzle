@@ -30,7 +30,7 @@ const assertFits = async (name) => {
   }
 };
 
-if (await page.locator(".home-actions .gloss-button").count() !== 5) throw new Error("Landing navigation is incomplete.");
+if (await page.locator(".home-actions .gloss-button").count() !== 7) throw new Error("Landing navigation is incomplete.");
 await assertFits("Landing");
 
 await page.click('[data-route="lead"]');
@@ -55,22 +55,35 @@ await page.click('.menu-panel [data-route="pc"]');
 await page.waitForSelector(".pc-box");
 if (await page.locator(".pc-mon").count() < 12) throw new Error("PC box did not render.");
 await page.waitForFunction(() => [...document.querySelectorAll(".pc-mon img")].every((image) => image.complete && image.naturalWidth > 0));
-if (await page.locator(".home-actions .gloss-button").count() !== 5) throw new Error("PC navigation is incomplete.");
-if (!(await page.locator('.home-actions [data-route="pc"]').getAttribute("aria-current"))) throw new Error("PC navigation is not highlighted.");
+if (await page.locator(".pc-stage .page-back").count() !== 1) throw new Error("PC back control is missing.");
 await assertFits("PC");
 
 await page.click(".menu-toggle");
 await page.click('.menu-panel [data-route="encounters"]');
-if (await page.locator(".home-actions .gloss-button").count() !== 5) throw new Error("Encounter navigation is incomplete.");
-if (!(await page.locator('.home-actions [data-route="encounters"]').getAttribute("aria-current"))) throw new Error("Encounter navigation is not highlighted.");
 await assertFits("Encounters");
 await page.click('[data-encounter="1"]');
 if (!(await page.locator(".encounter-count").textContent())?.includes("2 encounters")) throw new Error("Encounter count did not update.");
-await page.click("[data-reveal-all]");
+await page.click('[data-encounter="0"]');
+await page.click('[data-encounter="2"]');
 if (await page.locator(".revealed").count() !== 3) throw new Error("Encounters were not revealed.");
+
+await page.click(".page-back");
+await page.click('[data-route="mart"]');
+await assertFits("Mart");
+const balanceBefore = await page.locator(".balance").textContent();
+await page.click('[data-buy="0"]');
+const balanceAfter = await page.locator(".balance").textContent();
+if (balanceBefore === balanceAfter) throw new Error("Mart purchase did not update the balance.");
+
+await page.click(".page-back");
+for (const route of ["bag", "leaderboard", "settings"]) {
+  await page.click(`[data-route="${route}"]`);
+  await assertFits(route);
+  await page.click(".page-back");
+}
 
 const imageFailures = await page.locator("img").evaluateAll((images) => images.filter((image) => !image.complete || image.naturalWidth === 0).map((image) => image.src));
 await browser.close();
 
 if (errors.length || imageFailures.length) throw new Error(JSON.stringify({ errors, imageFailures }, null, 2));
-console.log("Static Nuzzle flow passed: landing, lead, battle, PC, encounters, tooltips, and local images.");
+console.log("Static Nuzzle flow passed: landing, lead, battle, PC, encounters, mart, secondary screens, tooltips, and local images.");
