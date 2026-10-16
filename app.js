@@ -55,27 +55,28 @@
     return `<header class="screen-header"><h1 class="screen-title">${title()}</h1><button class="menu-toggle ${menuOpen ? "open" : ""}" type="button" aria-label="Menu" aria-expanded="${menuOpen}"><span></span></button></header>${menuOpen ? menu() : ""}`;
   }
 
-  function menu() {
-    return `<nav class="menu-panel" aria-label="Main menu">
-      <button class="gloss-button red" data-route="lead">battle</button>
-      <button class="gloss-button orange" data-route="pc">pc box</button>
-      <button class="gloss-button gold" data-route="home">leaderboard</button>
-      <button class="gloss-button green" data-route="encounters">encounter (${encounters.filter((item) => !item).length})</button>
-      <button class="gloss-button slate" data-route="home">settings</button>
+  function navigation(current = "", className = "home-actions") {
+    const currentClass = (name) => current === name ? " is-current" : "";
+    const currentPage = (name) => current === name ? ' aria-current="page"' : "";
+    return `<nav class="${className}" aria-label="Game sections">
+      <button class="gloss-button red${currentClass("battle")}"${currentPage("battle")} data-route="lead">battle</button>
+      <button class="gloss-button orange${currentClass("pc")}"${currentPage("pc")} data-route="pc">pc box</button>
+      <button class="gloss-button gold" type="button">leaderboard</button>
+      <button class="gloss-button green${currentClass("encounters")}"${currentPage("encounters")} data-route="encounters">encounter (${encounters.filter((item) => !item).length})</button>
+      <button class="gloss-button slate" type="button">settings</button>
     </nav>`;
+  }
+
+  function menu() {
+    const current = route === "pc" ? "pc" : route === "encounters" ? "encounters" : route === "lead" || route === "battle" ? "battle" : "";
+    return navigation(current, "menu-panel");
   }
 
   function home() {
     return `<section class="screen">${header()}<div class="landing">
       <div class="trainer-wrap"><img class="sprite trainer" src="${trainerSprite}" alt="Gym Leader Brock" /></div>
       <div class="opponent-team" aria-label="Brock's team">${opponent.map((id) => `<button type="button" aria-label="${id}"><img class="sprite" src="${sprite(id)}" alt="${id}" /></button>`).join("")}</div>
-      <div class="home-actions">
-        <button class="gloss-button red" data-route="lead">battle</button>
-        <button class="gloss-button orange" data-route="pc">pc box</button>
-        <button class="gloss-button gold" type="button">leaderboard</button>
-        <button class="gloss-button green" data-route="encounters">encounter (${encounters.filter((item) => !item).length})</button>
-        <button class="gloss-button slate" type="button">settings</button>
-      </div>
+      ${navigation()}
       <div class="ad-slot">ADVERTISEMENT</div>
     </div></section>`;
   }
@@ -111,7 +112,7 @@
   function pc() {
     return `<section class="screen">${header()}<p class="pc-help">Tap to add or remove a party star. Hold, then drag to rearrange.</p>
       <div class="pc-wallpaper"><div class="pc-title">pc box</div><div class="pc-box">${pcOrder.map((id) => { const mon = mons[id]; return `<button class="pc-mon" type="button" draggable="false" data-pc-mon="${id}" data-mon-tip="${id}" aria-label="${mon.name}${team.has(id) ? ", in party" : ""}"><img class="sprite" src="${sprite(id)}" alt="${mon.name}"/>${team.has(id) ? '<span class="party-star" aria-label="In party">★</span>' : ""}</button>`; }).join("")}</div></div>
-      <div class="home-actions"><button class="gloss-button red" data-route="lead">battle</button><button class="gloss-button green" data-route="encounters">encounter (${encounters.filter((item) => !item).length})</button><button class="gloss-button purple" data-route="home">back</button></div>
+      ${navigation("pc")}
     </section>`;
   }
 
@@ -120,7 +121,7 @@
     return `<section class="screen">${header()}<div class="encounter-stage"><p class="encounter-count">${remaining ? `${remaining} encounter${remaining === 1 ? "" : "s"} waiting` : "All encounters revealed"}</p>
       <div class="grass-grid">${encounters.map((id, index) => `<button class="grass-card" type="button" data-encounter="${index}" ${id ? "disabled" : ""} aria-label="${id ? mons[id].name : `Reveal encounter ${index + 1}`}">${id ? `<span class="revealed" data-mon-tip="${id}"><img class="sprite" src="${sprite(id)}" alt="${mons[id].name}"/><span>${mons[id].name}</span></span>` : grassIcon()}</button>`).join("")}</div>
       ${remaining ? '<button class="gloss-button green reveal-all" type="button" data-reveal-all>reveal all</button>' : ""}
-      <div class="home-actions"><button class="gloss-button red" data-route="lead">battle</button><button class="gloss-button orange" data-route="pc">pc box</button><button class="gloss-button purple" data-route="home">back</button></div>
+      ${navigation("encounters")}
     </div></section>`;
   }
 
