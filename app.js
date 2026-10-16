@@ -109,8 +109,8 @@
   }
 
   function pc() {
-    return `<section class="screen">${header()}<div class="pc-banner">pc box</div><p class="pc-help">Tap to add or remove a party star. Hold, then drag to rearrange.</p>
-      <div class="pc-box">${pcOrder.map((id) => { const mon = mons[id]; return `<button class="pc-mon" type="button" draggable="false" data-pc-mon="${id}" data-mon-tip="${id}" aria-label="${mon.name}${team.has(id) ? ", in party" : ""}"><img class="sprite" src="${sprite(id)}" alt="${mon.name}"/>${team.has(id) ? '<span class="party-star" aria-label="In party">★</span>' : ""}</button>`; }).join("")}</div>
+    return `<section class="screen">${header()}<p class="pc-help">Tap to add or remove a party star. Hold, then drag to rearrange.</p>
+      <div class="pc-wallpaper"><div class="pc-title">pc box</div><div class="pc-box">${pcOrder.map((id) => { const mon = mons[id]; return `<button class="pc-mon" type="button" draggable="false" data-pc-mon="${id}" data-mon-tip="${id}" aria-label="${mon.name}${team.has(id) ? ", in party" : ""}"><img class="sprite" src="${sprite(id)}" alt="${mon.name}"/>${team.has(id) ? '<span class="party-star" aria-label="In party">★</span>' : ""}</button>`; }).join("")}</div></div>
       <div class="home-actions"><button class="gloss-button red" data-route="lead">battle</button><button class="gloss-button green" data-route="encounters">encounter (${encounters.filter((item) => !item).length})</button><button class="gloss-button purple" data-route="home">back</button></div>
     </section>`;
   }
