@@ -34,9 +34,13 @@ if (await page.locator(".home-actions .gloss-button").count() !== 7) throw new E
 await assertFits("Landing");
 
 await page.click('[data-route="lead"]');
-await page.waitForSelector('[data-lead="flareon"]');
+await page.waitForSelector('[data-select-lead="flareon"]');
 await assertFits("Lead selection");
-await page.click('[data-lead="flareon"]');
+if (!(await page.locator("[data-start-battle]").isDisabled())) throw new Error("Battle confirmation was enabled before choosing a lead.");
+await page.click('[data-select-lead="flareon"]');
+if (await page.locator('[data-select-lead="flareon"]').getAttribute("aria-pressed") !== "true") throw new Error("Lead selection did not update.");
+if (await page.locator("[data-start-battle]").isDisabled()) throw new Error("Battle confirmation did not enable after choosing a lead.");
+await page.click("[data-start-battle]");
 await assertFits("Battle");
 await page.hover('[data-move="flamethrower"]');
 if (await page.locator("#tooltip").isHidden()) throw new Error("Move tooltip did not open.");
@@ -56,7 +60,18 @@ await page.waitForSelector(".pc-box");
 if (await page.locator(".pc-mon").count() < 12) throw new Error("PC box did not render.");
 await page.waitForFunction(() => [...document.querySelectorAll(".pc-mon img")].every((image) => image.complete && image.naturalWidth > 0));
 if (await page.locator(".pc-stage .page-back").count() !== 1) throw new Error("PC back control is missing.");
+if (await page.locator(".party-slot").count() !== 6) throw new Error("PC team strip does not have six slots.");
 await assertFits("PC");
+const partySizeBefore = await page.locator(".party-slot:not(.empty)").count();
+await page.click('[data-pc-mon="arcanine"]');
+if (await page.locator(".pokemon-sheet").count() !== 1) throw new Error("Pokémon details did not open from the PC.");
+if (!(await page.locator("[data-team-toggle]").textContent())?.includes("add to team")) throw new Error("A full team did not offer the add-to-team flow.");
+await page.click('[data-team-toggle="arcanine"]');
+if (await page.locator(".swap-grid button").count() !== 6) throw new Error("The team swap choices did not render.");
+await page.click('[data-team-replace="flareon"]');
+if (await page.locator(".party-slot:not(.empty)").count() !== partySizeBefore) throw new Error("Swapping changed the team size.");
+if (await page.locator('[data-pc-mon="arcanine"].on-team').count() !== 1 || await page.locator('[data-pc-mon="flareon"].on-team').count() !== 0) throw new Error("The selected Pokémon did not replace the chosen team member.");
+await page.click(".sheet-close");
 
 await page.click(".menu-toggle");
 await page.click('.menu-panel [data-route="encounters"]');
@@ -74,9 +89,15 @@ const balanceBefore = await page.locator(".balance").textContent();
 await page.click('[data-buy="0"]');
 const balanceAfter = await page.locator(".balance").textContent();
 if (balanceBefore === balanceAfter) throw new Error("Mart purchase did not update the balance.");
+if (!(await page.locator(".purchase-message").textContent())?.includes("HP Up")) throw new Error("Mart purchase feedback did not render.");
 
 await page.click(".page-back");
-for (const route of ["bag", "leaderboard", "settings"]) {
+await page.click('[data-route="bag"]');
+await assertFits("bag");
+if (await page.locator(".bag-item").count() !== 1 || !(await page.locator(".item-quantity").textContent())?.includes("1")) throw new Error("Purchased item did not populate the bag.");
+if ((await page.locator(".item-action").textContent())?.trim() !== "use") throw new Error("Bag item action did not render.");
+await page.click(".page-back");
+for (const route of ["leaderboard", "settings"]) {
   await page.click(`[data-route="${route}"]`);
   await assertFits(route);
   await page.click(".page-back");
