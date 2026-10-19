@@ -140,7 +140,7 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .pc-stage .page-back { margin-top: auto; margin-bottom: 12px; }
 
 .sheet-backdrop { position: fixed; z-index: 200; inset: 0; display: flex; align-items: center; justify-content: center; padding: 18px; background: rgba(0,0,0,.38); }
-.pokemon-sheet { position: relative; display: flex; width: min(520px, 100%); height: min(540px, calc(100vh - 36px)); height: min(540px, calc(100dvh - 36px)); max-height: calc(100vh - 36px); max-height: calc(100dvh - 36px); flex-direction: column; padding: 18px; overflow-y: auto; border: 1px solid #777; border-radius: 12px; background: #fff; box-shadow: 0 14px 45px rgba(0,0,0,.3); }
+.pokemon-sheet { position: relative; display: flex; width: min(520px, 100%); height: min(570px, calc(100vh - 36px)); height: min(570px, calc(100dvh - 36px)); max-height: calc(100vh - 36px); max-height: calc(100dvh - 36px); flex-direction: column; padding: 18px; overflow-y: auto; border: 1px solid #777; border-radius: 12px; background: #fff; box-shadow: 0 14px 45px rgba(0,0,0,.3); }
 .sheet-close { position: absolute; z-index: 1; top: 9px; right: 10px; width: 38px; height: 38px; padding: 0; border: 0; border-radius: 50%; background: transparent; cursor: pointer; font-size: 30px; line-height: 34px; }
 .sheet-close:hover { background: #eee; }
 .pokemon-summary { display: flex; min-height: 125px; align-items: center; gap: 15px; padding-right: 38px; }
@@ -165,9 +165,10 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .stat-grid strong { font-size: 14px; font-weight: 400; }
 .sheet-moves { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; }
 .sheet-moves span { padding: 8px; border: 1px solid #bbb; border-radius: 5px; background: #f7f7f7; font-size: 13px; }
-.sheet-actions { display: grid; gap: 7px; margin-top: auto; padding-top: 17px; }
-.sheet-actions .gloss-button { width: 100%; }
+.sheet-actions { display: grid; gap: 7px; margin-top: auto; padding-top: 7px; }
+.sheet-actions .gloss-button { width: 100%; min-height: 42px; font-size: 17px; }
 .sheet-actions .gloss-button:disabled { opacity: .5; cursor: default; filter: grayscale(.35); }
+.sheet-feedback { position: absolute; z-index: 2; top: 13px; right: 56px; max-width: calc(100% - 120px); margin: 0; padding: 4px 8px; overflow: hidden; border: 1px solid #aac5ae; border-radius: 10px; background: #edf6ee; color: #397443; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .plain-button { min-height: 42px; border: 1px solid #999; border-radius: 7px; background: #fff; cursor: pointer; }
 .plain-button:hover { background: #f1f1f1; }
 .sheet-secondary-action { flex: 0 0 42px; width: 100%; margin-top: 7px; }
@@ -179,6 +180,31 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .swap-grid button:hover { border-color: #777; background: #fff2f3; }
 .swap-grid img { flex: 0 0 48px; width: 48px; height: 48px; }
 .swap-grid span { min-width: 0; overflow: hidden; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.pc-item-chooser { display: flex; min-height: 0; flex: 1; flex-direction: column; margin-top: 10px; }
+.pc-item-chooser > h3 { margin: 0; color: #284f9e; font-size: 17px; }
+.pc-item-chooser > p { margin: 3px 0 8px; color: var(--muted); font-size: 12px; }
+.pc-item-segments { flex: 0 0 auto; }
+.pc-item-list { min-height: 0; flex: 1; overflow-y: auto; overscroll-behavior: contain; }
+.pc-item-row { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto auto; min-height: 54px; align-items: center; gap: 6px; border-bottom: 1px solid #d4d8dd; font-size: 13px; }
+.pc-item-row .item-icon { width: 40px; height: 40px; }
+.pc-item-row .item-quantity { min-width: 35px; padding-right: 5px; padding-left: 5px; }
+.pc-item-row .item-action { min-width: 48px; min-height: 31px; padding-right: 6px; padding-left: 6px; }
+.pc-item-empty { display: grid; height: 100%; place-content: center; gap: 3px; color: var(--muted); text-align: center; }
+.pc-item-empty strong { color: var(--ink); font-size: 17px; font-weight: 400; }
+.pc-item-empty span { font-size: 12px; }
+.nature-options { display: grid; min-height: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; overflow-y: auto; }
+.nature-options button { display: flex; min-width: 0; min-height: 40px; align-items: center; justify-content: space-between; gap: 5px; padding: 5px 8px; border: 1px solid #bbb; border-radius: 5px; background: #f7f7f7; cursor: pointer; }
+.nature-options button:hover { border-color: #777; background: #f1f6fa; }
+.nature-options button.selected { border-color: #287ac4; background: #e9f4fc; box-shadow: inset 0 0 0 1px #5c9dd2; }
+.nature-options strong { overflow: hidden; font-size: 12px; font-weight: 400; text-overflow: ellipsis; }
+.nature-options small { flex: 0 0 auto; color: var(--muted); font-size: 10px; }
+.nature-options small span { color: #397443; }
+.nature-options small i { color: #9b4d59; font-style: normal; }
+.pc-item-confirm { width: 100%; margin-top: 7px; flex: 0 0 42px; min-height: 42px; font-size: 17px; }
+.pc-item-confirm:disabled { opacity: .5; cursor: default; }
+.move-replace-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.move-replace-grid button { min-height: 46px; padding: 6px; border: 1px solid #aaa; border-radius: 5px; background: #f7f7f7; cursor: pointer; font-size: 13px; }
+.move-replace-grid button:hover { border-color: #777; background: #fff2f3; }
 
 .encounter-stage { display: flex; min-height: calc(100vh - 130px); flex-direction: column; }
 .encounter-count { min-height: 26px; margin: 0; color: var(--muted); font-size: 13px; text-align: center; }
@@ -288,7 +314,7 @@ button.encounter-card:active { background: #eef5ef; transform: translateY(1px); 
   .pc-mon { height: 76px; }
   .pc-mon img { width: 60px; height: 57px; }
   .team-mark { top: 2px; right: 2px; padding: 1px 3px; font-size: 7px; }
-  .pokemon-sheet { align-self: flex-end; width: 100%; height: min(540px, calc(100dvh - 22px)); max-height: calc(100dvh - 22px); padding: 15px 14px 12px; border-radius: 13px 13px 0 0; }
+  .pokemon-sheet { align-self: flex-end; width: 100%; height: min(570px, calc(100dvh - 22px)); max-height: calc(100dvh - 22px); padding: 15px 14px 12px; border-radius: 13px 13px 0 0; }
   .sheet-backdrop { align-items: flex-end; padding: 0; }
   .pokemon-summary { min-height: 108px; gap: 10px; }
   .pokemon-summary > img { flex-basis: 105px; width: 105px; height: 100px; }

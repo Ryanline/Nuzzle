@@ -45,6 +45,11 @@
   let balance = 2500;
   let selectedPcId = null;
   let pcSwapMode = false;
+  let pcItemMode = false;
+  let activePcItemGroup = "Training Items";
+  let pendingPcItemId = null;
+  let selectedNature = null;
+  let pcItemMessage = "";
   let selectedLeadId = null;
   let purchaseMessage = "";
   let activeShopGroup = "Held Items";
@@ -136,7 +141,6 @@
   function pcPokemonSheet(id) {
     const mon = mons[id];
     const onTeam = team.has(id);
-    const teamFull = team.size >= 6;
     const maxHp = mon.hp.match(/\/(\d+)\)/)?.[1] || "—";
     const statValues = [`HP ${maxHp}`, ...mon.stats.split(" / ")];
     const stats = statValues.map((stat) => {
@@ -150,13 +154,15 @@
     }).join("");
     const swapChooser = pcSwapMode && !onTeam ? `<section class="swap-chooser" aria-labelledby="swap-heading"><h3 id="swap-heading">Who should ${mon.name} replace?</h3><p>The new Pokémon will take the same team position.</p><div class="swap-grid">${[...team].map((teamId) => `<button type="button" data-team-replace="${teamId}"><img class="sprite" src="${sprite(teamId)}" alt=""/><span>${mons[teamId].name}</span></button>`).join("")}</div></section>` : "";
     const primaryLabel = onTeam ? "remove from team" : "add to team";
-    const sheetContent = swapChooser || `<section class="sheet-section"><h3>Stats</h3><div class="stat-grid">${stats}</div></section><section class="sheet-section"><h3>Moves</h3><div class="sheet-moves">${mon.moves.map((move) => `<span>${move}</span>`).join("")}</div></section><div class="sheet-actions"><button class="gloss-button ${onTeam ? "slate" : "blue"}" type="button" data-team-toggle="${id}">${primaryLabel}</button></div>`;
+    const itemChooser = pcItemMode ? pcItemPanel(mon) : "";
+    const sheetContent = swapChooser || itemChooser || `<section class="sheet-section"><h3>Stats</h3><div class="stat-grid">${stats}</div></section><section class="sheet-section"><h3>Moves</h3><div class="sheet-moves">${mon.moves.map((move) => `<span>${move}</span>`).join("")}</div></section>${pcItemMessage ? `<p class="sheet-feedback" role="status">${pcItemMessage}</p>` : ""}<div class="sheet-actions"><button class="gloss-button ${onTeam ? "slate" : "blue"}" type="button" data-team-toggle="${id}">${primaryLabel}</button><button class="gloss-button gold" type="button" data-open-pc-items>item</button></div>`;
+    const alternateMode = swapChooser || itemChooser;
     return `<div class="sheet-backdrop" data-close-pc-sheet><section class="pokemon-sheet" role="dialog" aria-modal="true" aria-labelledby="pokemon-sheet-title">
       <button class="sheet-close" type="button" data-close-pc-sheet aria-label="Close Pokémon details" autofocus>×</button>
       <div class="pokemon-summary"><img class="sprite" src="${sprite(id)}" alt="${mon.name}"/><div><p class="sheet-kicker">Pokémon details</p><h2 id="pokemon-sheet-title">${mon.name}</h2><div class="sheet-types">${mon.types.map((type) => `<span class="type-chip ${type.toLowerCase()}">${type}</span>`).join("")}</div></div></div>
       <div class="pokemon-facts"><p><span>Ability</span><strong>${mon.ability}</strong></p><p><span>Nature</span><strong>${mon.nature}</strong></p><p><span>Held item</span><strong>${mon.item}</strong></p></div>
       <div class="sheet-mode-content">${sheetContent}</div>
-      <button class="plain-button sheet-secondary-action" type="button" ${swapChooser ? "data-cancel-pc-swap" : "data-close-pc-sheet"}>${swapChooser ? "cancel" : "close"}</button>
+      <button class="plain-button sheet-secondary-action" type="button" ${swapChooser ? "data-cancel-pc-swap" : itemChooser ? "data-cancel-pc-items" : "data-close-pc-sheet"}>${alternateMode ? "cancel" : "close"}</button>
     </section></div>`;
   }
 
@@ -195,10 +201,40 @@
     { id: "tm-earthquake", group: "TMs", name: "Earthquake", detail: "Teach Earthquake", price: 700, icon: "TM" },
   ];
   const itemGroupOrder = ["Held Items", "Training Items", "TMs"];
+  const natureOptions = [
+    { name: "Adamant", up: "Atk", down: "SpA" }, { name: "Brave", up: "Atk", down: "Spe" },
+    { name: "Bold", up: "Def", down: "Atk" }, { name: "Impish", up: "Def", down: "SpA" },
+    { name: "Modest", up: "SpA", down: "Atk" }, { name: "Quiet", up: "SpA", down: "Spe" },
+    { name: "Calm", up: "SpD", down: "Atk" }, { name: "Careful", up: "SpD", down: "SpA" },
+    { name: "Timid", up: "Spe", down: "Atk" }, { name: "Jolly", up: "Spe", down: "SpA" },
+  ];
 
   function itemIcon(item) {
     const iconClass = item.group === "Held Items" ? "held" : item.group === "TMs" ? "tm" : "training";
     return `<span class="item-icon ${iconClass}" aria-hidden="true">${item.icon}</span>`;
+  }
+
+  function pcItemPanel(mon) {
+    if (pendingPcItemId === "nature-mint") {
+      return `<section class="pc-item-chooser nature-chooser" aria-labelledby="pc-item-heading"><h3 id="pc-item-heading">Choose a nature</h3><p>Current nature: ${mon.nature}</p><div class="nature-options">${natureOptions.map((nature) => `<button class="${selectedNature === nature.name ? "selected" : ""}" type="button" data-select-nature="${nature.name}"><strong>${nature.name}</strong><small><span>+${nature.up}</span> / <i>−${nature.down}</i></small></button>`).join("")}</div><button class="gloss-button blue pc-item-confirm" type="button" data-apply-nature ${selectedNature ? "" : "disabled"}>use mint</button></section>`;
+    }
+    if (pendingPcItemId?.startsWith("tm-")) {
+      const item = shopItems.find((candidate) => candidate.id === pendingPcItemId);
+      return `<section class="pc-item-chooser move-replace-chooser" aria-labelledby="pc-item-heading"><h3 id="pc-item-heading">Teach ${item.name}</h3><p>Choose a move for ${mon.name} to forget.</p><div class="move-replace-grid">${mon.moves.map((move, index) => `<button type="button" data-replace-move="${index}">${move}</button>`).join("")}</div></section>`;
+    }
+    const ownedItems = shopItems.filter((item) => item.group === activePcItemGroup && inventory[item.id]);
+    const activeGroupIndex = itemGroupOrder.indexOf(activePcItemGroup);
+    const activeTabId = `pc-item-tab-${activePcItemGroup.toLowerCase().replaceAll(" ", "-")}`;
+    const rows = ownedItems.length ? ownedItems.map((item) => {
+      const action = item.group === "Held Items" ? "give" : item.group === "TMs" ? "teach" : "use";
+      return `<div class="pc-item-row">${itemIcon(item)}<span class="item-copy"><strong>${item.name}</strong><small>${item.detail}</small></span><span class="item-quantity">×${inventory[item.id]}</span><button class="item-action" type="button" data-pc-item="${item.id}">${action}</button></div>`;
+    }).join("") : `<div class="pc-item-empty"><strong>No items</strong><span>This category is empty.</span></div>`;
+    return `<section class="pc-item-chooser" aria-labelledby="pc-item-heading"><h3 id="pc-item-heading">Use item on ${mon.name}</h3><div class="shop-segments pc-item-segments" data-active-index="${activeGroupIndex}" role="tablist" aria-label="Item categories">${itemGroupOrder.map((group) => { const selected = group === activePcItemGroup; return `<button id="pc-item-tab-${group.toLowerCase().replaceAll(" ", "-")}" type="button" role="tab" aria-selected="${selected}" data-pc-item-group="${group}" class="${selected ? "selected" : ""}">${group}</button>`; }).join("")}</div><div class="pc-item-list" role="tabpanel" aria-labelledby="${activeTabId}">${rows}</div></section>`;
+  }
+
+  function consumeItem(id) {
+    inventory[id] -= 1;
+    if (inventory[id] <= 0) delete inventory[id];
   }
 
   function shopRows() {
@@ -375,11 +411,67 @@
       bindVisitMart();
     }));
     bindVisitMart();
-    document.querySelectorAll("[data-pc-detail]").forEach((button) => button.addEventListener("click", () => { selectedPcId = button.dataset.pcDetail; pcSwapMode = false; render(); }));
+    document.querySelectorAll("[data-pc-detail]").forEach((button) => button.addEventListener("click", () => { selectedPcId = button.dataset.pcDetail; pcSwapMode = false; pcItemMode = false; pendingPcItemId = null; selectedNature = null; pcItemMessage = ""; render(); }));
     document.querySelectorAll("[data-close-pc-sheet]").forEach((element) => element.addEventListener("click", (event) => {
       if (element.classList.contains("sheet-backdrop") && event.target !== element) return;
       selectedPcId = null;
       pcSwapMode = false;
+      pcItemMode = false;
+      pendingPcItemId = null;
+      selectedNature = null;
+      render();
+    }));
+    document.querySelector("[data-open-pc-items]")?.addEventListener("click", () => {
+      pcSwapMode = false;
+      pcItemMode = true;
+      pendingPcItemId = null;
+      selectedNature = null;
+      pcItemMessage = "";
+      render();
+    });
+    document.querySelectorAll("[data-pc-item-group]").forEach((button) => button.addEventListener("click", () => {
+      if (button.dataset.pcItemGroup === activePcItemGroup) return;
+      activePcItemGroup = button.dataset.pcItemGroup;
+      render();
+    }));
+    document.querySelectorAll("[data-pc-item]").forEach((button) => button.addEventListener("click", () => {
+      const item = shopItems.find((candidate) => candidate.id === button.dataset.pcItem);
+      if (!item || !inventory[item.id]) return;
+      if (item.id === "nature-mint" || item.group === "TMs") {
+        pendingPcItemId = item.id;
+        selectedNature = null;
+        render();
+        return;
+      }
+      if (item.group === "Held Items") mons[selectedPcId].item = item.name;
+      consumeItem(item.id);
+      pcItemMessage = item.group === "Held Items" ? `${mons[selectedPcId].name} is now holding ${item.name}.` : `${item.name} used on ${mons[selectedPcId].name}.`;
+      pcItemMode = false;
+      render();
+    }));
+    document.querySelectorAll("[data-select-nature]").forEach((button) => button.addEventListener("click", () => {
+      selectedNature = button.dataset.selectNature;
+      render();
+    }));
+    document.querySelector("[data-apply-nature]")?.addEventListener("click", () => {
+      const nature = natureOptions.find((option) => option.name === selectedNature);
+      if (!nature || !inventory["nature-mint"]) return;
+      Object.assign(mons[selectedPcId], { nature: nature.name, natureUp: nature.up, natureDown: nature.down });
+      consumeItem("nature-mint");
+      pcItemMessage = `${mons[selectedPcId].name}'s nature changed to ${nature.name}.`;
+      pcItemMode = false;
+      pendingPcItemId = null;
+      selectedNature = null;
+      render();
+    });
+    document.querySelectorAll("[data-replace-move]").forEach((button) => button.addEventListener("click", () => {
+      const item = shopItems.find((candidate) => candidate.id === pendingPcItemId);
+      if (!item || !inventory[item.id]) return;
+      mons[selectedPcId].moves[Number(button.dataset.replaceMove)] = item.name;
+      consumeItem(item.id);
+      pcItemMessage = `${mons[selectedPcId].name} learned ${item.name}.`;
+      pcItemMode = false;
+      pendingPcItemId = null;
       render();
     }));
     document.querySelector("[data-team-toggle]")?.addEventListener("click", (event) => {
@@ -399,11 +491,18 @@
       pcSwapMode = false;
       render();
     });
+    document.querySelector("[data-cancel-pc-items]")?.addEventListener("click", () => {
+      pcItemMode = false;
+      pendingPcItemId = null;
+      selectedNature = null;
+      render();
+    });
     document.querySelectorAll("[data-mon-tip]").forEach((element) => addInfoInteractions(element, () => monTip(element.dataset.monTip)));
     document.querySelectorAll("[data-move-tip]").forEach((element) => addInfoInteractions(element, () => moveTip(element.dataset.moveTip)));
     document.onkeydown = (event) => {
       if (event.key === "Escape" && selectedPcId) {
         if (pcSwapMode) pcSwapMode = false;
+        else if (pcItemMode) { pcItemMode = false; pendingPcItemId = null; selectedNature = null; }
         else selectedPcId = null;
         render();
       }
@@ -449,6 +548,10 @@
         if (element.dataset.held || dragArmed) { delete element.dataset.held; dragArmed = false; return; }
         selectedPcId = element.dataset.pcMon;
         pcSwapMode = false;
+        pcItemMode = false;
+        pendingPcItemId = null;
+        selectedNature = null;
+        pcItemMessage = "";
         render();
       });
     });

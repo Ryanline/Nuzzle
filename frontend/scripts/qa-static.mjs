@@ -66,6 +66,11 @@ const partySizeBefore = await page.locator(".party-slot:not(.empty)").count();
 await page.click('[data-pc-mon="arcanine"]');
 if (await page.locator(".pokemon-sheet").count() !== 1) throw new Error("Pokémon details did not open from the PC.");
 if (!(await page.locator("[data-team-toggle]").textContent())?.includes("add to team")) throw new Error("A full team did not offer the add-to-team flow.");
+const detailActions = await page.locator(".sheet-actions button").allTextContents();
+if (JSON.stringify(detailActions) !== JSON.stringify(["add to team", "item"])) throw new Error("Pokémon detail actions rendered in the wrong order.");
+await page.click("[data-open-pc-items]");
+if (await page.locator("[data-pc-item-group]").count() !== 3 || !(await page.locator(".pc-item-empty").textContent())?.includes("No items")) throw new Error("The Pokémon item picker did not render its empty state.");
+await page.click("[data-cancel-pc-items]");
 await page.click('[data-team-toggle="arcanine"]');
 if (await page.locator(".swap-grid button").count() !== 6) throw new Error("The team swap choices did not render.");
 await page.click('[data-team-replace="flareon"]');
@@ -92,6 +97,7 @@ if (JSON.stringify(shopGroups) !== JSON.stringify(["Held Items", "Training Items
 if (await page.locator('[data-shop-group="Held Items"][aria-selected="true"]').count() !== 1) throw new Error("Held Items was not the default mart category.");
 await page.click('[data-shop-group="Training Items"]');
 if (await page.locator('[data-buy="hp-up"]').count() !== 1) throw new Error("Training items did not render.");
+await page.click('[data-buy="nature-mint"]');
 await page.click('[data-shop-group="TMs"]');
 if (await page.locator('[data-buy="tm-flamethrower"]').count() !== 1) throw new Error("TMs did not render.");
 await page.click('[data-shop-group="Held Items"]');
@@ -109,12 +115,23 @@ if (JSON.stringify(bagGroups) !== JSON.stringify(["Held Items", "Training Items"
 if (await page.locator('[data-bag-group="Held Items"][aria-selected="true"]').count() !== 1) throw new Error("Held Items was not the default bag category.");
 if (await page.locator(".bag-item").count() !== 1 || !(await page.locator(".item-quantity").textContent())?.includes("1")) throw new Error("Purchased item did not populate the bag.");
 if ((await page.locator(".item-action").textContent())?.trim() !== "give") throw new Error("Bag item action did not render.");
-await page.click('[data-bag-group="Training Items"]');
+await page.click('[data-bag-group="TMs"]');
 if ((await page.locator(".bag-empty h2").textContent())?.trim() !== "No items") throw new Error("The empty bag category did not render its empty state.");
 if (await page.locator(".empty-bag-icon").count() !== 0) throw new Error("The old empty bag icon still rendered.");
-await page.click('[data-visit-mart="Training Items"]');
-if (await page.locator('[data-shop-group="Training Items"][aria-selected="true"]').count() !== 1) throw new Error("Visit mart did not preserve the selected item category.");
-if (await page.locator('[data-buy="hp-up"]').count() !== 1) throw new Error("Visit mart opened the wrong item category.");
+await page.click('[data-visit-mart="TMs"]');
+if (await page.locator('[data-shop-group="TMs"][aria-selected="true"]').count() !== 1) throw new Error("Visit mart did not preserve the selected item category.");
+if (await page.locator('[data-buy="tm-flamethrower"]').count() !== 1) throw new Error("Visit mart opened the wrong item category.");
+await page.click(".page-back");
+
+await page.click('[data-route="pc"]');
+await page.click('[data-pc-mon="arcanine"]');
+await page.click("[data-open-pc-items]");
+await page.click('[data-pc-item="nature-mint"]');
+await page.click('[data-select-nature="Timid"]');
+await page.click("[data-apply-nature]");
+if (!(await page.locator(".pokemon-facts").textContent())?.includes("Timid")) throw new Error("Nature Mint did not update the Pokémon nature.");
+if (!(await page.locator(".sheet-feedback").textContent())?.includes("nature changed")) throw new Error("Item use feedback did not render.");
+await page.click(".sheet-close");
 await page.click(".page-back");
 for (const route of ["leaderboard", "settings"]) {
   await page.click(`[data-route="${route}"]`);
