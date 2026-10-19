@@ -47,14 +47,12 @@
   let pcSwapMode = false;
   let selectedLeadId = null;
   let purchaseMessage = "";
+  let activeShopGroup = "Held Items";
+  let activeBagGroup = "Held Items";
   const inventory = {};
 
   function title() {
     return "Nuzzle #1: Brock (10/15/2026)";
-  }
-
-  function grassIcon() {
-    return `<svg class="grass-sprite" viewBox="0 0 96 96" aria-hidden="true"><g shape-rendering="crispEdges"><path fill="#1d6c35" d="M15 78h66v8H15zM25 65h52v14H25zM8 55h16v24H8zm66-13h14v38H74zM20 38h13v34H20zm22-26h13v62H42zm22 15h12v46H64z"/><path fill="#46a95f" d="M17 67h18v10H17zm20-23h18v34H37zm17-18h13v52H54zm19 28h13v24H73zM27 25h12v34H27z"/><path fill="#8ed481" d="M12 47h12v18H12zm17-18h9v24h-9zm15-19h10v28H44zm17 18h10v27H61zm18 11h8v19h-8z"/></g></svg>`;
   }
 
   function header() {
@@ -164,8 +162,12 @@
 
   function encountersScreen() {
     const remaining = encounters.filter((item) => !item).length;
-    return `<section class="screen">${header()}<div class="encounter-stage"><p class="encounter-count">${remaining ? `${remaining} encounter${remaining === 1 ? "" : "s"} waiting` : "All encounters revealed"}</p>
-      <div class="grass-grid">${encounters.map((id, index) => `<button class="grass-card" type="button" data-encounter="${index}" ${id ? "disabled" : ""} aria-label="${id ? mons[id].name : `Reveal encounter ${index + 1}`}">${id ? `<span class="revealed" data-mon-tip="${id}"><img class="sprite" src="${sprite(id)}" alt="${mons[id].name}"/><span>${mons[id].name}</span></span>` : grassIcon()}</button>`).join("")}</div>
+    return `<section class="screen">${header()}<div class="encounter-stage"><p class="encounter-count">${remaining ? `${remaining} encounter${remaining === 1 ? "" : "s"} remaining` : "All encounters revealed"}</p>
+      <div class="encounter-list">${encounters.map((id, index) => {
+        if (!id) return `<button class="encounter-card mystery" type="button" data-encounter="${index}" aria-label="Reveal encounter ${index + 1}"><span class="encounter-mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span class="encounter-copy"><strong>Unknown encounter</strong><small>Tap to reveal</small></span><span class="encounter-number">${index + 1}</span></button>`;
+        const mon = mons[id];
+        return `<article class="encounter-card revealed" data-mon-tip="${id}"><span class="encounter-sprite"><img class="sprite" src="${sprite(id)}" alt="${mon.name}"/></span><span class="encounter-copy"><strong>${mon.name}</strong><span class="encounter-types">${mon.types.map((type) => `<span class="type-chip ${type.toLowerCase()}">${type}</span>`).join("")}</span></span><span class="encounter-status">Added to PC</span></article>`;
+      }).join("")}</div>
       ${backButton()}
     </div></section>`;
   }
@@ -175,46 +177,60 @@
   }
 
   const shopItems = [
-    { id: "hp-up", group: "Training", name: "HP Up", detail: "+10 HP EVs", price: 100, icon: "HP" },
-    { id: "protein", group: "Training", name: "Protein", detail: "+10 Attack EVs", price: 100, icon: "ATK" },
-    { id: "iron", group: "Training", name: "Iron", detail: "+10 Defense EVs", price: 100, icon: "DEF" },
-    { id: "calcium", group: "Training", name: "Calcium", detail: "+10 Sp. Atk EVs", price: 100, icon: "SPA" },
-    { id: "zinc", group: "Training", name: "Zinc", detail: "+10 Sp. Def EVs", price: 100, icon: "SPD" },
-    { id: "carbos", group: "Training", name: "Carbos", detail: "+10 Speed EVs", price: 100, icon: "SPE" },
-    { id: "bottle-cap", group: "Training", name: "Bottle Cap", detail: "Maximize one IV", price: 500, icon: "IV" },
-    { id: "nature-mint", group: "Training", name: "Nature Mint", detail: "Choose a stat nature", price: 300, icon: "N" },
+    { id: "hp-up", group: "Training Items", name: "HP Up", detail: "+10 HP EVs", price: 100, icon: "HP" },
+    { id: "protein", group: "Training Items", name: "Protein", detail: "+10 Attack EVs", price: 100, icon: "ATK" },
+    { id: "iron", group: "Training Items", name: "Iron", detail: "+10 Defense EVs", price: 100, icon: "DEF" },
+    { id: "calcium", group: "Training Items", name: "Calcium", detail: "+10 Sp. Atk EVs", price: 100, icon: "SPA" },
+    { id: "zinc", group: "Training Items", name: "Zinc", detail: "+10 Sp. Def EVs", price: 100, icon: "SPD" },
+    { id: "carbos", group: "Training Items", name: "Carbos", detail: "+10 Speed EVs", price: 100, icon: "SPE" },
+    { id: "bottle-cap", group: "Training Items", name: "Bottle Cap", detail: "Maximize one IV", price: 500, icon: "IV" },
+    { id: "nature-mint", group: "Training Items", name: "Nature Mint", detail: "Choose a stat nature", price: 300, icon: "N" },
     { id: "leftovers", group: "Held Items", name: "Leftovers", detail: "Restores HP each turn", price: 600, icon: "LF" },
     { id: "sitrus-berry", group: "Held Items", name: "Sitrus Berry", detail: "Restores HP when low", price: 300, icon: "SB" },
     { id: "focus-sash", group: "Held Items", name: "Focus Sash", detail: "Survive one hit from full HP", price: 800, icon: "FS" },
     { id: "choice-scarf", group: "Held Items", name: "Choice Scarf", detail: "Boosts Speed; locks one move", price: 700, icon: "CS" },
+    { id: "tm-flamethrower", group: "TMs", name: "Flamethrower", detail: "Teach Flamethrower", price: 500, icon: "TM" },
+    { id: "tm-thunderbolt", group: "TMs", name: "Thunderbolt", detail: "Teach Thunderbolt", price: 500, icon: "TM" },
+    { id: "tm-ice-beam", group: "TMs", name: "Ice Beam", detail: "Teach Ice Beam", price: 500, icon: "TM" },
+    { id: "tm-earthquake", group: "TMs", name: "Earthquake", detail: "Teach Earthquake", price: 700, icon: "TM" },
   ];
+  const itemGroupOrder = ["Held Items", "Training Items", "TMs"];
 
   function itemIcon(item) {
-    return `<span class="item-icon ${item.group === "Held Items" ? "held" : "training"}" aria-hidden="true">${item.icon}</span>`;
+    const iconClass = item.group === "Held Items" ? "held" : item.group === "TMs" ? "tm" : "training";
+    return `<span class="item-icon ${iconClass}" aria-hidden="true">${item.icon}</span>`;
+  }
+
+  function shopRows() {
+    return shopItems.filter((item) => item.group === activeShopGroup).map((item) => {
+      const owned = inventory[item.id] || 0;
+      return `<div class="shop-item">${itemIcon(item)}<span class="item-copy"><strong>${item.name}</strong><small>${item.detail}${owned ? ` · Owned: ${owned}` : ""}</small></span><button class="price-button" type="button" data-buy="${item.id}" ${balance < item.price ? "disabled" : ""}>${item.price} coins</button></div>`;
+    }).join("");
   }
 
   function mart() {
-    let section = "";
+    const activeGroupIndex = itemGroupOrder.indexOf(activeShopGroup);
+    const activeTabId = `shop-tab-${activeShopGroup.toLowerCase().replaceAll(" ", "-")}`;
     return `<section class="screen">${header()}<div class="mart-stage"><div class="mart-summary"><p class="purchase-message" aria-live="polite">${purchaseMessage}</p><p class="balance">Balance: <strong>${balance.toLocaleString()} coins</strong></p></div>
-      <div class="shop-list">${shopItems.map((item, index) => {
-        const heading = item.group !== section ? `<h2>${item.group}</h2>` : "";
-        section = item.group;
-        const owned = inventory[item.id] || 0;
-        return `${heading}<div class="shop-item">${itemIcon(item)}<span class="item-copy"><strong>${item.name}</strong><small>${item.detail}${owned ? ` · Owned: ${owned}` : ""}</small></span><button class="price-button" type="button" data-buy="${index}" ${balance < item.price ? "disabled" : ""}>${item.price} coins</button></div>`;
-      }).join("")}</div>${backButton()}</div></section>`;
+      <div class="shop-segments" data-active-index="${activeGroupIndex}" role="tablist" aria-label="Mart categories">${itemGroupOrder.map((group) => { const selected = group === activeShopGroup; return `<button id="shop-tab-${group.toLowerCase().replaceAll(" ", "-")}" type="button" role="tab" aria-selected="${selected}" data-shop-group="${group}" class="${selected ? "selected" : ""}">${group}</button>`; }).join("")}</div>
+      <div class="shop-list" id="shop-items" role="tabpanel" aria-labelledby="${activeTabId}">${shopRows()}</div>${backButton()}</div></section>`;
+  }
+
+  function bagContents() {
+    const ownedItems = shopItems.filter((item) => item.group === activeBagGroup && inventory[item.id]);
+    return ownedItems.length ? `<div class="bag-list">${ownedItems.map((item) => {
+      const action = item.group === "Held Items" ? "give" : item.group === "TMs" ? "teach" : "use";
+      return `<div class="bag-item">${itemIcon(item)}<span class="item-copy"><strong>${item.name}</strong><small>${item.detail}</small></span><span class="item-quantity" aria-label="${inventory[item.id]} owned">×${inventory[item.id]}</span><button class="item-action" type="button" aria-label="${action} ${item.name}">${action}</button></div>`;
+    }).join("")}</div>` : `<div class="bag-empty"><h2>No items</h2><p>Items in this category will appear here.</p><button class="gloss-button blue" type="button" data-visit-mart="${activeBagGroup}">visit mart</button></div>`;
   }
 
   function bag() {
-    const ownedItems = shopItems.filter((item) => inventory[item.id]);
-    const total = ownedItems.reduce((sum, item) => sum + inventory[item.id], 0);
-    let section = "";
-    const contents = ownedItems.length ? `<div class="bag-list">${ownedItems.map((item) => {
-      const heading = item.group !== section ? `<h2>${item.group}</h2>` : "";
-      section = item.group;
-      const action = item.group === "Held Items" ? "give" : "use";
-      return `${heading}<div class="bag-item">${itemIcon(item)}<span class="item-copy"><strong>${item.name}</strong><small>${item.detail}</small></span><span class="item-quantity" aria-label="${inventory[item.id]} owned">×${inventory[item.id]}</span><button class="item-action" type="button" aria-label="${action} ${item.name}">${action}</button></div>`;
-    }).join("")}</div>` : `<div class="bag-empty"><div class="empty-bag-icon" aria-hidden="true">0</div><h2>Your bag is empty</h2><p>Items purchased at the mart will appear here.</p><button class="gloss-button blue" type="button" data-route="mart">visit mart</button></div>`;
-    return `<section class="screen">${header()}<div class="bag-stage"><div class="bag-summary"><span>${total} item${total === 1 ? "" : "s"}</span><span>${balance.toLocaleString()} coins</span></div>${contents}${backButton()}</div></section>`;
+    const total = shopItems.reduce((sum, item) => sum + (inventory[item.id] || 0), 0);
+    const activeGroupIndex = itemGroupOrder.indexOf(activeBagGroup);
+    const activeTabId = `bag-tab-${activeBagGroup.toLowerCase().replaceAll(" ", "-")}`;
+    return `<section class="screen">${header()}<div class="bag-stage"><div class="bag-summary"><span>${total} item${total === 1 ? "" : "s"}</span><span>${balance.toLocaleString()} coins</span></div>
+      <div class="shop-segments bag-segments" data-active-index="${activeGroupIndex}" role="tablist" aria-label="Bag categories">${itemGroupOrder.map((group) => { const selected = group === activeBagGroup; return `<button id="bag-tab-${group.toLowerCase().replaceAll(" ", "-")}" type="button" role="tab" aria-selected="${selected}" data-bag-group="${group}" class="${selected ? "selected" : ""}">${group}</button>`; }).join("")}</div>
+      <div class="bag-contents" role="tabpanel" aria-labelledby="${activeTabId}">${bagContents()}</div>${backButton()}</div></section>`;
   }
 
   function simpleScreen(kind) {
@@ -306,9 +322,9 @@
     document.querySelectorAll("[data-switch]").forEach((button) => button.addEventListener("click", () => { if (button.dataset.held || button.dataset.switch === activeId) return; activeId = button.dataset.switch; battleMessage = `Go, ${mons[activeId].name}!`; turn += 1; render(); }));
     document.querySelectorAll("[data-move]").forEach((button) => button.addEventListener("click", () => { if (button.dataset.held) return; const move = moves[button.dataset.move]; foeHp = Math.max(0, foeHp - (move.power === "—" ? 0 : 18)); playerHp = Math.max(0, playerHp - 9); battleMessage = `${mons[activeId].name} used ${move.name}!${foeHp === 0 ? " Steelix fainted!" : ""}`; turn += 1; render(); }));
     document.querySelectorAll("[data-encounter]").forEach((button) => button.addEventListener("click", () => { const index = Number(button.dataset.encounter); if (!encounters[index]) { encounters[index] = encounterIds[index]; if (!pcOrder.includes(encounterIds[index])) pcOrder.push(encounterIds[index]); render(); } }));
-    document.querySelector("[data-reveal-all]")?.addEventListener("click", () => { encounters = encounterIds.slice(); for (const id of encounterIds) if (!pcOrder.includes(id)) pcOrder.push(id); render(); });
-    document.querySelectorAll("[data-buy]").forEach((button) => button.addEventListener("click", () => {
-      const item = shopItems[Number(button.dataset.buy)];
+    const bindShopPurchases = () => document.querySelectorAll("[data-buy]").forEach((button) => button.addEventListener("click", () => {
+      const item = shopItems.find((candidate) => candidate.id === button.dataset.buy);
+      if (!item) return;
       if (balance >= item.price) {
         const shopScroll = document.querySelector(".shop-list")?.scrollTop || 0;
         balance -= item.price;
@@ -319,6 +335,46 @@
         if (shopList) shopList.scrollTop = shopScroll;
       }
     }));
+    document.querySelectorAll("[data-shop-group]").forEach((button) => button.addEventListener("click", () => {
+      if (button.dataset.shopGroup === activeShopGroup) return;
+      activeShopGroup = button.dataset.shopGroup;
+      purchaseMessage = "";
+      document.querySelector(".purchase-message").textContent = "";
+      document.querySelector(".shop-segments").dataset.activeIndex = itemGroupOrder.indexOf(activeShopGroup);
+      document.querySelectorAll("[data-shop-group]").forEach((tab) => {
+        const selected = tab.dataset.shopGroup === activeShopGroup;
+        tab.classList.toggle("selected", selected);
+        tab.setAttribute("aria-selected", String(selected));
+      });
+      const shopList = document.querySelector(".shop-list");
+      shopList.setAttribute("aria-labelledby", button.id);
+      shopList.innerHTML = shopRows();
+      bindShopPurchases();
+    }));
+    bindShopPurchases();
+    const bindVisitMart = () => document.querySelector("[data-visit-mart]")?.addEventListener("click", (event) => {
+      activeShopGroup = event.currentTarget.dataset.visitMart;
+      purchaseMessage = "";
+      route = "mart";
+      render();
+      scrollTo(0, 0);
+    });
+    document.querySelectorAll("[data-bag-group]").forEach((button) => button.addEventListener("click", () => {
+      if (button.dataset.bagGroup === activeBagGroup) return;
+      activeBagGroup = button.dataset.bagGroup;
+      const segments = document.querySelector(".bag-segments");
+      segments.dataset.activeIndex = itemGroupOrder.indexOf(activeBagGroup);
+      document.querySelectorAll("[data-bag-group]").forEach((tab) => {
+        const selected = tab.dataset.bagGroup === activeBagGroup;
+        tab.classList.toggle("selected", selected);
+        tab.setAttribute("aria-selected", String(selected));
+      });
+      const bagPanel = document.querySelector(".bag-contents");
+      bagPanel.setAttribute("aria-labelledby", button.id);
+      bagPanel.innerHTML = bagContents();
+      bindVisitMart();
+    }));
+    bindVisitMart();
     document.querySelectorAll("[data-pc-detail]").forEach((button) => button.addEventListener("click", () => { selectedPcId = button.dataset.pcDetail; pcSwapMode = false; render(); }));
     document.querySelectorAll("[data-close-pc-sheet]").forEach((element) => element.addEventListener("click", (event) => {
       if (element.classList.contains("sheet-backdrop") && event.target !== element) return;
