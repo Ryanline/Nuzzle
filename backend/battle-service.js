@@ -363,10 +363,11 @@ export class BattleService {
     }
   }
 
-  async create({ partyIds, leadId }) {
+  async create({ partyIds, leadId }, userId = null) {
     buildPlayerTeam(partyIds, leadId);
     const record = {
       id: crypto.randomUUID(),
+      userId,
       createdAt: new Date().toISOString(),
       format: FORMAT,
       seed: seed(),
@@ -382,9 +383,10 @@ export class BattleService {
     return battle.state();
   }
 
-  get(id) {
+  get(id, userId = null) {
     const battle = this.battles.get(id);
     if (!battle) throw Object.assign(new Error("Battle not found."), { statusCode: 404 });
+    if (userId && battle.record.userId !== userId) throw Object.assign(new Error("Battle not found."), { statusCode: 404 });
     return battle;
   }
 }

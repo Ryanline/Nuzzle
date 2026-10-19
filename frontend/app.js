@@ -7,6 +7,7 @@
   const trainerSprite = "assets/trainers/brock.png";
   const app = document.querySelector("#app");
   const tooltip = document.querySelector("#tooltip");
+  const savedTheme = localStorage.getItem("nuzzleTheme");
 
   const mons = {
     flareon: { name: "Flareon", types: ["Fire"], ability: "Flash Fire", item: "Charcoal", nature: "Adamant", natureUp: "Atk", natureDown: "SpA", hp: "100.0% (263/263)", stats: "Atk 296 / Def 156 / SpA 226 / SpD 256 / Spe 166", moves: ["Flamethrower", "Quick Attack", "Bite", "Will-O-Wisp"] },
@@ -35,7 +36,17 @@
   };
 
   let route = "home";
-  let menuOpen = false;
+  let currentUser = null;
+  let authOpen = false;
+  let authMode = "login";
+  let authLoading = false;
+  let authError = "";
+  let pendingRoute = null;
+  let avatarEditorOpen = false;
+  let avatarUploadBlob = null;
+  let avatarPreviewUrl = "";
+  let avatarBusy = false;
+  let theme = savedTheme === "dark" ? "dark" : "light";
   let team = new Set(partyIds);
   let pcOrder = [...pcIds];
   let encounters = new Array(3).fill(null);
@@ -66,14 +77,183 @@
     return String(value ?? "").replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
   }
 
+  function avatarContent(user, previewUrl = "") {
+    if (previewUrl) return `<img src="${previewUrl}" alt="">`;
+    if (user?.avatarVersion) return `<img src="/api/auth/avatar?v=${encodeURIComponent(user.avatarVersion)}" alt="">`;
+    return `<span>${escapeHtml(user?.username?.slice(0, 1).toUpperCase() || "?")}</span>`;
+  }
+
+  function resetAvatarEditor() {
+    if (avatarPreviewUrl) URL.revokeObjectURL(avatarPreviewUrl);
+    avatarEditorOpen = false;
+    avatarUploadBlob = null;
+    avatarPreviewUrl = "";
+    avatarBusy = false;
+    authError = "";
+  }
+
+  async function normalizeAvatar(file) {
+    if (!file || !["image/jpeg", "image/png", "image/webp"].includes(file.type)) throw new Error("Choose a JPEG, PNG, or WebP image.");
+    if (file.size > 5 * 1024 * 1024) throw new Error("Choose an image smaller than 5 MB.");
+    const sourceUrl = URL.createObjectURL(file);
+    try {
+      const image = new Image();
+      image.src = sourceUrl;
+      await image.decode();
+      if (!image.naturalWidth || !image.naturalHeight) throw new Error("That image could not be opened.");
+      const side = Math.min(image.naturalWidth, image.naturalHeight);
+      const sourceX = (image.naturalWidth - side) / 2;
+      const sourceY = (image.naturalHeight - side) / 2;
+      const canvas = document.createElement("canvas");
+      canvas.width = 256;
+      canvas.height = 256;
+      canvas.getContext("2d").drawImage(image, sourceX, sourceY, side, side, 0, 0, 256, 256);
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/webp", .86));
+      if (!blob || blob.type !== "image/webp") throw new Error("This browser could not prepare the image.");
+      return blob;
+    } finally {
+      URL.revokeObjectURL(sourceUrl);
+    }
+  }
+
+  async function prepareAvatar(file) {
+    avatarBusy = true;
+    authError = "";
+    try {
+      const blob = await normalizeAvatar(file);
+      if (avatarPreviewUrl) URL.revokeObjectURL(avatarPreviewUrl);
+      avatarUploadBlob = blob;
+      avatarPreviewUrl = URL.createObjectURL(blob);
+    } catch (error) {
+      authError = error.message;
+    } finally {
+      avatarBusy = false;
+      render();
+    }
+  }
+
+  async function saveAvatar() {
+    if (!avatarUploadBlob || avatarBusy) return;
+    avatarBusy = true;
+    authError = "";
+    render();
+    try {
+      const result = await apiRequest("/api/auth/avatar", {
+        method: "PUT",
+        headers: { "Content-Type": "image/webp" },
+        body: avatarUploadBlob,
+      });
+      currentUser = result.user;
+      resetAvatarEditor();
+    } catch (error) {
+      avatarBusy = false;
+      authError = error.message;
+    }
+    render();
+  }
+
+  async function removeAvatar() {
+    if (avatarBusy) return;
+    avatarBusy = true;
+    authError = "";
+    render();
+    try {
+      const result = await apiRequest("/api/auth/avatar", { method: "DELETE" });
+      currentUser = result.user;
+      resetAvatarEditor();
+    } catch (error) {
+      avatarBusy = false;
+      authError = error.message;
+    }
+    render();
+  }
+
   async function apiRequest(path, options = {}) {
     const response = await fetch(path, {
       ...options,
       headers: options.body ? { "Content-Type": "application/json", ...options.headers } : options.headers,
     });
     const body = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(body.error || `Request failed (${response.status}).`);
+    if (!response.ok) {
+      if (response.status === 401 && !path.startsWith("/api/auth/")) {
+        currentUser = null;
+        authOpen = true;
+        pendingRoute = route === "home" ? null : route;
+      }
+      const error = new Error(body.error || `Request failed (${response.status}).`);
+      error.status = response.status;
+      throw error;
+    }
     return body;
+  }
+
+  function applyTheme() {
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme;
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", theme === "dark" ? "#121212" : "#ffffff");
+  }
+
+  function openAuth(destination = null) {
+    resetAvatarEditor();
+    authOpen = true;
+    authMode = "login";
+    authError = "";
+    pendingRoute = destination;
+    render();
+    requestAnimationFrame(() => document.querySelector("#auth-username")?.focus({ preventScroll: true }));
+  }
+
+  async function submitAuth(form) {
+    if (authLoading) return;
+    const fields = new FormData(form);
+    const username = String(fields.get("username") || "");
+    const password = String(fields.get("password") || "");
+    const confirmation = String(fields.get("passwordConfirmation") || "");
+    if (authMode === "register" && password !== confirmation) {
+      authError = "Passwords do not match.";
+      render();
+      return;
+    }
+    authLoading = true;
+    authError = "";
+    render();
+    try {
+      const result = await apiRequest(`/api/auth/${authMode}`, {
+        method: "POST",
+        body: JSON.stringify({ username, password }),
+      });
+      currentUser = result.user;
+      authOpen = false;
+      const destination = pendingRoute;
+      pendingRoute = null;
+      if (destination) {
+        route = destination === "lead" && battleState && !battleState.ended ? "battle" : destination;
+        if (route === "lead") selectedLeadId = null;
+      }
+      await resumeBattle(false);
+    } catch (error) {
+      authError = error.message;
+    } finally {
+      authLoading = false;
+      render();
+    }
+  }
+
+  async function logout() {
+    if (authLoading) return;
+    authLoading = true;
+    render();
+    try {
+      await apiRequest("/api/auth/logout", { method: "POST" });
+    } finally {
+      currentUser = null;
+      resetAvatarEditor();
+      battleState = null;
+      authOpen = false;
+      authLoading = false;
+      route = "home";
+      render();
+    }
   }
 
   function acceptBattleState(nextState) {
@@ -147,7 +327,10 @@
   }
 
   function header() {
-    return `<header class="screen-header"><h1 class="screen-title">${title()}</h1><button class="menu-toggle ${menuOpen ? "open" : ""}" type="button" aria-label="Menu" aria-expanded="${menuOpen}"><span></span></button></header>${menuOpen ? menu() : ""}`;
+    const accountLabel = currentUser ? `Account for ${currentUser.username}` : "Log in or create an account";
+    const accountContent = currentUser ? avatarContent(currentUser) : '<span class="account-head"></span><span class="account-shoulders"></span>';
+    const themeIcons = '<svg class="theme-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42"></path></svg><svg class="theme-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.4 15.3A8.5 8.5 0 0 1 8.7 3.6 8.5 8.5 0 1 0 20.4 15.3Z"></path></svg>';
+    return `<header class="screen-header"><h1 class="screen-title">${title()}</h1><div class="header-tools"><button class="theme-toggle" type="button" role="switch" aria-checked="${theme === "dark"}" aria-label="Use ${theme === "dark" ? "light" : "dark"} mode" data-toggle-theme><i>${themeIcons}</i></button><button class="account-button${currentUser ? " signed-in" : ""}" type="button" aria-label="${accountLabel}" data-open-account><span class="account-glyph">${accountContent}</span></button></div></header>${authOpen ? authCard() : ""}`;
   }
 
   function navigation(current = "", className = "home-actions") {
@@ -164,9 +347,14 @@
     </nav>`;
   }
 
-  function menu() {
-    const current = route === "lead" || route === "battle" ? "battle" : route;
-    return navigation(current, "menu-panel");
+  function authCard() {
+    if (currentUser && avatarEditorOpen) {
+      const preview = avatarContent(currentUser, avatarPreviewUrl);
+      return `<div class="auth-backdrop" data-close-auth><section class="auth-card account-card avatar-editor" role="dialog" aria-modal="true" aria-labelledby="avatar-title"><button class="auth-close" type="button" aria-label="Close account" data-close-auth>×</button><h2 id="avatar-title">Profile picture</h2><div class="avatar-editor-preview">${preview}</div>${authError ? `<p class="auth-error" role="alert">${escapeHtml(authError)}</p>` : ""}<input class="avatar-file-input" type="file" accept="image/jpeg,image/png,image/webp" data-avatar-input>${avatarUploadBlob ? `<div class="avatar-actions"><button class="profile-button primary" type="button" data-avatar-save ${avatarBusy ? "disabled" : ""}>${avatarBusy ? "saving…" : "save"}</button><button class="profile-button" type="button" data-avatar-choose ${avatarBusy ? "disabled" : ""}>choose another</button><button class="profile-link" type="button" data-avatar-cancel>cancel</button></div>` : `<div class="avatar-actions"><button class="profile-button primary" type="button" data-avatar-choose ${avatarBusy ? "disabled" : ""}>${avatarBusy ? "preparing…" : "upload a picture"}</button>${currentUser.avatarVersion ? `<button class="profile-button remove" type="button" data-avatar-remove ${avatarBusy ? "disabled" : ""}>remove picture</button>` : ""}<button class="profile-link" type="button" data-avatar-cancel>cancel</button></div>`}</section></div>`;
+    }
+    if (currentUser) return `<div class="auth-backdrop" data-close-auth><section class="auth-card account-card" role="dialog" aria-modal="true" aria-labelledby="account-title"><button class="auth-close" type="button" aria-label="Close account" data-close-auth>×</button><h2 id="account-title">Account</h2><div class="account-profile"><button class="account-avatar-button" type="button" aria-label="Edit profile picture" data-edit-avatar><span class="account-avatar">${avatarContent(currentUser)}</span><span class="avatar-edit-badge" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="m5 14 1-4 7-7 3 3-7 7-4 1Zm7-10 3 3"></path></svg></span></button><strong class="account-name">${escapeHtml(currentUser.username)}</strong></div><button class="auth-primary logout-button" type="button" data-logout ${authLoading ? "disabled" : ""}>${authLoading ? "logging out…" : "log out"}</button></section></div>`;
+    const registering = authMode === "register";
+    return `<div class="auth-backdrop" data-close-auth><section class="auth-card" role="dialog" aria-modal="true" aria-labelledby="auth-title"><button class="auth-close" type="button" aria-label="Close login" data-close-auth>×</button><h2 id="auth-title">${registering ? "Create account" : "Log in"}</h2><form data-auth-form><label for="auth-username">Username</label><input id="auth-username" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" minlength="3" maxlength="20" pattern="[A-Za-z0-9_]+" required><label for="auth-password">Password</label><input id="auth-password" name="password" type="password" autocomplete="${registering ? "new-password" : "current-password"}" minlength="15" maxlength="128" required>${registering ? '<label for="auth-password-confirmation">Confirm password</label><input id="auth-password-confirmation" name="passwordConfirmation" type="password" autocomplete="new-password" minlength="15" maxlength="128" required><small class="password-help">Use at least 15 characters.</small>' : ""}${authError ? `<p class="auth-error" role="alert">${escapeHtml(authError)}</p>` : ""}<button class="auth-primary" type="submit" ${authLoading ? "disabled" : ""}>${authLoading ? "please wait…" : registering ? "register" : "log in"}</button></form><button class="auth-mode-link" type="button" data-auth-mode="${registering ? "login" : "register"}">${registering ? "Already have an account? Log in" : "Don't have an account? Register"}</button></section></div>`;
   }
 
   function home() {
@@ -382,7 +570,7 @@
 
   function simpleScreen(kind) {
     const content = kind === "leaderboard"
-        ? '<h2>Leaderboard</h2><p>Daily results and streaks will appear here.</p>'
+        ? '<h2>Leaderboard</h2><p>Coming soon.</p>'
         : '<h2>Settings</h2><p>Game, sound, and accessibility options will appear here.</p>';
     return `<section class="screen">${header()}<div class="simple-stage">${content}${backButton()}</div></section>`;
   }
@@ -490,13 +678,67 @@
 
   function bind() {
     alignOpponentSprite();
-    document.querySelector(".menu-toggle")?.addEventListener("click", () => { menuOpen = !menuOpen; render(); });
+    document.querySelector("[data-toggle-theme]")?.addEventListener("click", (event) => {
+      theme = theme === "dark" ? "light" : "dark";
+      localStorage.setItem("nuzzleTheme", theme);
+      event.currentTarget.setAttribute("aria-checked", String(theme === "dark"));
+      event.currentTarget.setAttribute("aria-label", `Use ${theme === "dark" ? "light" : "dark"} mode`);
+      applyTheme();
+    });
+    document.querySelector("[data-open-account]")?.addEventListener("click", () => {
+      resetAvatarEditor();
+      authOpen = true;
+      authMode = "login";
+      authError = "";
+      pendingRoute = null;
+      render();
+      requestAnimationFrame(() => document.querySelector(currentUser ? "[data-logout]" : "#auth-username")?.focus({ preventScroll: true }));
+    });
+    document.querySelectorAll("[data-close-auth]").forEach((element) => element.addEventListener("click", (event) => {
+      if (element.classList.contains("auth-backdrop") && event.target !== element) return;
+      authOpen = false;
+      resetAvatarEditor();
+      pendingRoute = null;
+      render();
+    }));
+    document.querySelector("[data-auth-mode]")?.addEventListener("click", (event) => {
+      authMode = event.currentTarget.dataset.authMode;
+      authError = "";
+      render();
+      requestAnimationFrame(() => document.querySelector("#auth-username")?.focus({ preventScroll: true }));
+    });
+    document.querySelector("[data-auth-form]")?.addEventListener("submit", (event) => {
+      event.preventDefault();
+      void submitAuth(event.currentTarget);
+    });
+    document.querySelector("[data-logout]")?.addEventListener("click", () => void logout());
+    document.querySelectorAll("[data-edit-avatar]").forEach((button) => button.addEventListener("click", () => {
+      avatarEditorOpen = true;
+      authError = "";
+      render();
+      requestAnimationFrame(() => document.querySelector("[data-avatar-choose]")?.focus({ preventScroll: true }));
+    }));
+    document.querySelector("[data-avatar-choose]")?.addEventListener("click", () => document.querySelector("[data-avatar-input]")?.click());
+    document.querySelector("[data-avatar-input]")?.addEventListener("change", (event) => {
+      const [file] = event.currentTarget.files;
+      if (file) void prepareAvatar(file);
+    });
+    document.querySelector("[data-avatar-save]")?.addEventListener("click", () => void saveAvatar());
+    document.querySelector("[data-avatar-remove]")?.addEventListener("click", () => void removeAvatar());
+    document.querySelector("[data-avatar-cancel]")?.addEventListener("click", () => {
+      resetAvatarEditor();
+      render();
+      requestAnimationFrame(() => document.querySelector("[data-edit-avatar]")?.focus({ preventScroll: true }));
+    });
     document.querySelectorAll("[data-route]").forEach((button) => button.addEventListener("click", () => {
       const requestedRoute = button.dataset.route;
+      if (!currentUser && requestedRoute !== "home") {
+        openAuth(requestedRoute);
+        return;
+      }
       route = requestedRoute === "lead" && battleState && !battleState.ended ? "battle" : requestedRoute;
       if (route === "lead") selectedLeadId = null;
       if (route === "mart") purchaseMessage = "";
-      menuOpen = false;
       render();
       scrollTo(0, 0);
     }));
@@ -667,7 +909,14 @@
     }));
     document.querySelector("[data-team-toggle]")?.addEventListener("click", (event) => {
       const id = event.currentTarget.dataset.teamToggle;
-      if (team.has(id)) team.delete(id);
+      if (team.has(id)) {
+        team.delete(id);
+        selectedPcId = null;
+        pcSwapMode = false;
+        pcItemMode = false;
+        pendingPcItemId = null;
+        selectedNature = null;
+      }
       else if (team.size < 6) team.add(id);
       else pcSwapMode = true;
       render();
@@ -692,7 +941,13 @@
     document.querySelectorAll("[data-move-tip]").forEach((element) => addInfoInteractions(element, () => moveTip(element.dataset.moveTip)));
     document.querySelectorAll("[data-battle-move-tip]").forEach((element) => addInfoInteractions(element, () => battleMoveTip(element.dataset.battleMoveTip)));
     document.onkeydown = (event) => {
-      if (event.key === "Escape" && battleLogExpanded) {
+      if (event.key === "Escape" && authOpen) {
+        authOpen = false;
+        resetAvatarEditor();
+        pendingRoute = null;
+        render();
+        requestAnimationFrame(() => document.querySelector("[data-open-account]")?.focus());
+      } else if (event.key === "Escape" && battleLogExpanded) {
         battleLogExpanded = false;
         render();
         requestAnimationFrame(() => document.querySelector("[data-toggle-battle-log]")?.focus());
@@ -753,7 +1008,8 @@
     });
   }
 
-  async function resumeBattle() {
+  async function resumeBattle(shouldRender = true) {
+    if (!currentUser) return;
     const battleId = localStorage.getItem("nuzzleBattleId");
     if (!battleId) return;
     try {
@@ -763,10 +1019,22 @@
       localStorage.removeItem("nuzzleBattleId");
       battleError = error.message;
     }
+    if (shouldRender) render();
+  }
+
+  async function loadSession() {
+    try {
+      const result = await apiRequest("/api/auth/me");
+      currentUser = result.user;
+      if (currentUser) await resumeBattle(false);
+    } catch {
+      currentUser = null;
+    }
     render();
   }
 
+  applyTheme();
   render();
   window.addEventListener("resize", alignOpponentSprite);
-  void resumeBattle();
+  void loadSession();
 })();

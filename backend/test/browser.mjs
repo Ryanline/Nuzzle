@@ -16,7 +16,49 @@ page.on("console", (message) => {
 page.on("pageerror", (error) => errors.push(error.message));
 
 await page.goto(baseUrl, { waitUntil: "networkidle" });
+if (await page.locator(".menu-toggle").count()) throw new Error("The obsolete hamburger menu is still rendered.");
 await page.click('[data-route="pc"]');
+await page.waitForSelector(".auth-card");
+if (await page.locator(".pc-stage").count()) throw new Error("A logged-out user reached the PC without authenticating.");
+await page.click('[data-auth-mode="register"]');
+const username = `tester${String(Date.now()).slice(-8)}`;
+const password = "correct horse battery staple";
+await page.fill('#auth-username', username);
+await page.fill('#auth-password', password);
+await page.fill('#auth-password-confirmation', password);
+await page.click('.auth-primary[type="submit"]');
+await page.waitForSelector(".pc-stage");
+if (!(await page.locator(".account-button").getAttribute("aria-label"))?.includes(username)) throw new Error("The account control did not show the authenticated user.");
+if (await page.locator(".account-online").count()) throw new Error("The obsolete account status dot is still rendered.");
+await page.click("[data-open-account]");
+await page.click("[data-edit-avatar]");
+await page.locator("[data-avatar-input]").setInputFiles({
+  name: "avatar.png",
+  mimeType: "image/png",
+  buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", "base64"),
+});
+await page.waitForSelector('.avatar-editor-preview img[src^="blob:"]');
+await page.click("[data-avatar-save]");
+await page.waitForSelector(".account-profile .account-avatar img");
+if (await page.evaluate(() => fetch("/api/auth/avatar").then((response) => response.status)) !== 200) throw new Error("The uploaded avatar was not persisted by the backend.");
+if (!await page.locator(".account-button img").count()) throw new Error("The uploaded avatar did not appear in the header.");
+await page.click("[data-edit-avatar]");
+if (!await page.locator("[data-avatar-remove]").count()) throw new Error("An uploaded avatar did not offer a remove option.");
+await page.click("[data-avatar-remove]");
+await page.waitForSelector(".account-profile");
+if (await page.locator(".account-profile .account-avatar img").count()) throw new Error("Removing an avatar did not restore the initial fallback.");
+await page.click(".auth-close");
+if (await page.locator(".account-button img").count()) throw new Error("The removed avatar remained in the header.");
+await page.click("[data-toggle-theme]");
+if (await page.locator("html").getAttribute("data-theme") !== "dark") throw new Error("The theme switch did not activate dark mode.");
+if (await page.evaluate(() => localStorage.getItem("nuzzleTheme")) !== "dark") throw new Error("The selected theme was not remembered on the device.");
+await page.click("[data-toggle-theme]");
+await page.click('[data-pc-detail="flareon"]');
+await page.click('[data-team-toggle="flareon"]');
+if (await page.locator(".pokemon-sheet").count()) throw new Error("Removing a Pokémon from the team did not close the PC drawer.");
+await page.click('[data-pc-mon="flareon"]');
+await page.click('[data-team-toggle="flareon"]');
+await page.click(".sheet-close");
 await page.click('[data-pc-mon="arcanine"]');
 await page.click('[data-team-toggle="arcanine"]');
 await page.click('[data-team-replace="flareon"]');
@@ -92,4 +134,4 @@ const imageFailures = await page.locator("img").evaluateAll((images) => images.f
 await browser.close();
 
 if (errors.length || imageFailures.length) throw new Error(JSON.stringify({ errors, imageFailures }, null, 2));
-console.log("Browser battle flow passed: PC team swap, lead, real turn, refresh resume, and forfeit.");
+console.log("Browser flow passed: auth gate, registration, avatar upload/removal, theme, PC team swap, battle, refresh resume, and forfeit.");

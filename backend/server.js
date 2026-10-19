@@ -1,20 +1,27 @@
 import { createServer } from "node:http";
-import { readFile, stat } from "node:fs/promises";
+import { mkdir, readFile, rename, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { BattleService } from "./battle-service.js";
 import { BattleStore } from "./battle-store.js";
+import { AuthStore, SESSION_LIFETIME_MS } from "./auth-store.js";
 import { publicRoster } from "./teams.js";
 
 const backendDirectory = path.dirname(fileURLToPath(import.meta.url));
 const projectDirectory = path.dirname(backendDirectory);
 const frontendDirectory = path.join(projectDirectory, "frontend");
-const dataDirectory = process.env.NUZZLE_DATA_DIR || path.join(backendDirectory, "data", "battles");
+const dataDirectory = process.env.NUZZLE_DATA_DIR || path.join(backendDirectory, "data");
 const port = Number(process.env.PORT || 3000);
 const host = process.env.HOST || "127.0.0.1";
 
-const service = new BattleService(new BattleStore(dataDirectory));
+const service = new BattleService(new BattleStore(path.join(dataDirectory, "battles")));
+const auth = new AuthStore(path.join(dataDirectory, "auth.json"));
+const avatarDirectory = path.join(dataDirectory, "avatars");
 await service.initialize();
+await auth.initialize();
+
+const loginAttempts = new Map();
+const sessionCookie = "nuzzle_session";
 
 const contentTypes = {
   ".css": "text/css; charset=utf-8",
@@ -25,28 +32,73 @@ const contentTypes = {
   ".svg": "image/svg+xml",
 };
 
-function json(response, statusCode, body) {
+function json(response, statusCode, body, extraHeaders = {}) {
   response.writeHead(statusCode, {
     "Content-Type": "application/json; charset=utf-8",
     "Cache-Control": "no-store",
+    ...extraHeaders,
   });
   response.end(JSON.stringify(body));
 }
 
-async function requestBody(request) {
+function cookies(request) {
+  return Object.fromEntries(String(request.headers.cookie || "").split(";").map((part) => part.trim()).filter(Boolean).map((part) => {
+    const separator = part.indexOf("=");
+    return separator < 0 ? [part, ""] : [part.slice(0, separator), decodeURIComponent(part.slice(separator + 1))];
+  }));
+}
+
+function sessionToken(request) {
+  return cookies(request)[sessionCookie] || "";
+}
+
+function sessionHeader(token, maxAge = Math.floor(SESSION_LIFETIME_MS / 1000)) {
+  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+  return `${sessionCookie}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure}`;
+}
+
+function requireUser(request) {
+  const user = auth.userForToken(sessionToken(request));
+  if (!user) throw Object.assign(new Error("Please log in to continue."), { statusCode: 401 });
+  return user;
+}
+
+function rateLimitLogin(request) {
+  const key = request.socket.remoteAddress || "unknown";
+  const now = Date.now();
+  const recent = (loginAttempts.get(key) || []).filter((timestamp) => now - timestamp < 10 * 60 * 1000);
+  if (recent.length >= 20) throw Object.assign(new Error("Too many login attempts. Please wait and try again."), { statusCode: 429 });
+  recent.push(now);
+  loginAttempts.set(key, recent);
+}
+
+async function requestBytes(request, maximumLength) {
   const chunks = [];
   let length = 0;
   for await (const chunk of request) {
     length += chunk.length;
-    if (length > 64 * 1024) throw Object.assign(new Error("Request body is too large."), { statusCode: 413 });
+    if (length > maximumLength) throw Object.assign(new Error("Request body is too large."), { statusCode: 413 });
     chunks.push(chunk);
   }
-  if (!chunks.length) return {};
+  return Buffer.concat(chunks);
+}
+
+async function requestBody(request) {
+  const bytes = await requestBytes(request, 64 * 1024);
+  if (!bytes.length) return {};
   try {
-    return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+    return JSON.parse(bytes.toString("utf8"));
   } catch {
     throw Object.assign(new Error("Request body must be valid JSON."), { statusCode: 400 });
   }
+}
+
+function avatarFilename(userId) {
+  return path.join(avatarDirectory, `${userId}.webp`);
+}
+
+function isWebp(bytes) {
+  return bytes.length >= 12 && bytes.subarray(0, 4).toString("ascii") === "RIFF" && bytes.subarray(8, 12).toString("ascii") === "WEBP";
 }
 
 async function api(request, response, pathname) {
@@ -54,17 +106,81 @@ async function api(request, response, pathname) {
     json(response, 200, { ok: true, engine: "pokemon-showdown", format: "gen9customgame" });
     return true;
   }
+  if (request.method === "GET" && pathname === "/api/auth/me") {
+    json(response, 200, { user: auth.userForToken(sessionToken(request)) });
+    return true;
+  }
+  if (request.method === "POST" && pathname === "/api/auth/register") {
+    rateLimitLogin(request);
+    const body = await requestBody(request);
+    const result = await auth.register(body.username, body.password);
+    json(response, 201, { user: result.user }, { "Set-Cookie": sessionHeader(result.token) });
+    return true;
+  }
+  if (request.method === "POST" && pathname === "/api/auth/login") {
+    rateLimitLogin(request);
+    const body = await requestBody(request);
+    const result = await auth.login(body.username, body.password);
+    json(response, 200, { user: result.user }, { "Set-Cookie": sessionHeader(result.token) });
+    return true;
+  }
+  if (request.method === "POST" && pathname === "/api/auth/logout") {
+    await auth.logout(sessionToken(request));
+    json(response, 200, { ok: true }, { "Set-Cookie": sessionHeader("", 0) });
+    return true;
+  }
+  if (pathname === "/api/auth/avatar") {
+    const user = requireUser(request);
+    const filename = avatarFilename(user.id);
+    if (request.method === "GET") {
+      if (!user.avatarVersion) throw Object.assign(new Error("Profile picture not found."), { statusCode: 404 });
+      const avatar = await readFile(filename).catch((error) => {
+        if (error.code === "ENOENT") throw Object.assign(new Error("Profile picture not found."), { statusCode: 404 });
+        throw error;
+      });
+      response.writeHead(200, {
+        "Content-Type": "image/webp",
+        "Cache-Control": "private, no-cache",
+        "X-Content-Type-Options": "nosniff",
+      });
+      response.end(avatar);
+      return true;
+    }
+    if (request.method === "PUT") {
+      if (!String(request.headers["content-type"] || "").toLowerCase().startsWith("image/webp")) {
+        throw Object.assign(new Error("Profile pictures must be WebP images."), { statusCode: 415 });
+      }
+      const avatar = await requestBytes(request, 512 * 1024);
+      if (!isWebp(avatar)) throw Object.assign(new Error("The uploaded profile picture is invalid."), { statusCode: 400 });
+      await mkdir(avatarDirectory, { recursive: true });
+      const temporary = `${filename}.${process.pid}.tmp`;
+      await writeFile(temporary, avatar, { mode: 0o600 });
+      await rename(temporary, filename);
+      json(response, 200, { user: await auth.setAvatar(user.id, String(Date.now())) });
+      return true;
+    }
+    if (request.method === "DELETE") {
+      await unlink(filename).catch((error) => {
+        if (error.code !== "ENOENT") throw error;
+      });
+      json(response, 200, { user: await auth.setAvatar(user.id, null) });
+      return true;
+    }
+    throw Object.assign(new Error("Method not allowed."), { statusCode: 405 });
+  }
   if (request.method === "GET" && pathname === "/api/roster") {
     json(response, 200, { roster: publicRoster() });
     return true;
   }
   if (request.method === "POST" && pathname === "/api/battles") {
-    json(response, 201, await service.create(await requestBody(request)));
+    const user = requireUser(request);
+    json(response, 201, await service.create(await requestBody(request), user.id));
     return true;
   }
   const match = pathname.match(/^\/api\/battles\/([0-9a-f-]+)(?:\/(choices|forfeit))?$/i);
   if (!match) return false;
-  const battle = service.get(match[1]);
+  const user = requireUser(request);
+  const battle = service.get(match[1], user.id);
   if (request.method === "GET" && !match[2]) {
     json(response, 200, battle.state());
     return true;

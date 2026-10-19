@@ -480,7 +480,9 @@ The client must not be trusted to declare a win, choose its encounter, adjust cu
 
 ### Accounts and hosting
 
-The game needs durable user progress and a reasonable path to serving more users. Account provider, guest mode, account migration, database, hosting, deployment region, and cost targets remain open.
+Playing and tracked sections require a Nuzzle account. The landing page remains visible while logged out; selecting a game section opens the login card and continues to the requested section after authentication. The header provides a persistent account control and a per-device light/dark theme switch. Successful login persists on the device through a secure server session rather than storing credentials or authentication tokens in browser storage. There is no guest mode in the current direction.
+
+The local-development implementation uses username/password accounts, scrypt password hashes, 30-day HttpOnly same-site cookies, and a replaceable JSON store under `backend/data/`. Usernames are case-insensitively unique and passwords require at least 15 characters. Email, password recovery, verification, and social login are intentionally deferred. Before public deployment, migrate account/progress data to a durable database and add recovery, operational logging, backups, migrations, and production abuse controls.
 
 Before public launch, include operational logging, backups, basic abuse controls, database migrations, and a way to inspect/recover failed game transactions. Avoid choosing infrastructure solely around hypothetical large scale; measure actual usage.
 
@@ -609,7 +611,7 @@ Use these observations to tune opponent sets, encounter eligibility, prices, rew
 | D14 | Held-item recycling/theft/swap behavior and persistent ownership rules | Complete item lifecycle |
 | D15 | Post-battle encounter access and partial daily claims | Encounter UI and eligibility |
 | D16 | Restrictions, if any, on player-edited movesets | TM/tutor management |
-| D17 | Account/guest approach, stack, deployment, and backups | Persistent end-to-end release |
+| D17 | Production account database/provider, recovery, deployment, and backups | Persistent end-to-end release |
 | D18 | Title/domain, asset/license review, fan-project wording, future ad placement | Public launch / monetization |
 
 Resolve these incrementally. Do not interpret open questions as permission to expand scope.
@@ -625,6 +627,14 @@ Resolve these incrementally. Do not interpret open questions as permission to ex
 - Trainer AI never switches voluntarily, chooses a random currently legal move, and commits before the player's choice is received.
 - Battle events use an ordered, scrollable mobile log that includes both sides' moves and important public Showdown effects without relying on battle animations.
 - Encounter integration, smarter AI, and post-battle roster consequences remain outside the first battle-engine implementation.
+
+### October 19, 2026 — Initial account slice
+
+- Gameplay sections require an account; the public landing screen acts as the login boundary.
+- The header hamburger is replaced by a per-device light/dark control and an account control whose signed-in state is visible at a glance.
+- Local development uses username/password registration with persistent server sessions. Authentication cookies are HttpOnly and battle records are owned by their creating user.
+- Profiles default to a circular first-letter avatar. A user may upload, replace, or remove a profile picture from the account panel; local development stores the normalized image alongside other ignored backend data.
+- Email, account recovery, and third-party login are deferred until production infrastructure is selected.
 
 ### October 15, 2026 — Initial consolidated specification
 

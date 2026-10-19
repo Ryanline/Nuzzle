@@ -83,6 +83,13 @@ test("a saved battle replays to the same decision point", async () => {
   assert.deepEqual(restored.opponent.team.map((pokemon) => pokemon.percent), afterMove.opponent.team.map((pokemon) => pokemon.percent));
 });
 
+test("a saved battle belongs only to the account that created it", async () => {
+  const { service } = await serviceFixture();
+  const initial = await service.create({ partyIds: defaultParty, leadId: "vaporeon" }, "user-one");
+  assert.equal(service.get(initial.id, "user-one").state().id, initial.id);
+  assert.throws(() => service.get(initial.id, "user-two"), /not found/i);
+});
+
 test("forfeit produces a Brock win", async () => {
   const { service } = await serviceFixture();
   const initial = await service.create({ partyIds: defaultParty, leadId: "gengar" });
