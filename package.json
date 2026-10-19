@@ -1,0 +1,24 @@
+{
+  "name": "nuzzle",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0 <25"
+  },
+  "scripts": {
+    "dev": "node --watch backend/server.js",
+    "start": "node backend/server.js",
+    "test": "node --test backend/test/*.test.js",
+    "test:browser": "node backend/test/run-browser.mjs"
+  },
+  "dependencies": {
+    "pokemon-showdown": "0.11.11"
+  },
+  "devDependencies": {
+    "playwright-core": "1.64.1"
+  },
+  "overrides": {
+    "uuid": "11.1.1"
+  }
+}

@@ -316,9 +316,7 @@ Persist the generated moveset. Reloading, reopening an encounter, or reconnectin
 
 The project intends to rely heavily on the Pokémon Showdown repository for battle simulation/data and use the sprite resources/style used by Showdown for consistency.
 
-Any generation's Pokémon may be considered. This does not yet choose a mechanics generation or legal format. The selected simulator version, format, learnsets, available moves, and special battle mechanics must be made compatible explicitly.
-
-Mega Evolution, Z-Moves, Dynamax, Terastallization, and similar mechanics are not approved simply because their Pokémon generations are eligible. Their support is open.
+Any generation's Pokémon may be considered. Battles currently use Pokémon Showdown's Generation 9 Custom Game mechanics. Mega Evolution, Z-Moves, Dynamax, Terastallization, and similar battle gimmicks are disabled for the current playable scope.
 
 ### Public opponent information
 
@@ -328,9 +326,13 @@ Information should be accessible without overcrowding the home screen. Because o
 
 ### AI
 
-AI strategy is not yet specified. A simple algorithm or an appropriately reusable existing approach may be investigated. Later, document the decision flow and permitted information access. Do not assume Showdown supplies the desired trainer AI automatically.
+The current trainer AI never switches voluntarily and uniformly selects one of its currently legal moves. Disabled or exhausted moves are excluded. After a faint, it sends the next living Pokémon in fixed team order. The AI selects and commits its action before the player submits an action, so it cannot react to hidden player intent.
 
-The AI should not be given access to player decisions that it should not know, such as the player's already-selected move before choosing its own action, unless explicitly approved as a game rule.
+Trainers cannot use bag items in battle. The initial Brock team also has no held items.
+
+### Initial Brock configuration
+
+Brock's fixed team order is Steelix, Golem, Rhyperior, Aerodactyl, Sudowoodo, and Magcargo. Steelix is the lead. Each Pokémon has four configured moves, no held item, and uses the common development stat spread described below.
 
 ## 9. Items, rewards, and economy
 
@@ -377,6 +379,8 @@ Purchases are allowed before inspecting/revealing the opponent. Since the home p
 
 Players should be able to inspect their own Pokémon's nature, stats, moves, and relevant details. Initial nature, ability, IV, and EV generation rules are open. Training items must follow the chosen stat rules and limits.
 
+For the current playable scope, every player and trainer Pokémon has 15 IVs and 85 EVs in each of the six stats. This is an even 510-EV development spread. Existing configured natures, abilities, moves, and player held items remain in effect.
+
 ## 10. Visual direction and UX
 
 ### Desired feel
@@ -394,6 +398,8 @@ Use original site branding and layout. Avoid presenting the project as an offici
 - Show detailed information on demand through a detail panel or expanded row.
 - Responsive layouts for phones and desktop browsers.
 - Keyboard-accessible controls, readable contrast, and useful loading/error states.
+- On mobile battle screens, present public simulator events in a fixed-height inline log with contained vertical scrolling and a brief staggered reveal for genuinely new entries. Follow new entries only while the reader remains near the bottom. Expanded mode becomes an opaque card over the command controls below the battle visual while leaving Give Up visible; use an explicit expand/collapse control rather than a gesture-driven sliding drawer.
+- Use an original CSS-rendered rocky battlefield rather than the preparation-screen arena image. Keep combatants in stable, platform-aligned stage slots with the opponent in the upper-right and the player in the lower-left. Put compact opaque HP/status cards in the opposite corners so labels never float over sprites; show exact HP only for the player and a percentage for the opponent.
 
 ### Screen outline
 
@@ -587,9 +593,9 @@ Use these observations to tune opponent sets, encounter eligibility, prices, rew
 
 | ID | Decision | Needed before |
 | --- | --- | --- |
-| D01 | Mechanics generation/format, simulator version, legal learnsets, special battle mechanics | Battle and learnset integration |
+| D01 | Legal learnset policy beyond the current Generation 9 Custom Game battle slice | Encounter and moveset generation |
 | D02 | Eligible species/forms, starter list, single-stage and legendary eligibility, random weights | Encounter generation |
-| D03 | Initial IVs, EVs, natures, abilities, base/Sunday shiny rates | Pokémon generation |
+| D03 | Initial natures, abilities, and base/Sunday shiny rates beyond the current fixed 15-IV/85-EV spread | Pokémon generation |
 | D04 | Confirm uniform move rolls; classify unusual damage mechanics | Finalizing move generator |
 | D05 | Whether fresh-run 10 replaces daily encounters; post-wipe reveal timing | Encounter/run lifecycle |
 | D06 | Global game timezone, rollover, cross-midnight battle completion, expiry, and month-boundary ordering | Daily gating and resets |
@@ -598,7 +604,7 @@ Use these observations to tune opponent sets, encounter eligibility, prices, rew
 | D09 | Monthly item reset and any Champion carryover exception | Monthly inventory reset |
 | D10 | Shop inventory, prices, payouts, sale values, starting money, training/TM/tutor behavior | Economy |
 | D11 | Encounter-item scope/consumption and empty-pool behavior; eggs if included | Encounter modifiers |
-| D12 | AI strategy and information access, trainer datasets/sets, opponent ability visibility | Trainer battle integration |
+| D12 | Future AI difficulty, broader trainer datasets/sets, and opponent ability visibility | Expanded trainer battle integration |
 | D13 | Forfeit, draw, timeout, abandoned battle, and exceptional non-faint loss behavior | Reliable battle finalization |
 | D14 | Held-item recycling/theft/swap behavior and persistent ownership rules | Complete item lifecycle |
 | D15 | Post-battle encounter access and partial daily claims | Encounter UI and eligibility |
@@ -609,6 +615,16 @@ Use these observations to tune opponent sets, encounter eligibility, prices, rew
 Resolve these incrementally. Do not interpret open questions as permission to expand scope.
 
 ## 18. Decision log
+
+### October 19, 2026 — First working battle slice
+
+- Battles use Pokémon Showdown Generation 9 Custom Game mechanics at level 100.
+- Mega Evolution, Z-Moves, Dynamax, and Terastallization are disabled.
+- All current Pokémon use 15 IVs and 85 EVs in every stat.
+- Brock uses Steelix, Golem, Rhyperior, Aerodactyl, Sudowoodo, and Magcargo in that order, with no held items.
+- Trainer AI never switches voluntarily, chooses a random currently legal move, and commits before the player's choice is received.
+- Battle events use an ordered, scrollable mobile log that includes both sides' moves and important public Showdown effects without relying on battle animations.
+- Encounter integration, smarter AI, and post-battle roster consequences remain outside the first battle-engine implementation.
 
 ### October 15, 2026 — Initial consolidated specification
 

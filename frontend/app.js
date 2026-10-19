@@ -1,7 +1,9 @@
 (function () {
   "use strict";
 
-  const sprite = (id, back = false) => `assets/${back ? "sprites-back" : "sprites"}/${id}.png`;
+  const backSpriteIds = new Set(["flareon", "raichu", "vaporeon", "gengar", "venusaur", "pidgeot", "arcanine", "lapras", "alakazam", "machamp", "nidoking", "exeggutor"]);
+  const sprite = (id, back = false) => `assets/${back && backSpriteIds.has(id) ? "sprites-back" : "sprites"}/${id}.png`;
+  const healthTone = (percent) => percent <= 20 ? "critical" : percent <= 50 ? "warning" : "healthy";
   const trainerSprite = "assets/trainers/brock.png";
   const app = document.querySelector("#app");
   const tooltip = document.querySelector("#tooltip");
@@ -37,11 +39,15 @@
   let team = new Set(partyIds);
   let pcOrder = [...pcIds];
   let encounters = new Array(3).fill(null);
-  let activeId = "flareon";
-  let foeHp = 100;
-  let playerHp = 100;
-  let turn = 1;
-  let battleMessage = "";
+  let battleState = null;
+  let battleLoading = false;
+  let battleError = "";
+  let battleLogExpanded = false;
+  let battleLogFollow = true;
+  let battleLogScrollTop = 0;
+  let battleLogHasNew = false;
+  let battleLogInitialized = false;
+  let battleLogRenderedIds = new Set();
   let balance = 2500;
   let selectedPcId = null;
   let pcSwapMode = false;
@@ -55,6 +61,86 @@
   let activeShopGroup = "Held Items";
   let activeBagGroup = "Held Items";
   const inventory = {};
+
+  function escapeHtml(value) {
+    return String(value ?? "").replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
+  }
+
+  async function apiRequest(path, options = {}) {
+    const response = await fetch(path, {
+      ...options,
+      headers: options.body ? { "Content-Type": "application/json", ...options.headers } : options.headers,
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.error || `Request failed (${response.status}).`);
+    return body;
+  }
+
+  function acceptBattleState(nextState) {
+    if (battleState?.id && battleState.id !== nextState?.id) {
+      battleLogInitialized = false;
+      battleLogRenderedIds = new Set();
+    }
+    const previousId = battleState?.log?.at(-1)?.id || 0;
+    const nextId = nextState?.log?.at(-1)?.id || 0;
+    if (!battleLogFollow && nextId > previousId) battleLogHasNew = true;
+    battleState = nextState;
+  }
+
+  async function startBattle() {
+    if (!selectedLeadId || battleLoading) return;
+    battleLoading = true;
+    battleError = "";
+    render();
+    try {
+      acceptBattleState(await apiRequest("/api/battles", {
+        method: "POST",
+        body: JSON.stringify({ partyIds: [...team].slice(0, 6), leadId: selectedLeadId }),
+      }));
+      localStorage.setItem("nuzzleBattleId", battleState.id);
+      route = "battle";
+    } catch (error) {
+      battleError = error.message;
+      route = "lead";
+    } finally {
+      battleLoading = false;
+      render();
+      scrollTo(0, 0);
+    }
+  }
+
+  async function submitBattleChoice(action) {
+    if (!battleState || battleLoading || battleState.ended) return;
+    battleLoading = true;
+    battleError = "";
+    render();
+    try {
+      acceptBattleState(await apiRequest(`/api/battles/${battleState.id}/choices`, {
+        method: "POST",
+        body: JSON.stringify({ rqid: battleState.rqid, action }),
+      }));
+    } catch (error) {
+      battleError = error.message;
+    } finally {
+      battleLoading = false;
+      render();
+    }
+  }
+
+  async function forfeitBattle() {
+    if (!battleState || battleLoading || battleState.ended) return;
+    battleLoading = true;
+    battleError = "";
+    render();
+    try {
+      acceptBattleState(await apiRequest(`/api/battles/${battleState.id}/forfeit`, { method: "POST" }));
+    } catch (error) {
+      battleError = error.message;
+    } finally {
+      battleLoading = false;
+      render();
+    }
+  }
 
   function title() {
     return "Nuzzle #1: Brock (10/15/2026)";
@@ -96,7 +182,8 @@
     return `<section class="screen lead-screen">${header()}<div class="arena lead-arena"><img class="sprite trainer" src="${trainerSprite}" alt="Gym Leader Brock" /></div>
       <div class="lead-prompt"><p class="prompt">How will you start the battle?</p><h2 class="section-label">Choose Lead</h2>
       <div class="lead-grid">${chosen.map(monButton).join("")}</div></div>
-      <div class="lead-actions"><button class="gloss-button red" type="button" data-start-battle ${selectedLeadId ? "" : "disabled"}>start battle</button><button class="gloss-button purple" type="button" data-route="home">back</button></div>
+      ${battleError ? `<p class="battle-error" role="alert">${escapeHtml(battleError)}</p>` : ""}
+      <div class="lead-actions"><button class="gloss-button red" type="button" data-start-battle ${selectedLeadId && !battleLoading ? "" : "disabled"}>${battleLoading ? "starting…" : "start battle"}</button><button class="gloss-button purple" type="button" data-route="home">back</button></div>
     </section>`;
   }
 
@@ -107,16 +194,40 @@
   }
 
   function battle() {
-    const mon = mons[activeId];
-    return `<section class="screen battle-screen">${header()}<div class="arena battle-arena">
-      <div class="hp-box enemy"><strong>Steelix <small>Lv. 80</small></strong><div class="hp-bar"><i style="width:${foeHp}%"></i></div><small>${foeHp}%</small></div>
-      <img class="sprite active-sprite enemy" src="${sprite("steelix")}" alt="Steelix" />
-      <div class="hp-box player"><strong>${mon.name} <small>Lv. 80</small></strong><div class="hp-bar"><i style="width:${playerHp}%"></i></div><small>${Math.round(263 * playerHp / 100)}/263</small></div>
-      <img class="sprite active-sprite player" src="${sprite(activeId, true)}" alt="${mon.name}" />
-    </div><div class="battle-panel"><p class="prompt">What will <strong>${mon.name}</strong> do? <small>Turn ${turn}</small></p><h2 class="section-label attack">Attack</h2>
-      <div class="move-grid">${Object.entries(moves).map(([id, move]) => `<button class="move-button type-${move.type.toLowerCase()}" type="button" data-move="${id}" data-move-tip="${id}"><strong>${move.name}</strong><span>${move.type}</span><small>${move.pp}</small></button>`).join("")}</div>
-      <h2 class="section-label">Switch</h2><div class="switch-grid">${[...team].slice(0, 6).map((id) => { const item = mons[id]; return `<button class="switch-choice ${id === activeId ? "selected" : ""}" type="button" data-switch="${id}" data-mon-tip="${id}"><img class="sprite" src="${sprite(id)}" alt=""/><span>${item.name}</span></button>`; }).join("")}</div>
-      <p class="battle-message">${battleMessage}</p><button class="gloss-button red give-up" data-route="home">give up</button></div>
+    if (!battleState) return `<section class="screen battle-screen">${header()}<div class="battle-unavailable"><h2>Battle unavailable</h2><p>${escapeHtml(battleError || "Start a battle from the lead-selection screen.")}</p><button class="gloss-button purple" data-route="lead">back</button></div></section>`;
+    const player = battleState.player.active;
+    const enemy = battleState.opponent.active;
+    const logEntries = battleState.log || (battleState.events || []).map((text, index) => ({ id: index + 1, side: "system", category: "event", text }));
+    const visibleLogEntries = logEntries.at(-1)?.category === "turn" ? logEntries.slice(0, -1) : logEntries;
+    const latestAnnouncement = [...logEntries].reverse().find((entry) => entry.category !== "turn")?.text || "";
+    let newEntryIndex = 0;
+    const logHtml = visibleLogEntries.map((entry) => {
+      const isNew = battleLogInitialized && !battleLogRenderedIds.has(entry.id);
+      const delay = isNew ? Math.min(newEntryIndex++, 7) * 38 : 0;
+      battleLogRenderedIds.add(entry.id);
+      const content = entry.category === "turn"
+        ? `<div class="battle-log-turn" role="separator">${escapeHtml(entry.text)}</div>`
+        : `<p class="battle-log-entry ${entry.side} category-${entry.category}">${escapeHtml(entry.text)}</p>`;
+      return `<div class="battle-log-row${isNew ? " is-new" : ""}" data-log-entry-id="${entry.id}" style="--log-delay:${delay}ms"><div>${content}</div></div>`;
+    }).join("");
+    battleLogInitialized = true;
+    const movesHtml = battleState.moves.map((move) => `<button class="move-button type-${move.type.toLowerCase()}" type="button" data-battle-move="${move.slot}" data-battle-move-tip="${move.slot}" ${move.disabled || battleLoading || battleState.ended ? "disabled" : ""}><strong>${escapeHtml(move.name)}</strong><span>${escapeHtml(move.type)}</span><small>${move.pp}/${move.maxPp}</small></button>`).join("");
+    const switchesHtml = battleState.player.team.map((pokemon) => `<button class="switch-choice ${pokemon.active ? "selected" : ""} ${pokemon.fainted ? "fainted" : ""}" type="button" data-battle-switch="${pokemon.slot}" data-mon-tip="${pokemon.id}" ${!pokemon.canSwitch || battleLoading || battleState.ended ? "disabled" : ""}><img class="sprite" src="${sprite(pokemon.id)}" alt=""/><span>${escapeHtml(pokemon.name)}</span><small>${pokemon.fainted ? "fainted" : `${pokemon.percent}%`}</small></button>`).join("");
+    const prompt = battleState.ended
+      ? `<strong>${battleState.winner === "Player" ? "You won!" : battleState.winner === "Brock" ? "Brock won." : "Battle over."}</strong>`
+      : battleState.forcedSwitch
+        ? "Choose your next Pokémon."
+        : battleLoading || battleState.waiting
+          ? "Resolving the turn…"
+          : `What will <strong>${escapeHtml(player?.name)}</strong> do?`;
+    return `<section class="screen battle-screen">${header()}<div class="arena battle-arena" aria-label="Rocky battlefield">
+      <div class="battle-platform enemy" aria-hidden="true"></div><div class="battle-platform player" aria-hidden="true"></div>
+      ${enemy ? `<div class="battler-slot enemy" data-pokemon="${escapeHtml(enemy.id)}"><img class="sprite active-sprite" src="${sprite(enemy.id)}" alt="${escapeHtml(enemy.name)}" /></div><section class="battle-hud enemy" aria-label="Opponent ${escapeHtml(enemy.name)}"><div class="battle-hud-title"><strong>${escapeHtml(enemy.name)}</strong><span>Lv. ${enemy.level}</span></div><div class="hp-bar ${healthTone(enemy.percent)}"><i style="width:${enemy.percent}%"></i></div><div class="battle-hud-detail"><span>HP</span><small>${enemy.percent}%</small>${enemy.status ? `<b>${escapeHtml(enemy.status.toUpperCase())}</b>` : ""}</div></section>` : ""}
+      ${player ? `<div class="battler-slot player" data-pokemon="${escapeHtml(player.id)}"><img class="sprite active-sprite" src="${sprite(player.id, true)}" alt="${escapeHtml(player.name)}" /></div><section class="battle-hud player" aria-label="Your ${escapeHtml(player.name)}"><div class="battle-hud-title"><strong>${escapeHtml(player.name)}</strong><span>Lv. ${player.level}</span></div><div class="hp-bar ${healthTone(player.percent)}"><i style="width:${player.percent}%"></i></div><div class="battle-hud-detail"><span>HP</span><small>${player.hp}/${player.maxHp}</small>${player.status ? `<b>${escapeHtml(player.status.toUpperCase())}</b>` : ""}</div></section>` : ""}
+    </div><div class="battle-panel${battleLogExpanded ? " log-expanded" : ""}"><section class="battle-log-card${battleLogExpanded ? " expanded" : ""}" aria-labelledby="battle-log-title"><header><h2 id="battle-log-title">Battle log</h2><div>${battleLogHasNew ? '<button type="button" data-battle-log-new>new events</button>' : ""}<button type="button" data-toggle-battle-log aria-expanded="${battleLogExpanded}">${battleLogExpanded ? "collapse" : "expand"}</button></div></header><div class="battle-log-body" data-battle-log role="log" aria-label="Battle events" tabindex="0"><div class="battle-log-stack">${logHtml || '<p class="battle-log-empty">The battle is starting…</p>'}</div></div></section><span class="visually-hidden" role="status" aria-live="polite">${escapeHtml(latestAnnouncement)}</span>
+      <div class="battle-command-area" ${battleLogExpanded ? 'inert aria-hidden="true"' : ""}><p class="prompt">${prompt} <small>Turn ${battleState.turn}</small></p>${battleState.forcedSwitch || battleState.ended ? "" : `<h2 class="section-label attack">Attack</h2><div class="move-grid">${movesHtml}</div>`}
+      <h2 class="section-label">Switch</h2><div class="switch-grid">${switchesHtml}</div>${battleError ? `<p class="battle-error" role="alert">${escapeHtml(battleError)}</p>` : ""}</div>
+      ${battleState.ended ? '<button class="gloss-button purple give-up" data-route="home">return home</button>' : '<button class="gloss-button red give-up" data-forfeit-battle>give up</button>'}</div>
     </section>`;
   }
 
@@ -277,6 +388,12 @@
   }
 
   function render() {
+    const currentLog = document.querySelector("[data-battle-log]");
+    if (currentLog) {
+      battleLogScrollTop = currentLog.scrollTop;
+      battleLogFollow = currentLog.scrollHeight - currentLog.scrollTop - currentLog.clientHeight < 24;
+      if (battleLogFollow) battleLogHasNew = false;
+    }
     hideTooltip();
     const screens = { home, lead, battle, pc, bag, encounters: encountersScreen, mart };
     app.innerHTML = screens[route] ? screens[route]() : simpleScreen(route);
@@ -291,6 +408,35 @@
   function moveTip(id) {
     const move = moves[id];
     return `<div class="tip-head">${move.name}<span class="tip-types"><i class="type-chip ${move.type.toLowerCase()}">${move.type}</i></span></div><div class="tip-row">Base power: <strong>${move.power}</strong><br>Accuracy: <strong>${move.accuracy}</strong></div><div class="tip-row">${move.description}</div><div class="tip-row">△ <strong>${move.effectiveness}</strong></div>`;
+  }
+
+  function battleMoveTip(slot) {
+    const move = battleState?.moves.find((candidate) => candidate.slot === Number(slot));
+    if (!move) return "";
+    const power = move.power ?? "—";
+    const accuracy = move.accuracy == null ? "—" : `${move.accuracy}%`;
+    return `<div class="tip-head">${escapeHtml(move.name)}<span class="tip-types"><i class="type-chip ${move.type.toLowerCase()}">${escapeHtml(move.type)}</i></span></div><div class="tip-row">Base power: <strong>${power}</strong><br>Accuracy: <strong>${accuracy}</strong></div><div class="tip-row">${escapeHtml(move.description)}</div>`;
+  }
+
+  function alignOpponentSprite() {
+    const arena = document.querySelector(".battle-arena");
+    const platform = arena?.querySelector(".battle-platform.enemy");
+    const slot = arena?.querySelector(".battler-slot.enemy");
+    const image = slot?.querySelector(".active-sprite");
+    if (!arena || !platform || !slot || !image) return;
+    if (!image.complete || !image.naturalWidth) {
+      image.addEventListener("load", alignOpponentSprite, { once: true });
+      return;
+    }
+    const arenaRect = arena.getBoundingClientRect();
+    const platformRect = platform.getBoundingClientRect();
+    const spriteSize = Math.min(180, arenaRect.width * .46) * .87;
+    const anchorX = platformRect.left - arenaRect.left + platformRect.width / 2;
+    const anchorY = platformRect.bottom - arenaRect.top - platformRect.height * .1 + 16;
+    image.style.setProperty("--foe-sprite-size", `${spriteSize}px`);
+    image.style.setProperty("--foe-sprite-left", `${anchorX - spriteSize / 2}px`);
+    image.style.setProperty("--foe-sprite-top", `${anchorY - spriteSize}px`);
+    slot.classList.add("is-aligned");
   }
 
   function showTooltip(target, html) {
@@ -343,8 +489,17 @@
   }
 
   function bind() {
+    alignOpponentSprite();
     document.querySelector(".menu-toggle")?.addEventListener("click", () => { menuOpen = !menuOpen; render(); });
-    document.querySelectorAll("[data-route]").forEach((button) => button.addEventListener("click", () => { route = button.dataset.route; if (route === "lead") selectedLeadId = null; if (route === "mart") purchaseMessage = ""; menuOpen = false; render(); scrollTo(0, 0); }));
+    document.querySelectorAll("[data-route]").forEach((button) => button.addEventListener("click", () => {
+      const requestedRoute = button.dataset.route;
+      route = requestedRoute === "lead" && battleState && !battleState.ended ? "battle" : requestedRoute;
+      if (route === "lead") selectedLeadId = null;
+      if (route === "mart") purchaseMessage = "";
+      menuOpen = false;
+      render();
+      scrollTo(0, 0);
+    }));
     document.querySelectorAll("[data-select-lead]").forEach((button) => button.addEventListener("click", () => {
       selectedLeadId = button.dataset.selectLead;
       document.querySelectorAll("[data-select-lead]").forEach((choice) => {
@@ -354,9 +509,45 @@
       });
       document.querySelector("[data-start-battle]")?.removeAttribute("disabled");
     }));
-    document.querySelector("[data-start-battle]")?.addEventListener("click", () => { if (!selectedLeadId) return; activeId = selectedLeadId; route = "battle"; render(); scrollTo(0, 0); });
-    document.querySelectorAll("[data-switch]").forEach((button) => button.addEventListener("click", () => { if (button.dataset.held || button.dataset.switch === activeId) return; activeId = button.dataset.switch; battleMessage = `Go, ${mons[activeId].name}!`; turn += 1; render(); }));
-    document.querySelectorAll("[data-move]").forEach((button) => button.addEventListener("click", () => { if (button.dataset.held) return; const move = moves[button.dataset.move]; foeHp = Math.max(0, foeHp - (move.power === "—" ? 0 : 18)); playerHp = Math.max(0, playerHp - 9); battleMessage = `${mons[activeId].name} used ${move.name}!${foeHp === 0 ? " Steelix fainted!" : ""}`; turn += 1; render(); }));
+    document.querySelector("[data-start-battle]")?.addEventListener("click", startBattle);
+    document.querySelectorAll("[data-battle-switch]").forEach((button) => button.addEventListener("click", () => submitBattleChoice({ type: "switch", slot: Number(button.dataset.battleSwitch) })));
+    document.querySelectorAll("[data-battle-move]").forEach((button) => button.addEventListener("click", () => submitBattleChoice({ type: "move", slot: Number(button.dataset.battleMove) })));
+    document.querySelector("[data-forfeit-battle]")?.addEventListener("click", forfeitBattle);
+    document.querySelector("[data-toggle-battle-log]")?.addEventListener("click", () => {
+      battleLogExpanded = !battleLogExpanded;
+      render();
+      requestAnimationFrame(() => document.querySelector("[data-toggle-battle-log]")?.focus());
+    });
+    const battleLog = document.querySelector("[data-battle-log]");
+    if (battleLog) {
+      battleLog.addEventListener("scroll", () => {
+        battleLogScrollTop = battleLog.scrollTop;
+        battleLogFollow = battleLog.scrollHeight - battleLog.scrollTop - battleLog.clientHeight < 24;
+        if (battleLogFollow) battleLogHasNew = false;
+      }, { passive: true });
+      requestAnimationFrame(() => {
+        battleLog.scrollTop = battleLogFollow ? battleLog.scrollHeight : battleLogScrollTop;
+        const newRows = battleLog.querySelectorAll(".battle-log-row.is-new");
+        if (battleLogFollow && newRows.length) {
+          const duration = matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 260 + Math.min(newRows.length - 1, 7) * 38;
+          const started = performance.now();
+          const followAnimation = (now) => {
+            if (!battleLogFollow) return;
+            battleLog.scrollTop = battleLog.scrollHeight;
+            if (now - started < duration) requestAnimationFrame(followAnimation);
+          };
+          requestAnimationFrame(followAnimation);
+        }
+      });
+    }
+    document.querySelector("[data-battle-log-new]")?.addEventListener("click", () => {
+      const log = document.querySelector("[data-battle-log]");
+      if (!log) return;
+      battleLogFollow = true;
+      battleLogHasNew = false;
+      log.scrollTop = log.scrollHeight;
+      render();
+    });
     document.querySelectorAll("[data-encounter]").forEach((button) => button.addEventListener("click", () => { const index = Number(button.dataset.encounter); if (!encounters[index]) { encounters[index] = encounterIds[index]; if (!pcOrder.includes(encounterIds[index])) pcOrder.push(encounterIds[index]); render(); } }));
     const bindShopPurchases = () => document.querySelectorAll("[data-buy]").forEach((button) => button.addEventListener("click", () => {
       const item = shopItems.find((candidate) => candidate.id === button.dataset.buy);
@@ -499,8 +690,13 @@
     });
     document.querySelectorAll("[data-mon-tip]").forEach((element) => addInfoInteractions(element, () => monTip(element.dataset.monTip)));
     document.querySelectorAll("[data-move-tip]").forEach((element) => addInfoInteractions(element, () => moveTip(element.dataset.moveTip)));
+    document.querySelectorAll("[data-battle-move-tip]").forEach((element) => addInfoInteractions(element, () => battleMoveTip(element.dataset.battleMoveTip)));
     document.onkeydown = (event) => {
-      if (event.key === "Escape" && selectedPcId) {
+      if (event.key === "Escape" && battleLogExpanded) {
+        battleLogExpanded = false;
+        render();
+        requestAnimationFrame(() => document.querySelector("[data-toggle-battle-log]")?.focus());
+      } else if (event.key === "Escape" && selectedPcId) {
         if (pcSwapMode) pcSwapMode = false;
         else if (pcItemMode) { pcItemMode = false; pendingPcItemId = null; selectedNature = null; }
         else selectedPcId = null;
@@ -557,5 +753,20 @@
     });
   }
 
+  async function resumeBattle() {
+    const battleId = localStorage.getItem("nuzzleBattleId");
+    if (!battleId) return;
+    try {
+      acceptBattleState(await apiRequest(`/api/battles/${battleId}`));
+      if (!battleState.ended) route = "battle";
+    } catch (error) {
+      localStorage.removeItem("nuzzleBattleId");
+      battleError = error.message;
+    }
+    render();
+  }
+
   render();
+  window.addEventListener("resize", alignOpponentSprite);
+  void resumeBattle();
 })();
