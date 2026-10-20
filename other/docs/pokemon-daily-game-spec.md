@@ -1,5 +1,7 @@
 # Pokémon Daily Battle Game — Living Project Specification
 
+> **Supporting design history:** The current owner-approved rules are consolidated in [`INFO.md`](INFO.md). When this document conflicts with `INFO.md`, use `INFO.md`.
+
 Version: 0.1  
 Last updated: October 15, 2026  
 Project name / domain: TBD  
@@ -82,7 +84,7 @@ There is no in-app practice mode before the official attempt and no same-day ret
 | --- | --- | --- |
 | Ordinary day | Regular trainer | 3 regular encounters |
 | Friday outside the finale | Gym battle | 3 regular encounters |
-| Sunday | Battle determined by the calendar | 4 regular encounters; starters join the encounter pool; increased shiny odds |
+| Sunday | Battle determined by the calendar | 4 regular encounters; ordinary eligibility and shiny odds still apply |
 | Final five days of the month | Elite Four 1, Elite Four 2, Elite Four 3, Elite Four 4, Champion | Normal weekday/Sunday encounter rules still apply |
 | First day of the month / fresh run | Battle determined by the calendar | Fresh-run encounter rules apply; overlap with regular encounters is open |
 
@@ -184,7 +186,7 @@ Track the current win streak, individual gym badges, Elite Four wins, and cumula
 - **3 encounters per day.**
 - **4 encounters on Sundays.**
 - Capturing is guaranteed. There is no wild battle or catch-success roll.
-- Starters cannot appear in ordinary encounters except on Sundays, when they join the eligible pool. Sunday does not guarantee a starter.
+- Starters cannot appear in ordinary encounters, including Sundays.
 - All encountered Pokémon are fully evolved and level 100.
 - No leveling or evolution gameplay is included.
 
@@ -377,9 +379,9 @@ Purchases are allowed before inspecting/revealing the opponent. Since the home p
 
 ### Pokémon attributes
 
-Players should be able to inspect their own Pokémon's nature, stats, moves, and relevant details. Initial nature, ability, IV, and EV generation rules are open. Training items must follow the chosen stat rules and limits.
+Players should be able to inspect their own Pokémon's nature, stats, moves, and relevant details. New player encounters receive independently random `0–31` IVs, zero EVs, a random nature, and a random ordinary non-hidden ability. Training items must follow the chosen stat rules and limits.
 
-For the current playable scope, every player and trainer Pokémon has 15 IVs and 85 EVs in each of the six stats. This is an even 510-EV development spread. Existing configured natures, abilities, moves, and player held items remain in effect.
+The existing development roster and Brock slice may retain their temporary 15-IV/85-EV configuration until they are replaced by generated player records and trainer templates.
 
 ## 10. Visual direction and UX
 
@@ -428,7 +430,7 @@ During battle, preparation actions must not mutate the already-committed team. O
 - Shareable result cards and leaderboards, if desired.
 - Advertising.
 
-Sunday increased shiny odds are desired, but base and boosted rates remain open. Paid cosmetics are not specified.
+Encounter shininess uses the unmodified modern base-game rate of `1/4096`; Sunday does not increase it. Paid cosmetics are not specified.
 
 ### Not part of the current design
 
@@ -542,7 +544,7 @@ Use development-only date controls and fixture encounters to test calendar bound
 
 - A fresh run grants 10 unique currently unowned eligible Pokémon; the first is a random fully evolved starter.
 - Ordinary claims grant 3 Pokémon, or 4 on Sunday, subject to the agreed fresh-run overlap rule.
-- Ordinary non-Sunday encounters exclude starters; Sunday allows but does not guarantee them.
+- All ordinary encounters exclude starters, including Sundays.
 - Living party/box duplicates are excluded; dead species may return.
 - Sequential results within one batch cannot duplicate one another.
 - A monotype receives its available STAB guarantee; a dual-type receives one per type where possible.
@@ -597,7 +599,7 @@ Use these observations to tune opponent sets, encounter eligibility, prices, rew
 | --- | --- | --- |
 | D01 | Legal learnset policy beyond the current Generation 9 Custom Game battle slice | Encounter and moveset generation |
 | D02 | Eligible species/forms, starter list, single-stage and legendary eligibility, random weights | Encounter generation |
-| D03 | Initial natures, abilities, and base/Sunday shiny rates beyond the current fixed 15-IV/85-EV spread | Pokémon generation |
+| D03 | Trainer-template natures, abilities, and stat configurations beyond the current Brock slice | Trainer generation |
 | D04 | Confirm uniform move rolls; classify unusual damage mechanics | Finalizing move generator |
 | D05 | Whether fresh-run 10 replaces daily encounters; post-wipe reveal timing | Encounter/run lifecycle |
 | D06 | Global game timezone, rollover, cross-midnight battle completion, expiry, and month-boundary ordering | Daily gating and resets |
@@ -617,6 +619,15 @@ Use these observations to tune opponent sets, encounter eligibility, prices, rew
 Resolve these incrementally. Do not interpret open questions as permission to expand scope.
 
 ## 18. Decision log
+
+### October 20, 2026 — Encounter, form, and training rules
+
+- The canonical consolidated rules now live in `INFO.md`, with content approvals in `other/data/nuzzle-approvals.csv`.
+- Player encounters use random `0–31` IVs, zero EVs, random natures, random ordinary abilities, and a `1/4096` shiny rate.
+- Each eligible fully evolved starter form has equal guarantee weight; starters never enter ordinary encounters, including Sundays.
+- Regional forms are distinct, specified multi-form families share one total encounter weight and duplicate identity, and temporary battle forms are not separate encounters.
+- Ability Capsules switch only among/to ordinary abilities as specified in `INFO.md`; Ability Patches change ordinary abilities to hidden abilities only.
+- Bottle Caps edit a chosen IV, while vitamins and reduction berries adjust their corresponding EV by one point per item.
 
 ### October 19, 2026 — First working battle slice
 

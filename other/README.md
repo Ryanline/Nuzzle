@@ -1,6 +1,6 @@
 # Nuzzle
 
-Nuzzle is a mobile-first daily monster-battling puzzle. The current build is a frontend-only, clickable prototype for exploring its primary interface and interactions.
+Nuzzle is a mobile-first daily monster-battling puzzle with a working local account system and Pokémon Showdown-backed battle slice.
 
 ## Product vision
 
@@ -17,39 +17,40 @@ The interface is intentionally simple, practical, and restrained. It uses clear 
 5. Choose a lead and begin the daily battle.
 6. Eventually receive results, casualties, rewards, and streak changes.
 
-Players can prepare in whichever order makes sense before starting the battle. The deeper game rules and planned backend behavior live in [`docs/pokemon-daily-game-spec.md`](docs/pokemon-daily-game-spec.md).
+Players can prepare in whichever order makes sense before starting the battle. Current approved rules live in [`docs/INFO.md`](docs/INFO.md); the curated content approvals live in [`data/nuzzle-approvals.csv`](data/nuzzle-approvals.csv).
 
 ## Repository layout
 
 - `frontend/` — the local HTML/CSS/JavaScript prototype, image assets, and UI checks
-- `backend/` — reserved for the future API, battle service, and persistence layer
-- `other/docs/` — the living product and game specification
+- `backend/` — the local API, account/session storage, and Showdown battle service
+- `other/docs/` — canonical rules plus supporting design history
+- `other/data/` — reviewed content approvals used to build application data
 
 ## Open it
 
-Double-click `frontend/index.html`. No server, database, package installation, or build step is required.
+From the repository root, install dependencies and run `npm run dev`, then open <http://127.0.0.1:3000>.
 
 The prototype includes:
 
 - Daily opponent landing page
-- Lead selection and a lightweight clickable battle mockup
+- Lead selection and a working Showdown-backed battle
 - Showdown-style move and Pokémon information on hover
 - Long-press information cards on touch devices without triggering the underlying action
 - A party-selecting and rearrangeable PC box with Pokémon details, team swapping, and item use
 - Three independently revealable encounters with clear mystery and revealed states
 - Categorized Bag and Mart views for Held Items, Training Items, and TMs
 - Working local purchases and contextual give, use, and teach actions
-- Clickable leaderboard and settings placeholders
+- Account/profile controls, persistent sessions, theme selection, and leaderboard/settings placeholders
 - Local arena and sprite assets
 
-The battle is intentionally UI-only. Move selection changes the mock HP and turn display but does not use a simulator or backend.
+The PC, encounters, Mart, and Bag still contain prototype-local state and will be connected to persistent run data during backend development.
 
 ## Optional QA
 
-For maintainers with Node.js installed, run the checks from the frontend folder:
+For maintainers with the repository's Node version installed, run from the repository root:
 
-```powershell
-cd frontend
-npm.cmd install
-npm.cmd test
+```bash
+npm install
+npm test
+npm run test:browser
 ```
