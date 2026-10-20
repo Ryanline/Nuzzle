@@ -10,7 +10,7 @@ npm install
 npm run dev
 ```
 
-Open <http://127.0.0.1:3000>. Accounts, login sessions, and battle records are
+Open <http://127.0.0.1:3000>. Accounts, login sessions, run state, and battle records are
 written beneath `backend/data/` and are intentionally excluded from Git. Set
 `PORT`, `HOST`, or `NUZZLE_DATA_DIR` to override the local defaults.
 
@@ -26,10 +26,12 @@ resizes it to a 256-pixel WebP before upload; local avatar files live in
 `backend/data/avatars/`. Uploaded images are private to the signed-in account
 endpoint and should move to managed object storage for production deployment.
 
-The current battle slice uses Generation 9 Custom Game mechanics. Both teams
-are level 100 with 15 IVs and 85 EVs in each stat. Brock has no held items,
-never switches voluntarily, and chooses a random legal move.
+The current battle slice uses Generation 9 Custom Game mechanics. Generated
+player Pokémon are level 100 with random IVs, zero EVs, a random nature, and a
+random ordinary ability. Brock retains the temporary fixed 15-IV/85-EV spread,
+has no held items, never switches voluntarily, and chooses a random legal move.
 
 Battle creation and commands require a login, and saved battles are scoped to
-the account that created them. The roster endpoint remains public because the
-current roster is still shared prototype content.
+the account that created them. The server also owns daily encounter generation,
+team membership, inventory, purchases, training, and monthly run resets. The
+reviewed approvals CSV is validated against Showdown when the server starts.

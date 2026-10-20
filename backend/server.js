@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { BattleService } from "./battle-service.js";
 import { BattleStore } from "./battle-store.js";
 import { AuthStore, SESSION_LIFETIME_MS } from "./auth-store.js";
-import { publicRoster } from "./teams.js";
+import { GameStore, publicContent } from "./game-store.js";
 
 const backendDirectory = path.dirname(fileURLToPath(import.meta.url));
 const projectDirectory = path.dirname(backendDirectory);
@@ -16,9 +16,11 @@ const host = process.env.HOST || "127.0.0.1";
 
 const service = new BattleService(new BattleStore(path.join(dataDirectory, "battles")));
 const auth = new AuthStore(path.join(dataDirectory, "auth.json"));
+const game = new GameStore(path.join(dataDirectory, "game.json"));
 const avatarDirectory = path.join(dataDirectory, "avatars");
 await service.initialize();
 await auth.initialize();
+await game.initialize();
 
 const loginAttempts = new Map();
 const sessionCookie = "nuzzle_session";
@@ -169,12 +171,52 @@ async function api(request, response, pathname) {
     throw Object.assign(new Error("Method not allowed."), { statusCode: 405 });
   }
   if (request.method === "GET" && pathname === "/api/roster") {
-    json(response, 200, { roster: publicRoster() });
+    json(response, 200, { roster: publicContent().pokemon });
+    return true;
+  }
+  if (request.method === "GET" && pathname === "/api/content") {
+    json(response, 200, publicContent());
+    return true;
+  }
+  if (request.method === "GET" && pathname === "/api/game") {
+    const user = requireUser(request);
+    json(response, 200, await game.get(user.id));
+    return true;
+  }
+  const encounterMatch = pathname.match(/^\/api\/game\/encounters\/(\d+)$/);
+  if (request.method === "POST" && encounterMatch) {
+    const user = requireUser(request);
+    json(response, 200, await game.claimEncounter(user.id, Number(encounterMatch[1])));
+    return true;
+  }
+  if (request.method === "PUT" && pathname === "/api/game/team") {
+    const user = requireUser(request);
+    const body = await requestBody(request);
+    json(response, 200, await game.setTeam(user.id, body.teamIds));
+    return true;
+  }
+  const shopMatch = pathname.match(/^\/api\/game\/shop\/([a-z0-9]+)$/);
+  if (request.method === "POST" && shopMatch) {
+    const user = requireUser(request);
+    const body = await requestBody(request);
+    json(response, 200, await game.buy(user.id, shopMatch[1], body.quantity));
+    return true;
+  }
+  const pokemonItemMatch = pathname.match(/^\/api\/game\/pokemon\/([a-z0-9]+)\/(equip|train)$/);
+  if (request.method === "POST" && pokemonItemMatch) {
+    const user = requireUser(request);
+    const body = await requestBody(request);
+    const result = pokemonItemMatch[2] === "equip"
+      ? await game.equip(user.id, pokemonItemMatch[1], body.itemId)
+      : await game.useTrainingItem(user.id, pokemonItemMatch[1], body.itemId, body.options);
+    json(response, 200, result);
     return true;
   }
   if (request.method === "POST" && pathname === "/api/battles") {
     const user = requireUser(request);
-    json(response, 201, await service.create(await requestBody(request), user.id));
+    const body = await requestBody(request);
+    const playerTeam = await game.battleTeam(user.id, body.partyIds, body.leadId);
+    json(response, 201, await service.create({ ...body, playerTeam }, user.id));
     return true;
   }
   const match = pathname.match(/^\/api\/battles\/([0-9a-f-]+)(?:\/(choices|forfeit))?$/i);

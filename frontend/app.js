@@ -1,15 +1,21 @@
 (function () {
   "use strict";
 
+  const localSpriteIds = new Set(["aerodactyl", "alakazam", "arcanine", "exeggutor", "flareon", "gengar", "golem", "lapras", "machamp", "magcargo", "nidoking", "onix", "pidgeot", "raichu", "rhydon", "rhyperior", "steelix", "sudowoodo", "vaporeon", "venusaur"]);
   const backSpriteIds = new Set(["flareon", "raichu", "vaporeon", "gengar", "venusaur", "pidgeot", "arcanine", "lapras", "alakazam", "machamp", "nidoking", "exeggutor"]);
-  const sprite = (id, back = false) => `assets/${back && backSpriteIds.has(id) ? "sprites-back" : "sprites"}/${id}.png`;
+  const sprite = (id, back = false) => {
+    const speciesId = mons[id]?.speciesId || id;
+    if (localSpriteIds.has(speciesId) && (!back || backSpriteIds.has(speciesId))) return `assets/${back ? "sprites-back" : "sprites"}/${speciesId}.png`;
+    const spriteId = mons[id]?.spriteId || pokemonContent.get(speciesId)?.spriteId || speciesId;
+    return `https://play.pokemonshowdown.com/sprites/${back ? "gen5-back" : "gen5"}/${encodeURIComponent(spriteId)}.png`;
+  };
   const healthTone = (percent) => percent <= 20 ? "critical" : percent <= 50 ? "warning" : "healthy";
   const trainerSprite = "assets/trainers/brock.png";
   const app = document.querySelector("#app");
   const tooltip = document.querySelector("#tooltip");
   const savedTheme = localStorage.getItem("nuzzleTheme");
 
-  const mons = {
+  let mons = {
     flareon: { name: "Flareon", types: ["Fire"], ability: "Flash Fire", item: "Charcoal", nature: "Adamant", natureUp: "Atk", natureDown: "SpA", hp: "100.0% (263/263)", stats: "Atk 296 / Def 156 / SpA 226 / SpD 256 / Spe 166", moves: ["Flamethrower", "Quick Attack", "Bite", "Will-O-Wisp"] },
     raichu: { name: "Raichu", types: ["Electric"], ability: "Static", item: "Magnet", nature: "Timid", natureUp: "Spe", natureDown: "Atk", hp: "100.0% (261/261)", stats: "Atk 216 / Def 146 / SpA 216 / SpD 196 / Spe 256", moves: ["Thunderbolt", "Thunder Punch", "Surf", "Nasty Plot"] },
     vaporeon: { name: "Vaporeon", types: ["Water"], ability: "Water Absorb", item: "Leftovers", nature: "Bold", natureUp: "Def", natureDown: "Atk", hp: "100.0% (401/401)", stats: "Atk 166 / Def 156 / SpA 256 / SpD 226 / Spe 166", moves: ["Surf", "Ice Beam", "Shadow Ball", "Wish"] },
@@ -27,7 +33,6 @@
   const opponent = ["steelix", "golem", "rhyperior", "aerodactyl", "sudowoodo", "magcargo"];
   const partyIds = ["flareon", "raichu", "vaporeon", "gengar", "venusaur", "pidgeot"];
   const pcIds = [...partyIds, "arcanine", "lapras", "alakazam", "machamp", "nidoking", "exeggutor"];
-  const encounterIds = ["lapras", "arcanine", "alakazam"];
   const moves = {
     flamethrower: { name: "Flamethrower", type: "Fire", pp: "24/24", power: 90, accuracy: "100%", description: "Has a 10% chance to burn the target.", effectiveness: "Super effective vs. Steelix (2×)" },
     bite: { name: "Bite", type: "Dark", pp: "40/40", power: 60, accuracy: "100%", description: "Has a 30% chance to make the target flinch.", effectiveness: "Neutral damage vs. Steelix (1×)" },
@@ -47,9 +52,12 @@
   let avatarPreviewUrl = "";
   let avatarBusy = false;
   let theme = savedTheme === "dark" ? "dark" : "light";
+  let gameState = null;
+  let contentLoaded = false;
+  let pokemonContent = new Map();
   let team = new Set(partyIds);
   let pcOrder = [...pcIds];
-  let encounters = new Array(3).fill(null);
+  let encounters = [];
   let battleState = null;
   let battleLoading = false;
   let battleError = "";
@@ -68,10 +76,37 @@
   let selectedNature = null;
   let pcItemMessage = "";
   let selectedLeadId = null;
+  let gameBusy = false;
   let purchaseMessage = "";
   let activeShopGroup = "Held Items";
   let activeBagGroup = "Held Items";
-  const inventory = {};
+  let inventory = {};
+
+  function applyGameState(nextState) {
+    gameState = nextState;
+    balance = nextState.money;
+    inventory = { ...nextState.inventory };
+    encounters = nextState.encounters || [];
+    team = new Set(nextState.teamIds || []);
+    pcOrder = nextState.roster.map((pokemon) => pokemon.id);
+    mons = Object.fromEntries(nextState.roster.map((pokemon) => {
+      const nature = natureOptions.find((option) => option.name === pokemon.nature) || {};
+      return [pokemon.id, { ...pokemon, natureUp: nature.up || "", natureDown: nature.down || "" }];
+    }));
+  }
+
+  async function loadContent() {
+    if (contentLoaded) return;
+    const result = await apiRequest("/api/content");
+    shopItems = result.items;
+    pokemonContent = new Map(result.pokemon.map((pokemon) => [pokemon.id, pokemon]));
+    contentLoaded = true;
+  }
+
+  async function loadGame() {
+    await loadContent();
+    applyGameState(await apiRequest("/api/game"));
+  }
 
   function escapeHtml(value) {
     return String(value ?? "").replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
@@ -230,6 +265,7 @@
         route = destination === "lead" && battleState && !battleState.ended ? "battle" : destination;
         if (route === "lead") selectedLeadId = null;
       }
+      await loadGame();
       await resumeBattle(false);
     } catch (error) {
       authError = error.message;
@@ -249,6 +285,12 @@
       currentUser = null;
       resetAvatarEditor();
       battleState = null;
+      gameState = null;
+      encounters = [];
+      mons = {};
+      team = new Set();
+      pcOrder = [];
+      inventory = {};
       authOpen = false;
       authLoading = false;
       route = "home";
@@ -337,10 +379,10 @@
     const currentClass = (name) => current === name ? " is-current" : "";
     const currentPage = (name) => current === name ? ' aria-current="page"' : "";
     return `<nav class="${className}" aria-label="Game sections">
-      <button class="gloss-button red${currentClass("battle")}"${currentPage("battle")} data-route="lead">battle</button>
+      <button class="gloss-button red${currentClass("battle")}"${currentPage("battle")} data-route="${currentUser && gameState && !gameState.battleUnlocked ? "encounters" : "lead"}">${currentUser && gameState && !gameState.battleUnlocked ? "encounter first" : "battle"}</button>
       <button class="gloss-button orange${currentClass("pc")}"${currentPage("pc")} data-route="pc">pc box</button>
       <button class="gloss-button gold${currentClass("bag")}"${currentPage("bag")} data-route="bag">bag</button>
-      <button class="gloss-button green${currentClass("encounters")}"${currentPage("encounters")} data-route="encounters">encounter (${encounters.filter((item) => !item).length})</button>
+      <button class="gloss-button green${currentClass("encounters")}"${currentPage("encounters")} data-route="encounters">encounter (${encounters.filter((item) => !item.claimed).length})</button>
       <button class="gloss-button blue${currentClass("mart")}"${currentPage("mart")} data-route="mart">mart</button>
       <button class="gloss-button purple${currentClass("leaderboard")}"${currentPage("leaderboard")} data-route="leaderboard">leaderboard</button>
       <button class="gloss-button slate${currentClass("settings")}"${currentPage("settings")} data-route="settings">settings</button>
@@ -466,12 +508,18 @@
   }
 
   function encountersScreen() {
-    const remaining = encounters.filter((item) => !item).length;
+    const remaining = encounters.filter((encounter) => !encounter.claimed).length;
     return `<section class="screen">${header()}<div class="encounter-stage"><p class="encounter-count">${remaining ? `${remaining} encounter${remaining === 1 ? "" : "s"} remaining` : "All encounters revealed"}</p>
-      <div class="encounter-list">${encounters.map((id, index) => {
-        if (!id) return `<button class="encounter-card mystery" type="button" data-encounter="${index}" aria-label="Reveal encounter ${index + 1}"><span class="encounter-mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span class="encounter-copy"><strong>Unknown encounter</strong><small>Tap to reveal</small></span><span class="encounter-number">${index + 1}</span></button>`;
-        const mon = mons[id];
-        return `<article class="encounter-card revealed" data-mon-tip="${id}"><span class="encounter-sprite"><img class="sprite" src="${sprite(id)}" alt="${mon.name}"/></span><span class="encounter-copy"><strong>${mon.name}</strong><span class="encounter-types">${mon.types.map((type) => `<span class="type-chip ${type.toLowerCase()}">${type}</span>`).join("")}</span></span><span class="encounter-status">Added to PC</span></article>`;
+      <div class="encounter-list">${encounters.map((encounter, index) => {
+        if (!encounter.claimed) {
+          const opening = encounter.kind === "opening";
+          return `<button class="encounter-card mystery${opening ? " opening" : ""}" type="button" data-encounter="${index}" aria-label="Reveal encounter ${index + 1}"><span class="encounter-mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span class="encounter-copy"><strong>${opening ? "Begin your run" : "Unknown encounter"}</strong><small>${opening ? "Your first encounter brings 12 Pokémon" : "Tap to reveal"}</small></span><span class="encounter-number">${index + 1}</span></button>`;
+        }
+        if (encounter.kind === "opening") {
+          return `<article class="encounter-batch"><header><strong>Your first 12 Pokémon</strong><span>Added to PC</span></header><div>${encounter.pokemon.map((pokemon) => `<button type="button" data-mon-tip="${pokemon.id}" aria-label="${escapeHtml(pokemon.name)}"><img class="sprite" src="${sprite(pokemon.id)}" alt=""/><small>${escapeHtml(pokemon.name)}</small></button>`).join("")}</div></article>`;
+        }
+        const mon = encounter.pokemon[0];
+        return `<article class="encounter-card revealed" data-mon-tip="${mon.id}"><span class="encounter-sprite"><img class="sprite" src="${sprite(mon.id)}" alt="${escapeHtml(mon.name)}"/></span><span class="encounter-copy"><strong>${escapeHtml(mon.name)}</strong><span class="encounter-types">${mon.types.map((type) => `<span class="type-chip ${type.toLowerCase()}">${type}</span>`).join("")}</span></span><span class="encounter-status">Added to PC</span></article>`;
       }).join("")}</div>
       ${backButton()}
     </div></section>`;
@@ -481,65 +529,52 @@
     return '<button class="gloss-button purple page-back" data-route="home">back</button>';
   }
 
-  const shopItems = [
-    { id: "hp-up", group: "Training Items", name: "HP Up", detail: "+10 HP EVs", price: 100, icon: "HP" },
-    { id: "protein", group: "Training Items", name: "Protein", detail: "+10 Attack EVs", price: 100, icon: "ATK" },
-    { id: "iron", group: "Training Items", name: "Iron", detail: "+10 Defense EVs", price: 100, icon: "DEF" },
-    { id: "calcium", group: "Training Items", name: "Calcium", detail: "+10 Sp. Atk EVs", price: 100, icon: "SPA" },
-    { id: "zinc", group: "Training Items", name: "Zinc", detail: "+10 Sp. Def EVs", price: 100, icon: "SPD" },
-    { id: "carbos", group: "Training Items", name: "Carbos", detail: "+10 Speed EVs", price: 100, icon: "SPE" },
-    { id: "bottle-cap", group: "Training Items", name: "Bottle Cap", detail: "Maximize one IV", price: 500, icon: "IV" },
-    { id: "nature-mint", group: "Training Items", name: "Nature Mint", detail: "Choose a stat nature", price: 300, icon: "N" },
-    { id: "leftovers", group: "Held Items", name: "Leftovers", detail: "Restores HP each turn", price: 600, icon: "LF" },
-    { id: "sitrus-berry", group: "Held Items", name: "Sitrus Berry", detail: "Restores HP when low", price: 300, icon: "SB" },
-    { id: "focus-sash", group: "Held Items", name: "Focus Sash", detail: "Survive one hit from full HP", price: 800, icon: "FS" },
-    { id: "choice-scarf", group: "Held Items", name: "Choice Scarf", detail: "Boosts Speed; locks one move", price: 700, icon: "CS" },
-    { id: "tm-flamethrower", group: "TMs", name: "Flamethrower", detail: "Teach Flamethrower", price: 500, icon: "TM" },
-    { id: "tm-thunderbolt", group: "TMs", name: "Thunderbolt", detail: "Teach Thunderbolt", price: 500, icon: "TM" },
-    { id: "tm-ice-beam", group: "TMs", name: "Ice Beam", detail: "Teach Ice Beam", price: 500, icon: "TM" },
-    { id: "tm-earthquake", group: "TMs", name: "Earthquake", detail: "Teach Earthquake", price: 700, icon: "TM" },
-  ];
-  const itemGroupOrder = ["Held Items", "Training Items", "TMs"];
+  let shopItems = [];
+  const itemGroupOrder = ["Held Items", "Training Items"];
   const natureOptions = [
-    { name: "Adamant", up: "Atk", down: "SpA" }, { name: "Brave", up: "Atk", down: "Spe" },
-    { name: "Bold", up: "Def", down: "Atk" }, { name: "Impish", up: "Def", down: "SpA" },
-    { name: "Modest", up: "SpA", down: "Atk" }, { name: "Quiet", up: "SpA", down: "Spe" },
-    { name: "Calm", up: "SpD", down: "Atk" }, { name: "Careful", up: "SpD", down: "SpA" },
-    { name: "Timid", up: "Spe", down: "Atk" }, { name: "Jolly", up: "Spe", down: "SpA" },
+    { name: "Hardy" }, { name: "Lonely", up: "Atk", down: "Def" }, { name: "Brave", up: "Atk", down: "Spe" }, { name: "Adamant", up: "Atk", down: "SpA" }, { name: "Naughty", up: "Atk", down: "SpD" },
+    { name: "Bold", up: "Def", down: "Atk" }, { name: "Docile" }, { name: "Relaxed", up: "Def", down: "Spe" }, { name: "Impish", up: "Def", down: "SpA" }, { name: "Lax", up: "Def", down: "SpD" },
+    { name: "Timid", up: "Spe", down: "Atk" }, { name: "Hasty", up: "Spe", down: "Def" }, { name: "Serious" }, { name: "Jolly", up: "Spe", down: "SpA" }, { name: "Naive", up: "Spe", down: "SpD" },
+    { name: "Modest", up: "SpA", down: "Atk" }, { name: "Mild", up: "SpA", down: "Def" }, { name: "Quiet", up: "SpA", down: "Spe" }, { name: "Bashful" }, { name: "Rash", up: "SpA", down: "SpD" },
+    { name: "Calm", up: "SpD", down: "Atk" }, { name: "Gentle", up: "SpD", down: "Def" }, { name: "Sassy", up: "SpD", down: "Spe" }, { name: "Careful", up: "SpD", down: "SpA" }, { name: "Quirky" },
   ];
 
   function itemIcon(item) {
-    const iconClass = item.group === "Held Items" ? "held" : item.group === "TMs" ? "tm" : "training";
+    const iconClass = item.group === "Held Items" ? "held" : "training";
     return `<span class="item-icon ${iconClass}" aria-hidden="true">${item.icon}</span>`;
   }
 
   function pcItemPanel(mon) {
-    if (pendingPcItemId === "nature-mint") {
-      return `<section class="pc-item-chooser nature-chooser" aria-labelledby="pc-item-heading"><h3 id="pc-item-heading">Choose a nature</h3><p>Current nature: ${mon.nature}</p><div class="nature-options">${natureOptions.map((nature) => `<button class="${selectedNature === nature.name ? "selected" : ""}" type="button" data-select-nature="${nature.name}"><strong>${nature.name}</strong><small><span>+${nature.up}</span> / <i>−${nature.down}</i></small></button>`).join("")}</div><button class="gloss-button blue pc-item-confirm" type="button" data-apply-nature ${selectedNature ? "" : "disabled"}>use mint</button></section>`;
-    }
-    if (pendingPcItemId?.startsWith("tm-")) {
+    if (pendingPcItemId) {
       const item = shopItems.find((candidate) => candidate.id === pendingPcItemId);
-      return `<section class="pc-item-chooser move-replace-chooser" aria-labelledby="pc-item-heading"><h3 id="pc-item-heading">Teach ${item.name}</h3><p>Choose a move for ${mon.name} to forget.</p><div class="move-replace-grid">${mon.moves.map((move, index) => `<button type="button" data-replace-move="${index}">${move}</button>`).join("")}</div></section>`;
+      let controls = "";
+      if (item.effect === "ev") controls = `<label>Quantity<input name="quantity" type="number" min="1" max="${inventory[item.id]}" value="1" inputmode="numeric"></label>`;
+      else if (item.effect === "iv") controls = `<label>Stat<select name="stat">${["hp", "atk", "def", "spa", "spd", "spe"].map((stat) => `<option value="${stat}">${stat.toUpperCase()}</option>`).join("")}</select></label><label>New IV<input name="value" type="number" min="0" max="31" value="31" inputmode="numeric"></label>`;
+      else if (item.effect === "nature") controls = `<label>Nature<select name="nature">${natureOptions.map((nature) => `<option value="${nature.name}" ${nature.name === mon.nature ? "disabled" : ""}>${nature.name}${nature.up ? ` (+${nature.up}, −${nature.down})` : " (neutral)"}</option>`).join("")}</select></label>`;
+      else if (item.effect === "ability-capsule") {
+        const choices = mon.ordinaryAbilities.filter((ability) => ability !== mon.ability);
+        controls = choices.length ? `<label>Ability<select name="ability">${choices.map((ability) => `<option>${escapeHtml(ability)}</option>`).join("")}</select></label>` : `<p class="sheet-feedback">This Pokémon has no eligible ordinary ability to switch to.</p>`;
+      } else if (item.effect === "ability-patch") controls = `<p>Change <strong>${escapeHtml(mon.ability)}</strong> to <strong>${escapeHtml(mon.hiddenAbility || "no eligible hidden ability")}</strong>.</p>`;
+      else if (item.effect === "rotom") controls = `<label>Rotom form<select name="form">${[["rotom", "Base"], ["rotomheat", "Heat"], ["rotomwash", "Wash"], ["rotomfrost", "Frost"], ["rotomfan", "Fan"], ["rotommow", "Mow"]].map(([id, label]) => `<option value="${id}" ${id === mon.speciesId ? "disabled" : ""}>${label}</option>`).join("")}</select></label>`;
+      else if (item.effect === "form") controls = `<p>Change ${escapeHtml(mon.name)} to the form associated with ${escapeHtml(item.name)}.</p>`;
+      const unusable = (item.effect === "ability-capsule" && !mon.ordinaryAbilities.some((ability) => ability !== mon.ability)) || (item.effect === "ability-patch" && (!mon.hiddenAbility || mon.hiddenAbility === mon.ability));
+      return `<section class="pc-item-chooser training-config" aria-labelledby="pc-item-heading"><h3 id="pc-item-heading">Use ${escapeHtml(item.name)}</h3><p>${escapeHtml(item.detail)}</p><form data-train-form data-item-id="${item.id}">${controls}<button class="gloss-button blue pc-item-confirm" type="submit" ${unusable ? "disabled" : ""}>confirm</button></form></section>`;
     }
     const ownedItems = shopItems.filter((item) => item.group === activePcItemGroup && inventory[item.id]);
     const activeGroupIndex = itemGroupOrder.indexOf(activePcItemGroup);
     const activeTabId = `pc-item-tab-${activePcItemGroup.toLowerCase().replaceAll(" ", "-")}`;
     const rows = ownedItems.length ? ownedItems.map((item) => {
-      const action = item.group === "Held Items" ? "give" : item.group === "TMs" ? "teach" : "use";
+      const action = item.group === "Held Items" ? "give" : "use";
       return `<div class="pc-item-row">${itemIcon(item)}<span class="item-copy"><strong>${item.name}</strong><small>${item.detail}</small></span><span class="item-quantity">×${inventory[item.id]}</span><button class="item-action" type="button" data-pc-item="${item.id}">${action}</button></div>`;
     }).join("") : `<div class="pc-item-empty"><strong>No items</strong><span>This category is empty.</span></div>`;
     return `<section class="pc-item-chooser" aria-labelledby="pc-item-heading"><h3 id="pc-item-heading">Use item on ${mon.name}</h3><div class="shop-segments pc-item-segments" data-active-index="${activeGroupIndex}" role="tablist" aria-label="Item categories">${itemGroupOrder.map((group) => { const selected = group === activePcItemGroup; return `<button id="pc-item-tab-${group.toLowerCase().replaceAll(" ", "-")}" type="button" role="tab" aria-selected="${selected}" data-pc-item-group="${group}" class="${selected ? "selected" : ""}">${group}</button>`; }).join("")}</div><div class="pc-item-list" role="tabpanel" aria-labelledby="${activeTabId}">${rows}</div></section>`;
   }
 
-  function consumeItem(id) {
-    inventory[id] -= 1;
-    if (inventory[id] <= 0) delete inventory[id];
-  }
-
   function shopRows() {
     return shopItems.filter((item) => item.group === activeShopGroup).map((item) => {
       const owned = inventory[item.id] || 0;
-      return `<div class="shop-item">${itemIcon(item)}<span class="item-copy"><strong>${item.name}</strong><small>${item.detail}${owned ? ` · Owned: ${owned}` : ""}</small></span><button class="price-button" type="button" data-buy="${item.id}" ${balance < item.price ? "disabled" : ""}>${item.price} coins</button></div>`;
+      const soldOut = item.purchaseLimit === 1 && gameState?.purchasedUnique.includes(item.id);
+      return `<div class="shop-item">${itemIcon(item)}<span class="item-copy"><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.detail)}${owned ? ` · Owned: ${owned}` : ""}</small></span><button class="price-button" type="button" data-buy="${item.id}" ${balance < item.price || soldOut ? "disabled" : ""}>${soldOut ? "bought" : `${item.price} coins`}</button></div>`;
     }).join("");
   }
 
@@ -554,8 +589,8 @@
   function bagContents() {
     const ownedItems = shopItems.filter((item) => item.group === activeBagGroup && inventory[item.id]);
     return ownedItems.length ? `<div class="bag-list">${ownedItems.map((item) => {
-      const action = item.group === "Held Items" ? "give" : item.group === "TMs" ? "teach" : "use";
-      return `<div class="bag-item">${itemIcon(item)}<span class="item-copy"><strong>${item.name}</strong><small>${item.detail}</small></span><span class="item-quantity" aria-label="${inventory[item.id]} owned">×${inventory[item.id]}</span><button class="item-action" type="button" aria-label="${action} ${item.name}">${action}</button></div>`;
+      const action = item.group === "Held Items" ? "give" : "use";
+      return `<div class="bag-item">${itemIcon(item)}<span class="item-copy"><strong>${item.name}</strong><small>${item.detail}</small></span><span class="item-quantity" aria-label="${inventory[item.id]} owned">×${inventory[item.id]}</span><button class="item-action" type="button" data-route="pc" aria-label="${action} ${item.name} from the PC">${action}</button></div>`;
     }).join("")}</div>` : `<div class="bag-empty"><h2>No items</h2><p>Items in this category will appear here.</p><button class="gloss-button blue" type="button" data-visit-mart="${activeBagGroup}">visit mart</button></div>`;
   }
 
@@ -640,6 +675,83 @@
 
   function hideTooltip() {
     tooltip.hidden = true;
+  }
+
+  async function claimEncounter(slot) {
+    if (gameBusy) return;
+    gameBusy = true;
+    try {
+      applyGameState(await apiRequest(`/api/game/encounters/${slot}`, { method: "POST", body: "{}" }));
+    } catch (error) {
+      purchaseMessage = error.message;
+    } finally {
+      gameBusy = false;
+      render();
+    }
+  }
+
+  async function purchaseItem(item) {
+    if (gameBusy) return;
+    gameBusy = true;
+    try {
+      applyGameState(await apiRequest(`/api/game/shop/${item.id}`, { method: "POST", body: JSON.stringify({ quantity: 1 }) }));
+      purchaseMessage = `${item.name} added to your bag.`;
+    } catch (error) {
+      purchaseMessage = error.message;
+    } finally {
+      gameBusy = false;
+      render();
+    }
+  }
+
+  async function persistTeam(teamIds) {
+    if (gameBusy) return;
+    gameBusy = true;
+    try {
+      applyGameState(await apiRequest("/api/game/team", { method: "PUT", body: JSON.stringify({ teamIds }) }));
+    } catch (error) {
+      pcItemMessage = error.message;
+    } finally {
+      gameBusy = false;
+      render();
+    }
+  }
+
+  async function equipItem(item) {
+    if (gameBusy) return;
+    gameBusy = true;
+    try {
+      applyGameState(await apiRequest(`/api/game/pokemon/${selectedPcId}/equip`, { method: "POST", body: JSON.stringify({ itemId: item.id }) }));
+      pcItemMessage = `${mons[selectedPcId].name} is now holding ${item.name}.`;
+      pcItemMode = false;
+    } catch (error) {
+      pcItemMessage = error.message;
+    } finally {
+      gameBusy = false;
+      render();
+    }
+  }
+
+  async function trainPokemon(item, options) {
+    if (gameBusy) return;
+    gameBusy = true;
+    const previousId = selectedPcId;
+    try {
+      const next = await apiRequest(`/api/game/pokemon/${selectedPcId}/train`, { method: "POST", body: JSON.stringify({ itemId: item.id, options }) });
+      applyGameState(next);
+      if (!mons[selectedPcId]) {
+        const expectedId = options.form || item.target;
+        selectedPcId = mons[expectedId] ? expectedId : pcOrder.find((id) => mons[id]?.encounterFamilyId === pokemonContent.get(previousId)?.encounterFamilyId) || null;
+      }
+      pcItemMessage = `${item.name} used successfully.`;
+      pcItemMode = false;
+      pendingPcItemId = null;
+    } catch (error) {
+      pcItemMessage = error.message;
+    } finally {
+      gameBusy = false;
+      render();
+    }
   }
 
   function addInfoInteractions(element, html) {
@@ -790,19 +902,11 @@
       log.scrollTop = log.scrollHeight;
       render();
     });
-    document.querySelectorAll("[data-encounter]").forEach((button) => button.addEventListener("click", () => { const index = Number(button.dataset.encounter); if (!encounters[index]) { encounters[index] = encounterIds[index]; if (!pcOrder.includes(encounterIds[index])) pcOrder.push(encounterIds[index]); render(); } }));
+    document.querySelectorAll("[data-encounter]").forEach((button) => button.addEventListener("click", () => void claimEncounter(Number(button.dataset.encounter))));
     const bindShopPurchases = () => document.querySelectorAll("[data-buy]").forEach((button) => button.addEventListener("click", () => {
       const item = shopItems.find((candidate) => candidate.id === button.dataset.buy);
       if (!item) return;
-      if (balance >= item.price) {
-        const shopScroll = document.querySelector(".shop-list")?.scrollTop || 0;
-        balance -= item.price;
-        inventory[item.id] = (inventory[item.id] || 0) + 1;
-        purchaseMessage = `${item.name} added to your bag.`;
-        render();
-        const shopList = document.querySelector(".shop-list");
-        if (shopList) shopList.scrollTop = shopScroll;
-      }
+      void purchaseItem(item);
     }));
     document.querySelectorAll("[data-shop-group]").forEach((button) => button.addEventListener("click", () => {
       if (button.dataset.shopGroup === activeShopGroup) return;
@@ -870,62 +974,48 @@
     document.querySelectorAll("[data-pc-item]").forEach((button) => button.addEventListener("click", () => {
       const item = shopItems.find((candidate) => candidate.id === button.dataset.pcItem);
       if (!item || !inventory[item.id]) return;
-      if (item.id === "nature-mint" || item.group === "TMs") {
+      if (item.group === "Training Items") {
         pendingPcItemId = item.id;
         selectedNature = null;
         render();
         return;
       }
-      if (item.group === "Held Items") mons[selectedPcId].item = item.name;
-      consumeItem(item.id);
-      pcItemMessage = item.group === "Held Items" ? `${mons[selectedPcId].name} is now holding ${item.name}.` : `${item.name} used on ${mons[selectedPcId].name}.`;
-      pcItemMode = false;
-      render();
+      void equipItem(item);
     }));
-    document.querySelectorAll("[data-select-nature]").forEach((button) => button.addEventListener("click", () => {
-      selectedNature = button.dataset.selectNature;
-      render();
-    }));
-    document.querySelector("[data-apply-nature]")?.addEventListener("click", () => {
-      const nature = natureOptions.find((option) => option.name === selectedNature);
-      if (!nature || !inventory["nature-mint"]) return;
-      Object.assign(mons[selectedPcId], { nature: nature.name, natureUp: nature.up, natureDown: nature.down });
-      consumeItem("nature-mint");
-      pcItemMessage = `${mons[selectedPcId].name}'s nature changed to ${nature.name}.`;
-      pcItemMode = false;
-      pendingPcItemId = null;
-      selectedNature = null;
-      render();
+    document.querySelector("[data-train-form]")?.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const item = shopItems.find((candidate) => candidate.id === event.currentTarget.dataset.itemId);
+      const fields = new FormData(event.currentTarget);
+      const options = Object.fromEntries(fields.entries());
+      if (options.quantity) options.quantity = Number(options.quantity);
+      if (options.value) options.value = Number(options.value);
+      if (item) void trainPokemon(item, options);
     });
-    document.querySelectorAll("[data-replace-move]").forEach((button) => button.addEventListener("click", () => {
-      const item = shopItems.find((candidate) => candidate.id === pendingPcItemId);
-      if (!item || !inventory[item.id]) return;
-      mons[selectedPcId].moves[Number(button.dataset.replaceMove)] = item.name;
-      consumeItem(item.id);
-      pcItemMessage = `${mons[selectedPcId].name} learned ${item.name}.`;
-      pcItemMode = false;
-      pendingPcItemId = null;
-      render();
-    }));
     document.querySelector("[data-team-toggle]")?.addEventListener("click", (event) => {
       const id = event.currentTarget.dataset.teamToggle;
       if (team.has(id)) {
-        team.delete(id);
+        const nextTeam = [...team].filter((teamId) => teamId !== id);
         selectedPcId = null;
         pcSwapMode = false;
         pcItemMode = false;
         pendingPcItemId = null;
         selectedNature = null;
+        render();
+        void persistTeam(nextTeam);
+        return;
       }
-      else if (team.size < 6) team.add(id);
+      else if (team.size < 6) {
+        void persistTeam([...team, id]);
+        return;
+      }
       else pcSwapMode = true;
       render();
     });
     document.querySelectorAll("[data-team-replace]").forEach((button) => button.addEventListener("click", () => {
       const outgoingId = button.dataset.teamReplace;
-      team = new Set([...team].map((id) => id === outgoingId ? selectedPcId : id));
+      const nextTeam = [...team].map((id) => id === outgoingId ? selectedPcId : id);
       pcSwapMode = false;
-      render();
+      void persistTeam(nextTeam);
     }));
     document.querySelector("[data-cancel-pc-swap]")?.addEventListener("click", () => {
       pcSwapMode = false;
@@ -1024,9 +1114,13 @@
 
   async function loadSession() {
     try {
+      await loadContent();
       const result = await apiRequest("/api/auth/me");
       currentUser = result.user;
-      if (currentUser) await resumeBattle(false);
+      if (currentUser) {
+        await loadGame();
+        await resumeBattle(false);
+      }
     } catch {
       currentUser = null;
     }

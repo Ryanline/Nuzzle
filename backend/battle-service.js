@@ -147,7 +147,7 @@ export class BattleController {
     void this.consumePlayer("p1");
     void this.consumePlayer("p2");
     void this.consumeSpectator();
-    const playerTeam = Teams.pack(buildPlayerTeam(this.record.partyIds, this.record.leadId));
+    const playerTeam = Teams.pack(this.record.playerTeam || buildPlayerTeam(this.record.partyIds, this.record.leadId));
     const brockTeam = Teams.pack(buildBrockTeam());
     await this.streams.omniscient.write([
       `>start ${JSON.stringify({ formatid: FORMAT, seed: this.record.seed })}`,
@@ -363,8 +363,9 @@ export class BattleService {
     }
   }
 
-  async create({ partyIds, leadId }, userId = null) {
-    buildPlayerTeam(partyIds, leadId);
+  async create({ partyIds, leadId, playerTeam = null }, userId = null) {
+    const teamSnapshot = playerTeam || buildPlayerTeam(partyIds, leadId);
+    if (!Array.isArray(teamSnapshot) || teamSnapshot.length < 1 || teamSnapshot.length > 6) choiceError("Choose between one and six Pokémon.");
     const record = {
       id: crypto.randomUUID(),
       userId,
@@ -373,6 +374,7 @@ export class BattleService {
       seed: seed(),
       partyIds: [...partyIds],
       leadId,
+      playerTeam: structuredClone(teamSnapshot),
       choices: { p1: [], p2: [] },
       forfeited: false,
     };

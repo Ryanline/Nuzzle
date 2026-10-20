@@ -4,16 +4,16 @@ Nuzzle is a mobile-first daily monster-battling puzzle with a working local acco
 
 ## Product vision
 
-Nuzzle is built around one shared opponent each day. Players prepare individualized teams through encounters, roster management, training, held items, and TMs before committing to one consequential battle.
+Nuzzle is built around one shared opponent each day. Players prepare individualized teams through encounters, roster management, training, and held items before committing to one consequential battle.
 
 The interface is intentionally simple, practical, and restrained. It uses clear typography, generous spacing, familiar sprites, and lightweight game-like shapes without recreating the visual shell of an official Pokémon game. Detailed information and secondary actions appear on demand rather than crowding each screen.
 
 ## Core flow
 
 1. View and inspect the daily opponent.
-2. Optionally reveal encounters and add them to the PC.
+2. Begin a fresh run by claiming a twelve-Pokémon opening encounter, then reveal the remaining daily encounters.
 3. Inspect Pokémon, manage the team, and apply items through the PC.
-4. Buy and organize Held Items, Training Items, and TMs.
+4. Buy and organize Held Items and Training Items. TMs remain deferred.
 5. Choose a lead and begin the daily battle.
 6. Eventually receive results, casualties, rewards, and streak changes.
 
@@ -37,13 +37,15 @@ The prototype includes:
 - Showdown-style move and Pokémon information on hover
 - Long-press information cards on touch devices without triggering the underlying action
 - A party-selecting and rearrangeable PC box with Pokémon details, team swapping, and item use
-- Three independently revealable encounters with clear mystery and revealed states
-- Categorized Bag and Mart views for Held Items, Training Items, and TMs
-- Working local purchases and contextual give, use, and teach actions
+- Three daily encounters, or four on Sunday, with a persisted twelve-Pokémon opening batch for fresh runs
+- The complete approved catalog of 523 encounter entries, 139 Held Items, and 24 Training Items
+- Persistent account-scoped rosters, teams, encounters, money, inventory, purchases, equipment, and training
+- Categorized Bag and Mart views for Held Items and Training Items; TMs are intentionally absent for now
+- Working purchases and contextual held-item and training-item actions
 - Account/profile controls, persistent sessions, theme selection, and leaderboard/settings placeholders
 - Local arena and sprite assets
 
-The PC, encounters, Mart, and Bag still contain prototype-local state and will be connected to persistent run data during backend development.
+Local JSON files beneath `backend/data/` are development storage. They should be replaced by a durable transactional database before public deployment.
 
 ## Optional QA
 

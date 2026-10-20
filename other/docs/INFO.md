@@ -95,8 +95,9 @@ A run contains the player's living roster, money, and combat inventory since the
 
 ### Fresh runs and starter guarantees
 
-- A fresh run receives ten Pokémon.
-- A starter guarantee is pending for the first-ever encounter, the first encounter of a new month, and the first encounter after a wipe.
+- A fresh run begins with zero Pokémon, so its trainer battle is locked at first.
+- Claiming the first encounter of a fresh run grants a batch of twelve Pokémon and automatically places the first six on the team. This opening batch consumes one of that date's ordinary encounter slots.
+- The first result in that twelve-Pokémon batch is the guaranteed starter for the first-ever encounter, the first encounter of a new month, or the first encounter after a wipe.
 - Overlapping conditions create one guarantee, not multiple guarantees.
 - The guarantee is consumed only after the encounter is successfully generated and persisted.
 - The guaranteed result is a fully evolved starter; there is no starter choice screen.
@@ -104,7 +105,7 @@ A run contains the player's living roster, money, and combat inventory since the
 - Starters never appear in ordinary encounters, including Sundays.
 - Guaranteed starters use the same stat, nature, ability, gender, and shiny generation rules as other encounters.
 
-**Open:** Whether the ten-Pokémon fresh-run package replaces or supplements that date's ordinary three/four encounters, and when a post-wipe package becomes visible.
+After the opening batch is claimed, its remaining daily encounter slots behave as ordinary single-Pokémon encounters.
 
 ### Duplicate prevention
 
@@ -244,7 +245,7 @@ Form changes persist outside battle, but do not change duplicate-family identity
 - It is a one-use training item and may be repurchased after use.
 - It is consumed only after confirming a different form.
 - Returning to base form also requires and consumes another Catalog.
-- Its price should be substantial but is deferred.
+- It costs `1,200` coins in the initial economy.
 
 #### Oricorio Nectars
 
@@ -281,11 +282,24 @@ Move changes associated with form changes are **Deferred** until the move system
 - A Snorlax-provided copy bypasses that restriction, making repeated Snorlax encounters the only approved path to multiple Leftovers in one run.
 - No special anti-farming limit is required; the strategy is sufficiently rare and inefficient.
 
-Exact shop prices, payouts, sale values, starting money, and special rewards are **Deferred**. The approvals CSV defines approved content, not pricing.
+### Initial economy and prices
+
+- A fresh run starts with `2,500` coins.
+- Vitamins cost `10` coins per one-EV item.
+- EV-reduction berries cost `8` coins per one-EV item.
+- Bottle Cap costs `750`; Nature Mint `400`; Ability Capsule `600`; Ability Patch `1,400`; Rotom Catalog `1,200`.
+- Each Nectar costs `300`; each Paldean Tauros Cud costs `500`.
+- Premium held items cost `1,200`: Assault Vest, Booster Energy, Choice Band, Choice Scarf, Choice Specs, Covert Cloak, Focus Sash, Heavy-Duty Boots, Leftovers, Life Orb, Loaded Dice, and Rocky Helmet.
+- Strong held items cost `800`: Eject Button, Eject Pack, Expert Belt, Flame Orb, Light Clay, Mental Herb, Mirror Herb, Power Herb, Protective Pads, Safety Goggles, Scope Lens, Shed Shell, Throat Spray, Toxic Orb, Weakness Policy, Wide Lens, and Wise Glasses.
+- Most Berries cost `180`; Sitrus, Lum, and Custap Berries cost `350`.
+- Type Memories cost `250`; ordinary single-type power boosters cost `300`.
+- Other one-use held items cost `450`; other reusable held items cost `550`.
+
+These are first-pass balance values and live in the content layer so playtesting can tune them without changing inventory rules. Battle payouts, sale values, and special rewards remain **Deferred**.
 
 ## 10. Moves and TMs
 
-Initial move generation, cross-generation learnset policy, TMs, move tutoring, and later player editing restrictions are **Deferred** for a dedicated owner discussion.
+Initial move-generation policy, cross-generation learnset policy, TMs, move tutoring, and later player editing restrictions are **Deferred** for a dedicated owner discussion. Until that discussion, generated Pokémon receive a deterministic temporary battle-ready moveset from their Showdown learnset. No TMs are present in the Mart or Bag.
 
 Do not treat the older move-generation proposal as final approval. Generated moves must eventually be persisted so refreshes cannot reroll them.
 
@@ -381,10 +395,9 @@ trainer_eligible
 ## 15. Explicitly deferred or open work
 
 - Initial moves, legal learnset policy, TMs, tutors, and moveset editing.
-- All item prices, payouts, sale values, and starting money.
+- Battle payouts, sale values, and special economy rewards.
 - Trainer templates beyond the existing Brock slice.
 - Exact daily trainer generation and difficulty progression.
-- Whether fresh-run encounters replace that day's ordinary claims.
 - Post-battle encounter access and partial claims.
 - Global game timezone and cross-rollover battle behavior.
 - Box capacity, releasing, and full-box behavior.
