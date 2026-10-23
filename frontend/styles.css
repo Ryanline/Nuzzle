@@ -291,7 +291,6 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .result-credit.ko-by { color: #2e7542; }
 .result-credit.ko-earned { color: #963f3f; }
 .result-credit.empty { color: #788188; font-style: italic; }
-.result-retry { display: block; min-height: 34px; margin: 12px auto 0; padding: 5px 14px; border: 1px solid #8b969f; border-radius: 6px; background: #fff; color: #40515f; cursor: pointer; font-size: 11px; font-weight: 700; }
 .battle-message { max-height: 72px; margin: 8px 0 0; min-height: 20px; overflow-y: auto; color: #444; font-size: 13px; line-height: 1.35; }
 .battle-error { margin: 8px 0; color: #a32626; font-size: 13px; text-align: center; }
 .battle-unavailable { display: grid; min-height: calc(100vh - 130px); place-content: center; gap: 12px; text-align: center; }
@@ -559,6 +558,9 @@ button.encounter-card:active { background: #eef5ef; transform: translateY(1px); 
 .settings-link-card b { color: #4b78a2; font-size: 28px; font-weight: 400; }
 .settings-card h3, .settings-card p { margin: 0; }
 .settings-card h3 { margin-bottom: 3px; font-size: 16px; }
+.admin-battle-reset button { min-height: 35px; margin-top: 10px; padding: 6px 11px; border: 1px solid #a34d4d; border-radius: 6px; background: #fff2f2; color: #8e3030; cursor: pointer; font-weight: 700; }
+.admin-battle-reset button:disabled { opacity: .45; cursor: default; }
+.admin-battle-reset small { display: block; min-height: 15px; margin-top: 5px; color: #397443; font-size: 11px; }
 
 .config-screen { padding-bottom: 0; }
 .config-stage { display: flex; min-height: calc(100vh - 104px); flex-direction: column; gap: 10px; padding-bottom: 12px; overflow-y: auto; overscroll-behavior: contain; }

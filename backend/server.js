@@ -237,10 +237,16 @@ async function api(request, response, pathname) {
     json(response, 200, {
       ...state,
       dailyBattleAttempted: service.hasDailyAttempt(user.id, state.date),
-      dailyBattleRepeatAllowed: Boolean(user.isAdmin),
       dailyBattleId: dailyBattle?.record.id || null,
       dailyBattleEnded: Boolean(dailyBattle?.stream.battle?.ended),
     });
+    return true;
+  }
+  if (request.method === "POST" && pathname === "/api/admin/battle/reset") {
+    const user = requireAdmin(request);
+    const state = await game.get(user.id);
+    await service.resetDailyAttempt(user.id, state.date);
+    json(response, 200, { date: state.date, reset: true });
     return true;
   }
   const encounterMatch = pathname.match(/^\/api\/game\/encounters\/(\d+)$/);
@@ -285,7 +291,7 @@ async function api(request, response, pathname) {
       trainerSpriteId: today.trainer.spriteId,
       challengeDate: today.date,
       challengeNumber: today.number,
-    }, user.id, { allowRepeat: user.isAdmin }));
+    }, user.id));
     return true;
   }
   const match = pathname.match(/^\/api\/battles\/([0-9a-f-]+)(?:\/(choices|forfeit))?$/i);

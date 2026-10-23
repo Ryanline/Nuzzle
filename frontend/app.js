@@ -105,6 +105,8 @@
   let adminConfig = null;
   let configBusy = false;
   let configError = "";
+  let battleResetBusy = false;
+  let battleResetMessage = "";
   let trainerFormOpen = false;
   const emptyTrainerDraft = () => ({ name: "", spriteId: "", teamText: "" });
   let trainerDraft = emptyTrainerDraft();
@@ -618,8 +620,7 @@
     const victory = battleState.winner === "Player";
     const heading = victory ? "Victory!" : battleState.winner ? "Defeat" : "Battle complete";
     const subheading = battleState.forfeited ? `You forfeited against ${battleState.opponent.name}.` : `${battleState.opponent.name} · Nuzzle #${battleState.challengeNumber || todayState.number}`;
-    const adminRetry = gameState?.dailyBattleRepeatAllowed ? '<button class="result-retry" type="button" data-retry-battle>battle again (admin)</button>' : "";
-    return `<div class="result-backdrop" data-close-result><section class="result-modal ${victory ? "victory" : "defeat"}" role="dialog" aria-modal="true" aria-labelledby="result-title"><button class="result-close" type="button" aria-label="Close result" data-close-result>×</button><header><span>daily battle result</span><h2 id="result-title">${heading}</h2><p>${escapeHtml(subheading)}</p></header><div class="result-legend"><span class="green-key">▲ your Pokémon that KO'd it</span><span class="red-key">▼ your Pokémon it KO'd</span></div><div class="result-grid">${cards}</div>${adminRetry}</section></div>`;
+    return `<div class="result-backdrop" data-close-result><section class="result-modal ${victory ? "victory" : "defeat"}" role="dialog" aria-modal="true" aria-labelledby="result-title"><button class="result-close" type="button" aria-label="Close result" data-close-result>×</button><header><span>daily battle result</span><h2 id="result-title">${heading}</h2><p>${escapeHtml(subheading)}</p></header><div class="result-legend"><span class="green-key">▲ your Pokémon that KO'd it</span><span class="red-key">▼ your Pokémon it KO'd</span></div><div class="result-grid">${cards}</div></section></div>`;
   }
 
   function pc() {
@@ -821,7 +822,32 @@
     const adminLink = currentUser?.isAdmin
       ? `<button class="settings-link-card" type="button" data-route="config"><span><strong>daily trainer config</strong><small>Build and order the upcoming trainer queue</small></span><b aria-hidden="true">›</b></button>`
       : "";
-    return `<section class="screen">${header()}<div class="simple-stage settings-stage"><h2>Settings</h2>${adminLink}<section class="settings-card"><h3>Theme</h3><p>Use the moon switch in the header to change this device between light and dark mode.</p></section>${backButton()}</div></section>`;
+    const adminBattleReset = currentUser?.isAdmin
+      ? `<section class="settings-card admin-battle-reset"><h3>Daily battle</h3><p>Clear only your attempt for ${formatGameDate(gameState?.date)} so you can battle today's trainer again.</p><button type="button" data-reset-daily-battle ${battleResetBusy || !gameState?.dailyBattleAttempted ? "disabled" : ""}>${battleResetBusy ? "resetting…" : "reset today's battle"}</button><small role="status" aria-live="polite">${escapeHtml(battleResetMessage)}</small></section>`
+      : "";
+    return `<section class="screen">${header()}<div class="simple-stage settings-stage"><h2>Settings</h2>${adminLink}${adminBattleReset}<section class="settings-card"><h3>Theme</h3><p>Use the moon switch in the header to change this device between light and dark mode.</p></section>${backButton()}</div></section>`;
+  }
+
+  async function resetDailyBattle() {
+    if (!currentUser?.isAdmin || battleResetBusy || !gameState?.dailyBattleAttempted) return;
+    battleResetBusy = true;
+    battleResetMessage = "";
+    render();
+    try {
+      await apiRequest("/api/admin/battle/reset", { method: "POST" });
+      gameState.dailyBattleAttempted = false;
+      gameState.dailyBattleId = null;
+      gameState.dailyBattleEnded = false;
+      battleState = null;
+      resultOverlayOpen = false;
+      localStorage.removeItem("nuzzleBattleId");
+      battleResetMessage = "Today's battle is ready to play again.";
+    } catch (error) {
+      battleResetMessage = error.message;
+    } finally {
+      battleResetBusy = false;
+      render();
+    }
   }
 
   function formatGameDate(date) {
@@ -1332,12 +1358,7 @@
       render();
       requestAnimationFrame(() => document.querySelector("[data-open-result]")?.focus({ preventScroll: true }));
     }));
-    document.querySelector("[data-retry-battle]")?.addEventListener("click", () => {
-      resultOverlayOpen = false;
-      selectedLeadId = null;
-      route = "lead";
-      render();
-    });
+    document.querySelector("[data-reset-daily-battle]")?.addEventListener("click", resetDailyBattle);
     document.querySelector("[data-toggle-battle-log]")?.addEventListener("click", () => {
       battleLogExpanded = !battleLogExpanded;
       render();

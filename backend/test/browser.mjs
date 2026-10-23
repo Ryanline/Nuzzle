@@ -323,7 +323,6 @@ if (await page.locator("[data-forfeit-battle]").count()) throw new Error("Forfei
 await page.waitForSelector(".result-modal");
 if (!(await page.locator(".result-modal").textContent())?.includes("Defeat")) throw new Error("The result overlay did not report the loss.");
 if (await page.locator(".result-mon-card").count() !== 6) throw new Error("The result overlay did not show all six opposing Pokémon.");
-if (await page.locator("[data-retry-battle]").count() !== 1) throw new Error("The admin result did not retain a repeat-battle path.");
 await page.click(".result-close");
 if (await page.locator(".result-modal").count()) throw new Error("The result overlay did not close.");
 if (await page.locator("[data-open-result]").count() !== 1) throw new Error("The completed battle did not retain a result button.");
@@ -335,6 +334,15 @@ if (!(await page.locator('.home-actions [data-route="battle"]').textContent())?.
 await page.click('.home-actions [data-route="battle"]');
 await page.waitForSelector(".result-modal");
 await page.click(".result-close");
+await page.click('.battle-result-actions [data-route="home"]');
+await page.click('[data-route="settings"]');
+if (await page.locator("[data-reset-daily-battle]").count() !== 1) throw new Error("The admin settings did not expose the daily battle reset.");
+const resetResponse = page.waitForResponse((response) => response.url().endsWith("/api/admin/battle/reset") && response.request().method() === "POST");
+await page.click("[data-reset-daily-battle]");
+if (!(await resetResponse).ok()) throw new Error("Resetting the admin's daily battle failed.");
+if (!(await page.locator(".admin-battle-reset").textContent())?.includes("ready to play again")) throw new Error("The daily battle reset did not report success.");
+await page.click('.settings-stage [data-route="home"]');
+if ((await page.locator('.home-actions [data-route="lead"]').textContent())?.trim() !== "battle") throw new Error("Resetting did not restore the normal battle entry point.");
 
 const imageFailures = await page.locator("img").evaluateAll((images) => images.filter((image) => !image.complete || image.naturalWidth === 0).map((image) => image.src));
 await browser.close();

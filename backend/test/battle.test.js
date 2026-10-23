@@ -151,7 +151,7 @@ test("a saved battle belongs only to the account that created it", async () => {
   assert.throws(() => service.get(initial.id, "user-two"), /not found/i);
 });
 
-test("non-admin accounts get one daily battle attempt while admins can repeat", async () => {
+test("daily attempts are limited to one and a reset survives restart", async () => {
   const { directory, service } = await serviceFixture();
   const challenge = { partyIds: defaultParty, leadId: "vaporeon", challengeDate: "2026-10-23", challengeNumber: 2 };
   await service.create(challenge, "daily-player");
@@ -161,13 +161,16 @@ test("non-admin accounts get one daily battle attempt while admins can repeat", 
     service.create(challenge, "daily-player"),
     (error) => error.statusCode === 409 && /already used/i.test(error.message)
   );
-  await service.create(challenge, "daily-player", { allowRepeat: true });
-  await service.create({ ...challenge, challengeDate: "2026-10-24", challengeNumber: 3 }, "daily-player");
+  await service.resetDailyAttempt("daily-player", "2026-10-23");
+  assert.equal(service.hasDailyAttempt("daily-player", "2026-10-23"), false);
+  assert.equal(service.dailyBattle("daily-player", "2026-10-23"), null);
 
   const restoredService = new BattleService(new BattleStore(directory));
   await restoredService.initialize();
-  assert.equal(restoredService.hasDailyAttempt("daily-player", "2026-10-23"), true);
+  assert.equal(restoredService.hasDailyAttempt("daily-player", "2026-10-23"), false);
+  await restoredService.create(challenge, "daily-player");
   await assert.rejects(restoredService.create(challenge, "daily-player"), /already used/i);
+  await restoredService.create({ ...challenge, challengeDate: "2026-10-24", challengeNumber: 3 }, "daily-player");
 });
 
 test("forfeit produces a Brock win", async () => {
