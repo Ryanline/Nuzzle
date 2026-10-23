@@ -131,9 +131,11 @@ function eventEntry(line, context) {
 function pokemonView(pokemon, ownSide) {
   const roundedPercent = pokemon.maxhp ? Math.round((pokemon.hp / pokemon.maxhp) * 100) : 0;
   const percent = pokemon.hp > 0 ? Math.max(1, roundedPercent) : 0;
+  const species = pokemon.species;
   return {
-    id: toID(pokemon.name || pokemon.species?.name),
-    name: pokemon.species?.name || pokemon.name,
+    id: species?.id || toID(species?.name || pokemon.name),
+    name: species?.name || pokemon.name,
+    spriteId: species?.spriteid || species?.id || toID(species?.name || pokemon.name),
     level: pokemon.level,
     hp: ownSide ? pokemon.hp : null,
     maxHp: ownSide ? pokemon.maxhp : null,

@@ -3,10 +3,10 @@
 
   const localSpriteIds = new Set(["aerodactyl", "alakazam", "arcanine", "exeggutor", "flareon", "gengar", "golem", "lapras", "machamp", "magcargo", "nidoking", "onix", "pidgeot", "raichu", "rhydon", "rhyperior", "steelix", "sudowoodo", "vaporeon", "venusaur"]);
   const backSpriteIds = new Set(["flareon", "raichu", "vaporeon", "gengar", "venusaur", "pidgeot", "arcanine", "lapras", "alakazam", "machamp", "nidoking", "exeggutor"]);
-  const sprite = (id, back = false) => {
+  const sprite = (id, back = false, currentSpriteId = null) => {
     const speciesId = mons[id]?.speciesId || id;
     if (localSpriteIds.has(speciesId) && (!back || backSpriteIds.has(speciesId))) return `assets/${back ? "sprites-back" : "sprites"}/${speciesId}.png`;
-    const spriteId = mons[id]?.spriteId || pokemonContent.get(speciesId)?.spriteId || speciesId;
+    const spriteId = currentSpriteId || mons[id]?.spriteId || pokemonContent.get(speciesId)?.spriteId || speciesId;
     return `https://play.pokemonshowdown.com/sprites/${back ? "gen5-back" : "gen5"}/${encodeURIComponent(spriteId)}.png`;
   };
   const healthTone = (percent) => percent <= 20 ? "critical" : percent <= 50 ? "warning" : "healthy";
@@ -472,7 +472,7 @@
     }).join("");
     battleLogInitialized = true;
     const movesHtml = battleState.moves.map((move) => `<button class="move-button type-${move.type.toLowerCase()}" type="button" data-battle-move="${move.slot}" data-battle-move-tip="${move.slot}" ${move.disabled || battleLoading || battleState.ended ? "disabled" : ""}><strong>${escapeHtml(move.name)}</strong><span>${escapeHtml(move.type)}</span><small>${move.pp}/${move.maxPp}</small></button>`).join("");
-    const switchesHtml = battleState.player.team.map((pokemon) => `<button class="switch-choice ${pokemon.active ? "selected" : ""} ${pokemon.fainted ? "fainted" : ""}" type="button" data-battle-switch="${pokemon.slot}" data-mon-tip="${pokemon.id}" ${!pokemon.canSwitch || battleLoading || battleState.ended ? "disabled" : ""}><img class="sprite" src="${sprite(pokemon.id)}" alt=""/><span>${escapeHtml(pokemon.name)}</span><small>${pokemon.fainted ? "fainted" : `${pokemon.percent}%`}</small></button>`).join("");
+    const switchesHtml = battleState.player.team.map((pokemon) => `<button class="switch-choice ${pokemon.active ? "selected" : ""} ${pokemon.fainted ? "fainted" : ""}" type="button" data-battle-switch="${pokemon.slot}" data-mon-tip="${pokemon.id}" ${!pokemon.canSwitch || battleLoading || battleState.ended ? "disabled" : ""}><img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId)}" alt=""/><span>${escapeHtml(pokemon.name)}</span><small>${pokemon.fainted ? "fainted" : `${pokemon.percent}%`}</small></button>`).join("");
     const prompt = battleState.ended
       ? `<strong>${battleState.winner === "Player" ? "You won!" : battleState.winner === "Brock" ? "Brock won." : "Battle over."}</strong>`
       : battleState.forcedSwitch
@@ -482,8 +482,8 @@
           : `What will <strong>${escapeHtml(player?.name)}</strong> do?`;
     return `<section class="screen battle-screen">${header()}<div class="arena battle-arena" aria-label="Rocky battlefield">
       <div class="battle-platform enemy" aria-hidden="true"></div><div class="battle-platform player" aria-hidden="true"></div>
-      ${enemy ? `<div class="battler-slot enemy" data-pokemon="${escapeHtml(enemy.id)}"><img class="sprite active-sprite" src="${sprite(enemy.id)}" alt="${escapeHtml(enemy.name)}" /></div><section class="battle-hud enemy" aria-label="Opponent ${escapeHtml(enemy.name)}"><div class="battle-hud-title"><strong>${escapeHtml(enemy.name)}</strong><span>Lv. ${enemy.level}</span></div><div class="hp-bar ${healthTone(enemy.percent)}"><i style="width:${enemy.percent}%"></i></div><div class="battle-hud-detail"><span>HP</span><small>${enemy.percent}%</small>${enemy.status ? `<b>${escapeHtml(enemy.status.toUpperCase())}</b>` : ""}</div></section>` : ""}
-      ${player ? `<div class="battler-slot player" data-pokemon="${escapeHtml(player.id)}"><img class="sprite active-sprite" src="${sprite(player.id, true)}" alt="${escapeHtml(player.name)}" /></div><section class="battle-hud player" aria-label="Your ${escapeHtml(player.name)}"><div class="battle-hud-title"><strong>${escapeHtml(player.name)}</strong><span>Lv. ${player.level}</span></div><div class="hp-bar ${healthTone(player.percent)}"><i style="width:${player.percent}%"></i></div><div class="battle-hud-detail"><span>HP</span><small>${player.hp}/${player.maxHp}</small>${player.status ? `<b>${escapeHtml(player.status.toUpperCase())}</b>` : ""}</div></section>` : ""}
+      ${enemy ? `<div class="battler-slot enemy" data-pokemon="${escapeHtml(enemy.id)}"><img class="sprite active-sprite" src="${sprite(enemy.id, false, enemy.spriteId)}" alt="${escapeHtml(enemy.name)}" /></div><section class="battle-hud enemy" aria-label="Opponent ${escapeHtml(enemy.name)}"><div class="battle-hud-title"><strong>${escapeHtml(enemy.name)}</strong><span>Lv. ${enemy.level}</span></div><div class="hp-bar ${healthTone(enemy.percent)}"><i style="width:${enemy.percent}%"></i></div><div class="battle-hud-detail"><span>HP</span><small>${enemy.percent}%</small>${enemy.status ? `<b>${escapeHtml(enemy.status.toUpperCase())}</b>` : ""}</div></section>` : ""}
+      ${player ? `<div class="battler-slot player" data-pokemon="${escapeHtml(player.id)}"><img class="sprite active-sprite" src="${sprite(player.id, true, player.spriteId)}" alt="${escapeHtml(player.name)}" /></div><section class="battle-hud player" aria-label="Your ${escapeHtml(player.name)}"><div class="battle-hud-title"><strong>${escapeHtml(player.name)}</strong><span>Lv. ${player.level}</span></div><div class="hp-bar ${healthTone(player.percent)}"><i style="width:${player.percent}%"></i></div><div class="battle-hud-detail"><span>HP</span><small>${player.hp}/${player.maxHp}</small>${player.status ? `<b>${escapeHtml(player.status.toUpperCase())}</b>` : ""}</div></section>` : ""}
     </div><div class="battle-panel${battleLogExpanded ? " log-expanded" : ""}"><section class="battle-log-card${battleLogExpanded ? " expanded" : ""}" aria-labelledby="battle-log-title"><header><h2 id="battle-log-title">Battle log</h2><div>${battleLogHasNew ? '<button type="button" data-battle-log-new>new events</button>' : ""}<button type="button" data-toggle-battle-log aria-expanded="${battleLogExpanded}">${battleLogExpanded ? "collapse" : "expand"}</button></div></header><div class="battle-log-body" data-battle-log role="log" aria-label="Battle events" tabindex="0"><div class="battle-log-stack">${logHtml || '<p class="battle-log-empty">The battle is starting…</p>'}</div></div></section><span class="visually-hidden" role="status" aria-live="polite">${escapeHtml(latestAnnouncement)}</span>
       <div class="battle-command-area" ${battleLogExpanded ? 'inert aria-hidden="true"' : ""}><p class="prompt">${prompt} <small>Turn ${battleState.turn}</small></p>${battleState.forcedSwitch || battleState.ended ? "" : `<h2 class="section-label attack">Attack</h2><div class="move-grid">${movesHtml}</div>`}
       <h2 class="section-label">Switch</h2><div class="switch-grid">${switchesHtml}</div>${battleError ? `<p class="battle-error" role="alert">${escapeHtml(battleError)}</p>` : ""}</div>
@@ -737,9 +737,9 @@
     }
     const arenaRect = arena.getBoundingClientRect();
     const platformRect = platform.getBoundingClientRect();
-    const spriteSize = Math.min(180, arenaRect.width * .46) * .78;
+    const spriteSize = Math.min(180, arenaRect.width * .46) * .78 * .9;
     const anchorX = platformRect.left - arenaRect.left + platformRect.width / 2;
-    const anchorY = platformRect.bottom - arenaRect.top - platformRect.height * .1 + 30;
+    const anchorY = platformRect.bottom - arenaRect.top - platformRect.height * .1 + 30 - spriteSize * .05;
     image.style.setProperty("--foe-sprite-size", `${spriteSize}px`);
     image.style.setProperty("--foe-sprite-left", `${anchorX - spriteSize / 2}px`);
     image.style.setProperty("--foe-sprite-top", `${anchorY - spriteSize}px`);

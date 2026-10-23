@@ -89,6 +89,28 @@ test("a player can switch to any configured party member", async () => {
   assert.ok(next.turn >= 2);
 });
 
+test("Zero to Hero exposes Palafin's transformed stats and sprite after switching out", async () => {
+  const { service } = await serviceFixture();
+  const playerTeam = [
+    { name: "Palafin", species: "Palafin", ability: "Zero to Hero", level: 100, moves: ["Splash"] },
+    { name: "Blissey", species: "Blissey", ability: "Natural Cure", level: 100, moves: ["Splash"] },
+  ];
+  const initial = await service.create({ partyIds: ["palafin", "blissey"], leadId: "palafin", playerTeam });
+  const battle = service.get(initial.id);
+  const zeroAttack = battle.stream.battle.p1.active[0].storedStats.atk;
+
+  const benched = await battle.choose({ type: "switch", slot: 2 }, initial.rqid);
+  const heroSlot = benched.player.team.find((pokemon) => pokemon.id === "palafinhero")?.slot;
+  assert.ok(heroSlot, "Palafin-Hero should be available to switch back in.");
+  const hero = await battle.choose({ type: "switch", slot: heroSlot }, benched.rqid);
+  const heroAttack = battle.stream.battle.p1.active[0].storedStats.atk;
+
+  assert.equal(hero.player.active.id, "palafinhero");
+  assert.equal(hero.player.active.name, "Palafin-Hero");
+  assert.equal(hero.player.active.spriteId, "palafin-hero");
+  assert.ok(heroAttack > zeroAttack, `Hero Form attack (${heroAttack}) should exceed Zero Form attack (${zeroAttack}).`);
+});
+
 test("a saved battle replays to the same decision point", async () => {
   const { directory, service } = await serviceFixture();
   const initial = await service.create({ partyIds: defaultParty, leadId: "vaporeon" });
