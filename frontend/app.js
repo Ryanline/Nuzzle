@@ -418,7 +418,7 @@
 
   function lead() {
     const chosen = [...team].slice(0, 6);
-    return `<section class="screen lead-screen">${header()}<div class="arena lead-arena"><img class="sprite trainer" src="${trainerSprite}" alt="Gym Leader Brock" /></div>
+    return `<section class="screen lead-screen">${header()}<div class="arena battle-arena lead-arena"><div class="battle-platform enemy" aria-hidden="true"></div><div class="battle-platform player" aria-hidden="true"></div><img class="sprite trainer" src="${trainerSprite}" alt="Gym Leader Brock" /></div>
       <div class="lead-prompt"><p class="prompt">How will you start the battle?</p><h2 class="section-label">Choose Lead</h2>
       <div class="lead-grid">${chosen.map(monButton).join("")}</div><div class="lead-details-slot" data-lead-details aria-live="polite">${leadDetails(selectedLeadId)}</div></div>
       ${battleError ? `<p class="battle-error" role="alert">${escapeHtml(battleError)}</p>` : ""}
@@ -751,10 +751,17 @@
     tooltip.hidden = false;
     const rect = target.getBoundingClientRect();
     const tip = tooltip.getBoundingClientRect();
-    const left = Math.max(10, Math.min(innerWidth - tip.width - 10, rect.left));
-    const top = rect.top > tip.height + 10 ? rect.top - tip.height - 6 : Math.min(innerHeight - tip.height - 10, rect.bottom + 6);
+    const viewport = window.visualViewport;
+    const viewportLeft = viewport?.offsetLeft || 0;
+    const viewportTop = viewport?.offsetTop || 0;
+    const viewportWidth = viewport?.width || innerWidth;
+    const viewportHeight = viewport?.height || innerHeight;
+    const left = Math.max(viewportLeft + 10, Math.min(viewportLeft + viewportWidth - tip.width - 10, rect.left));
+    const top = rect.top > viewportTop + tip.height + 10
+      ? rect.top - tip.height - 6
+      : Math.min(viewportTop + viewportHeight - tip.height - 10, rect.bottom + 6);
     tooltip.style.left = `${left}px`;
-    tooltip.style.top = `${Math.max(10, top)}px`;
+    tooltip.style.top = `${Math.max(viewportTop + 10, top)}px`;
   }
 
   function hideTooltip() {

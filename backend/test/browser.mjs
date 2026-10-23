@@ -188,6 +188,8 @@ await page.click(`[data-select-lead="${replacementId}"]`);
 if (!(await page.locator(".lead-details-card").textContent())?.includes(replacementName)) throw new Error("Selecting a lead did not show its battle details.");
 if (await page.locator(".lead-stat").count() !== 6) throw new Error("The lead preview did not show all six battle stats together.");
 if (await page.locator(".lead-move-grid > span").count() !== 4) throw new Error("The lead preview did not show all four moves.");
+if ((await page.locator(".lead-arena").evaluate((element) => getComputedStyle(element).backgroundImage)).includes("arena.png")) throw new Error("The lead preview still uses the legacy arena image.");
+if (await page.locator(".lead-arena .battle-platform").count() !== 2) throw new Error("The lead preview did not use the shared CSS battlefield platforms.");
 await page.click("[data-start-battle]");
 await page.waitForSelector('.battle-screen [data-battle-move="1"]');
 
@@ -222,6 +224,25 @@ if (overlaps(battlefieldBounds.enemyHud, battlefieldBounds.enemySprite) || overl
 if (battlefieldBounds.enemyHud.left >= battlefieldBounds.enemySprite.left || battlefieldBounds.playerHud.left <= battlefieldBounds.playerSprite.left) throw new Error("The battlefield does not use the intended opposing-corner layout.");
 if (battlefieldBounds.playerPlatformVisibleFraction < 0.45 || battlefieldBounds.playerPlatformVisibleFraction > 0.6) throw new Error("The player's platform is not approximately half-clipped by the bottom of the arena.");
 if (battlefieldBounds.enemyAnchorErrorX > 1 || battlefieldBounds.enemyAnchorErrorY > 1) throw new Error("The foe's full-canvas bottom-center was not aligned to the shared platform anchor.");
+const mobileBattleFit = await page.locator(".battle-screen").evaluate((screen) => {
+  const bounds = (selector) => screen.querySelector(selector).getBoundingClientRect();
+  const lastSwitch = [...screen.querySelectorAll("[data-battle-switch]")].at(-1).getBoundingClientRect();
+  return {
+    viewportHeight: window.visualViewport?.height || window.innerHeight,
+    screenBottom: screen.getBoundingClientRect().bottom,
+    giveUpBottom: bounds(".give-up").bottom,
+    lastSwitchBottom: lastSwitch.bottom,
+  };
+});
+if (mobileBattleFit.screenBottom > mobileBattleFit.viewportHeight + 1 || mobileBattleFit.giveUpBottom > mobileBattleFit.viewportHeight + 1 || mobileBattleFit.lastSwitchBottom > mobileBattleFit.viewportHeight + 1) throw new Error("The mobile battle controls do not fit in one viewport.");
+await page.locator('[data-mon-tip]').nth(1).hover();
+const tooltipFit = await page.locator("#tooltip").evaluate((tip) => {
+  const rect = tip.getBoundingClientRect();
+  const viewport = window.visualViewport;
+  return { top: rect.top, bottom: rect.bottom, viewportTop: viewport?.offsetTop || 0, viewportBottom: (viewport?.offsetTop || 0) + (viewport?.height || window.innerHeight) };
+});
+if (tooltipFit.top < tooltipFit.viewportTop + 9 || tooltipFit.bottom > tooltipFit.viewportBottom - 9) throw new Error("The battle Pokémon tooltip does not fit within the mobile viewport.");
+await page.mouse.move(1, 1);
 
 const turnResponse = page.waitForResponse((response) => response.url().includes("/choices") && response.request().method() === "POST");
 await page.click('[data-battle-move="1"]');
