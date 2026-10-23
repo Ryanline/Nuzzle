@@ -562,8 +562,19 @@ button.encounter-card:active { background: #eef5ef; transform: translateY(1px); 
 .trainer-form label { display: grid; gap: 3px; color: var(--muted); font-size: 12px; font-weight: 700; }
 .trainer-form input, .trainer-form select, .trainer-form textarea { width: 100%; padding: 8px; border: 1px solid #aeb5bb; border-radius: 5px; background: var(--raised); color: var(--ink); font: inherit; }
 .trainer-form textarea { min-height: 220px; resize: vertical; font: 13px/1.35 Consolas, monospace; }
+.trainer-sprite-field { display: grid; gap: 3px; }
+.trainer-sprite-combobox { position: relative; }
+.trainer-sprite-input-row { display: grid; grid-template-columns: minmax(0, 1fr) 38px; }
+.trainer-sprite-input-row input { border-radius: 5px 0 0 5px; }
+.trainer-sprite-input-row button { border: 1px solid #aeb5bb; border-left: 0; border-radius: 0 5px 5px 0; background: var(--raised); cursor: pointer; font-size: 17px; }
+.trainer-sprite-menu { position: absolute; z-index: 30; top: calc(100% + 3px); right: 0; left: 0; max-height: 240px; padding: 4px; overflow-y: auto; border: 1px solid #8f9aa2; border-radius: 5px; background: var(--raised); box-shadow: 0 5px 12px rgba(0,0,0,.24); }
+.trainer-sprite-option { display: flex; width: 100%; align-items: baseline; justify-content: space-between; gap: 10px; padding: 7px 8px; border: 0; border-radius: 3px; background: transparent; cursor: pointer; text-align: left; }
+.trainer-sprite-option:hover, .trainer-sprite-option:focus-visible { background: #e6f0f7; }
+.trainer-sprite-option small { overflow: hidden; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; }
+.trainer-sprite-empty { margin: 8px; color: var(--muted); font-size: 12px; text-align: center; }
 .trainer-sprite-preview { display: grid; height: 92px; place-items: center; border: 1px dashed #b6bdc2; border-radius: 6px; background: var(--raised); }
 .trainer-sprite-preview img { width: 76px; height: 88px; object-fit: contain; }
+.trainer-sprite-preview.mystery img { width: 64px; height: 88px; }
 .config-help { margin: -2px 0 0; color: var(--muted); font-size: 11px; }
 .config-back { width: 100%; margin-top: auto; }
 
@@ -634,6 +645,8 @@ html[data-theme="dark"] .settings-card,
 html[data-theme="dark"] .trainer-queue-row,
 html[data-theme="dark"] .battle-log-card.expanded { border-color: #59636c; background: var(--surface); color: var(--ink); }
 html[data-theme="dark"] .config-current { border-color: #46634b; background: #24352a; }
+html[data-theme="dark"] .trainer-sprite-option:hover,
+html[data-theme="dark"] .trainer-sprite-option:focus-visible { background: #354957; }
 html[data-theme="dark"] .pc-section-head,
 html[data-theme="dark"] .battle-log-card > header,
 html[data-theme="dark"] .shop-segments { border-color: #59636c; background: #30363d; }

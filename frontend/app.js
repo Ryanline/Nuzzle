@@ -13,6 +13,7 @@
   const trainerSprite = (id = "brock") => id === "brock"
     ? "assets/trainers/brock.png"
     : `https://play.pokemonshowdown.com/sprites/trainers/${encodeURIComponent(id)}.png`;
+  const mysteryTrainerSprite = "assets/trainers/mystery.png";
   const app = document.querySelector("#app");
   const tooltip = document.querySelector("#tooltip");
   const savedTheme = localStorage.getItem("nuzzleTheme");
@@ -104,7 +105,38 @@
   let configBusy = false;
   let configError = "";
   let trainerFormOpen = false;
-  let trainerDraft = { name: "", spriteId: "brock", teamText: "" };
+  const emptyTrainerDraft = () => ({ name: "", spriteId: "", teamText: "" });
+  let trainerDraft = emptyTrainerDraft();
+
+  function trainerDraftStorageKey() {
+    return currentUser?.id ? `nuzzleTrainerDraft:${currentUser.id}` : null;
+  }
+
+  function loadTrainerDraft() {
+    trainerDraft = emptyTrainerDraft();
+    const key = trainerDraftStorageKey();
+    if (!key) return;
+    try {
+      const saved = JSON.parse(localStorage.getItem(key));
+      if (!saved || typeof saved !== "object") return;
+      trainerDraft = {
+        name: String(saved.name || "").slice(0, 40),
+        spriteId: String(saved.spriteId || ""),
+        teamText: String(saved.teamText || ""),
+      };
+    } catch {}
+  }
+
+  function saveTrainerDraft() {
+    const key = trainerDraftStorageKey();
+    if (key) localStorage.setItem(key, JSON.stringify(trainerDraft));
+  }
+
+  function clearTrainerDraft() {
+    const key = trainerDraftStorageKey();
+    if (key) localStorage.removeItem(key);
+    trainerDraft = emptyTrainerDraft();
+  }
 
   function applyGameState(nextState) {
     gameState = nextState;
@@ -310,6 +342,7 @@
         body: JSON.stringify({ username, password }),
       });
       currentUser = result.user;
+      loadTrainerDraft();
       authOpen = false;
       const destination = pendingRoute;
       pendingRoute = null;
@@ -335,6 +368,8 @@
       await apiRequest("/api/auth/logout", { method: "POST" });
     } finally {
       currentUser = null;
+      trainerDraft = emptyTrainerDraft();
+      trainerFormOpen = false;
       resetAvatarEditor();
       battleState = null;
       gameState = null;
@@ -746,11 +781,22 @@
     return `${Number(month)}/${Number(day)}/${year}`;
   }
 
+  function trainerSpriteChoices(sprites, query = "") {
+    const search = String(query).trim().toLowerCase();
+    const matches = search
+      ? sprites.filter((trainer) => trainer.id.includes(search) || trainer.name.toLowerCase().includes(search))
+      : sprites;
+    return matches.length
+      ? matches.map((trainer) => `<button class="trainer-sprite-option" type="button" role="option" data-trainer-sprite-option="${trainer.id}"><strong>${escapeHtml(trainer.name)}</strong><small>${trainer.id}</small></button>`).join("")
+      : '<p class="trainer-sprite-empty">No matching trainer sprites.</p>';
+  }
+
   function configScreen() {
     if (!currentUser?.isAdmin) return settingsScreen();
     const current = adminConfig?.current;
     const queue = adminConfig?.queue || [];
     const sprites = adminConfig?.sprites || [];
+    const validSprite = sprites.some((trainer) => trainer.id === trainerDraft.spriteId);
     const currentCard = current ? `<section class="config-current"><span>live now · Nuzzle #${current.number}</span><strong>${escapeHtml(current.trainer.name)}</strong><small>${formatGameDate(current.date)}</small><div>${current.trainer.pokemon.map((pokemon) => `<img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId)}" alt="${escapeHtml(pokemon.name)}">`).join("")}</div></section>` : "";
     const rows = queue.map((trainer, index) => `<article class="trainer-queue-row" data-trainer-row="${trainer.id}">
       <div class="trainer-order-controls"><button type="button" aria-label="Move ${escapeHtml(trainer.name)} up" data-move-trainer="${trainer.id}" data-direction="up" ${index === 0 ? "disabled" : ""}>↑</button><button type="button" aria-label="Move ${escapeHtml(trainer.name)} down" data-move-trainer="${trainer.id}" data-direction="down" ${index === queue.length - 1 ? "disabled" : ""}>↓</button></div>
@@ -761,9 +807,11 @@
     const form = trainerFormOpen ? `<form class="trainer-form" data-trainer-form>
       <div class="trainer-form-head"><h2>Add trainer</h2><button type="button" data-close-trainer-form aria-label="Close">×</button></div>
       <label>Trainer name<input name="name" maxlength="40" required placeholder="Misty" value="${escapeHtml(trainerDraft.name)}"></label>
-      <label>Trainer sprite<input name="spriteId" list="trainer-sprite-options" autocomplete="off" required value="${escapeHtml(trainerDraft.spriteId)}" data-trainer-sprite placeholder="Search 1,500 trainer sprites"></label>
-      <datalist id="trainer-sprite-options">${sprites.map((trainer) => `<option value="${trainer.id}">${escapeHtml(trainer.name)}</option>`).join("")}</datalist>
-      <div class="trainer-sprite-preview"><img class="sprite" src="${trainerSprite(trainerDraft.spriteId || sprites[0]?.id)}" alt="Selected trainer sprite" data-trainer-sprite-preview></div>
+      <div class="trainer-sprite-field"><label for="trainer-sprite-input">Trainer sprite</label><div class="trainer-sprite-combobox">
+        <div class="trainer-sprite-input-row"><input id="trainer-sprite-input" name="spriteId" autocomplete="off" required value="${escapeHtml(trainerDraft.spriteId)}" data-trainer-sprite role="combobox" aria-autocomplete="list" aria-controls="trainer-sprite-menu" aria-expanded="false" placeholder="Choose or type to search"><button type="button" data-toggle-trainer-sprites aria-label="Show trainer sprites">▾</button></div>
+        <div class="trainer-sprite-menu" id="trainer-sprite-menu" data-trainer-sprite-menu role="listbox" hidden>${trainerSpriteChoices(sprites)}</div>
+      </div></div>
+      <div class="trainer-sprite-preview${validSprite ? "" : " mystery"}"><img class="sprite" src="${validSprite ? trainerSprite(trainerDraft.spriteId) : mysteryTrainerSprite}" alt="${validSprite ? "Selected trainer sprite" : "Mystery trainer"}" data-trainer-sprite-preview></div>
       <label>Showdown team<textarea name="teamText" rows="14" required placeholder="Starmie @ Leftovers&#10;Ability: Natural Cure&#10;Level: 100&#10;- Surf&#10;- Psychic&#10;- Ice Beam&#10;- Recover">${escapeHtml(trainerDraft.teamText)}</textarea></label>
       <p class="config-help">The first Pokémon will lead. Paste between one and six complete Showdown sets.</p>
       ${configError ? `<p class="battle-error" role="alert">${escapeHtml(configError)}</p>` : ""}
@@ -778,7 +826,8 @@
   async function addTrainer(form) {
     if (configBusy) return;
     const data = new FormData(form);
-    trainerDraft = { name: String(data.get("name") || ""), spriteId: String(data.get("spriteId") || "brock"), teamText: String(data.get("teamText") || "") };
+    trainerDraft = { name: String(data.get("name") || ""), spriteId: String(data.get("spriteId") || ""), teamText: String(data.get("teamText") || "") };
+    saveTrainerDraft();
     configBusy = true;
     configError = "";
     try {
@@ -787,7 +836,7 @@
         body: JSON.stringify(trainerDraft),
       });
       trainerFormOpen = false;
-      trainerDraft = { name: "", spriteId: "brock", teamText: "" };
+      clearTrainerDraft();
     } catch (error) {
       configError = error.message;
       trainerFormOpen = true;
@@ -1135,7 +1184,6 @@
     document.querySelector("[data-open-trainer-form]")?.addEventListener("click", () => {
       trainerFormOpen = true;
       configError = "";
-      trainerDraft = { name: "", spriteId: adminConfig?.sprites?.[0]?.id || "brock", teamText: "" };
       render();
     });
     document.querySelector("[data-close-trainer-form]")?.addEventListener("click", () => {
@@ -1143,14 +1191,64 @@
       configError = "";
       render();
     });
-    document.querySelector("[data-trainer-form]")?.addEventListener("submit", (event) => {
+    const trainerForm = document.querySelector("[data-trainer-form]");
+    trainerForm?.addEventListener("submit", (event) => {
       event.preventDefault();
       void addTrainer(event.currentTarget);
     });
-    document.querySelector("[data-trainer-sprite]")?.addEventListener("change", (event) => {
-      const preview = document.querySelector("[data-trainer-sprite-preview]");
-      if (preview) preview.src = trainerSprite(event.currentTarget.value);
+    trainerForm?.querySelectorAll('[name="name"], [name="teamText"]').forEach((field) => field.addEventListener("input", () => {
+      trainerDraft[field.name] = field.value;
+      saveTrainerDraft();
+    }));
+    const spriteInput = trainerForm?.querySelector("[data-trainer-sprite]");
+    const spriteMenu = trainerForm?.querySelector("[data-trainer-sprite-menu]");
+    const spritePreview = trainerForm?.querySelector("[data-trainer-sprite-preview]");
+    const availableSprites = adminConfig?.sprites || [];
+    const availableSpriteIds = new Set(availableSprites.map((trainer) => trainer.id));
+    const updateSpritePreview = (value) => {
+      if (!spritePreview) return;
+      const valid = availableSpriteIds.has(value);
+      spriteInput?.setCustomValidity(value && !valid ? "Choose a trainer sprite from the dropdown." : "");
+      spritePreview.src = valid ? trainerSprite(value) : mysteryTrainerSprite;
+      spritePreview.alt = valid ? "Selected trainer sprite" : "Mystery trainer";
+      spritePreview.parentElement?.classList.toggle("mystery", !valid);
+    };
+    const openSpriteMenu = (query = "") => {
+      if (!spriteMenu || !spriteInput) return;
+      spriteMenu.innerHTML = trainerSpriteChoices(availableSprites, query);
+      spriteMenu.hidden = false;
+      spriteInput.setAttribute("aria-expanded", "true");
+    };
+    const closeSpriteMenu = () => {
+      if (!spriteMenu || !spriteInput) return;
+      spriteMenu.hidden = true;
+      spriteInput.setAttribute("aria-expanded", "false");
+    };
+    spriteInput?.addEventListener("focus", () => openSpriteMenu(spriteInput.value));
+    spriteInput?.addEventListener("input", () => {
+      trainerDraft.spriteId = spriteInput.value.trim();
+      saveTrainerDraft();
+      updateSpritePreview(trainerDraft.spriteId);
+      openSpriteMenu(spriteInput.value);
     });
+    trainerForm?.querySelector("[data-toggle-trainer-sprites]")?.addEventListener("click", () => {
+      if (!spriteMenu || !spriteInput) return;
+      if (spriteMenu.hidden) {
+        spriteInput.focus();
+        openSpriteMenu();
+      } else closeSpriteMenu();
+    });
+    spriteMenu?.addEventListener("click", (event) => {
+      const option = event.target.closest("[data-trainer-sprite-option]");
+      if (!option || !spriteInput) return;
+      trainerDraft.spriteId = option.dataset.trainerSpriteOption;
+      spriteInput.value = trainerDraft.spriteId;
+      saveTrainerDraft();
+      updateSpritePreview(trainerDraft.spriteId);
+      closeSpriteMenu();
+      spriteInput.focus();
+    });
+    if (spriteInput) updateSpritePreview(spriteInput.value);
     document.querySelectorAll("[data-remove-trainer]").forEach((button) => button.addEventListener("click", () => void removeTrainer(button.dataset.removeTrainer)));
     document.querySelectorAll("[data-move-trainer]").forEach((button) => button.addEventListener("click", () => {
       const ids = (adminConfig?.queue || []).map((trainer) => trainer.id);
@@ -1462,6 +1560,7 @@
       await Promise.all([loadContent(), loadToday()]);
       const result = await apiRequest("/api/auth/me");
       currentUser = result.user;
+      loadTrainerDraft();
       if (currentUser) {
         await loadGame();
         await resumeBattle(false);
