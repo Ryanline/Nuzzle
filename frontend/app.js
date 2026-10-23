@@ -415,7 +415,7 @@
         method: "POST",
         body: JSON.stringify({ partyIds: [...team].slice(0, 6), leadId: selectedLeadId }),
       }));
-      if (gameState && !currentUser?.isAdmin) gameState.dailyBattleAttempted = true;
+      if (gameState) gameState.dailyBattleAttempted = true;
       if (gameState) {
         gameState.dailyBattleId = battleState.id;
         gameState.dailyBattleEnded = false;
@@ -618,7 +618,8 @@
     const victory = battleState.winner === "Player";
     const heading = victory ? "Victory!" : battleState.winner ? "Defeat" : "Battle complete";
     const subheading = battleState.forfeited ? `You forfeited against ${battleState.opponent.name}.` : `${battleState.opponent.name} · Nuzzle #${battleState.challengeNumber || todayState.number}`;
-    return `<div class="result-backdrop" data-close-result><section class="result-modal ${victory ? "victory" : "defeat"}" role="dialog" aria-modal="true" aria-labelledby="result-title"><button class="result-close" type="button" aria-label="Close result" data-close-result>×</button><header><span>daily battle result</span><h2 id="result-title">${heading}</h2><p>${escapeHtml(subheading)}</p></header><div class="result-legend"><span class="green-key">▲ your Pokémon that KO'd it</span><span class="red-key">▼ your Pokémon it KO'd</span></div><div class="result-grid">${cards}</div></section></div>`;
+    const adminRetry = gameState?.dailyBattleRepeatAllowed ? '<button class="result-retry" type="button" data-retry-battle>battle again (admin)</button>' : "";
+    return `<div class="result-backdrop" data-close-result><section class="result-modal ${victory ? "victory" : "defeat"}" role="dialog" aria-modal="true" aria-labelledby="result-title"><button class="result-close" type="button" aria-label="Close result" data-close-result>×</button><header><span>daily battle result</span><h2 id="result-title">${heading}</h2><p>${escapeHtml(subheading)}</p></header><div class="result-legend"><span class="green-key">▲ your Pokémon that KO'd it</span><span class="red-key">▼ your Pokémon it KO'd</span></div><div class="result-grid">${cards}</div>${adminRetry}</section></div>`;
   }
 
   function pc() {
@@ -1331,6 +1332,12 @@
       render();
       requestAnimationFrame(() => document.querySelector("[data-open-result]")?.focus({ preventScroll: true }));
     }));
+    document.querySelector("[data-retry-battle]")?.addEventListener("click", () => {
+      resultOverlayOpen = false;
+      selectedLeadId = null;
+      route = "lead";
+      render();
+    });
     document.querySelector("[data-toggle-battle-log]")?.addEventListener("click", () => {
       battleLogExpanded = !battleLogExpanded;
       render();

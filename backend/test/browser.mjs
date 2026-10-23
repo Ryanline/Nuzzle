@@ -323,10 +323,16 @@ if (await page.locator("[data-forfeit-battle]").count()) throw new Error("Forfei
 await page.waitForSelector(".result-modal");
 if (!(await page.locator(".result-modal").textContent())?.includes("Defeat")) throw new Error("The result overlay did not report the loss.");
 if (await page.locator(".result-mon-card").count() !== 6) throw new Error("The result overlay did not show all six opposing Pokémon.");
+if (await page.locator("[data-retry-battle]").count() !== 1) throw new Error("The admin result did not retain a repeat-battle path.");
 await page.click(".result-close");
 if (await page.locator(".result-modal").count()) throw new Error("The result overlay did not close.");
 if (await page.locator("[data-open-result]").count() !== 1) throw new Error("The completed battle did not retain a result button.");
 await page.click("[data-open-result]");
+await page.waitForSelector(".result-modal");
+await page.click(".result-close");
+await page.click('.battle-result-actions [data-route="home"]');
+if (!(await page.locator('.home-actions [data-route="battle"]').textContent())?.includes("view result")) throw new Error("The landing battle button did not point back to today's result.");
+await page.click('.home-actions [data-route="battle"]');
 await page.waitForSelector(".result-modal");
 await page.click(".result-close");
 

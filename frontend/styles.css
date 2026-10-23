@@ -291,6 +291,7 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .result-credit.ko-by { color: #2e7542; }
 .result-credit.ko-earned { color: #963f3f; }
 .result-credit.empty { color: #788188; font-style: italic; }
+.result-retry { display: block; min-height: 34px; margin: 12px auto 0; padding: 5px 14px; border: 1px solid #8b969f; border-radius: 6px; background: #fff; color: #40515f; cursor: pointer; font-size: 11px; font-weight: 700; }
 .battle-message { max-height: 72px; margin: 8px 0 0; min-height: 20px; overflow-y: auto; color: #444; font-size: 13px; line-height: 1.35; }
 .battle-error { margin: 8px 0; color: #a32626; font-size: 13px; text-align: center; }
 .battle-unavailable { display: grid; min-height: calc(100vh - 130px); place-content: center; gap: 12px; text-align: center; }

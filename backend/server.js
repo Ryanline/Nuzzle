@@ -236,7 +236,8 @@ async function api(request, response, pathname) {
     const dailyBattle = service.dailyBattle(user.id, state.date);
     json(response, 200, {
       ...state,
-      dailyBattleAttempted: !user.isAdmin && service.hasDailyAttempt(user.id, state.date),
+      dailyBattleAttempted: service.hasDailyAttempt(user.id, state.date),
+      dailyBattleRepeatAllowed: Boolean(user.isAdmin),
       dailyBattleId: dailyBattle?.record.id || null,
       dailyBattleEnded: Boolean(dailyBattle?.stream.battle?.ended),
     });
