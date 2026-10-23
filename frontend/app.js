@@ -429,7 +429,7 @@
   function monButton(id) {
     const mon = mons[id];
     const selected = id === selectedLeadId;
-    return `<button class="lead-choice${selected ? " selected" : ""}" type="button" data-select-lead="${id}" aria-pressed="${selected}"><img class="sprite" src="${sprite(id)}" alt=""/><span>${mon.name}</span></button>`;
+    return `<button class="lead-choice${selected ? " selected" : ""}" type="button" data-select-lead="${id}" aria-label="Choose ${escapeHtml(mon.name)} as lead" aria-pressed="${selected}"><img class="sprite" src="${sprite(id)}" alt=""/><span>${mon.name}</span></button>`;
   }
 
   function leadDetails(id) {
@@ -737,9 +737,9 @@
     }
     const arenaRect = arena.getBoundingClientRect();
     const platformRect = platform.getBoundingClientRect();
-    const spriteSize = Math.min(180, arenaRect.width * .46) * .87;
+    const spriteSize = Math.min(180, arenaRect.width * .46) * .78;
     const anchorX = platformRect.left - arenaRect.left + platformRect.width / 2;
-    const anchorY = platformRect.bottom - arenaRect.top - platformRect.height * .1 + 16;
+    const anchorY = platformRect.bottom - arenaRect.top - platformRect.height * .1 + 30;
     image.style.setProperty("--foe-sprite-size", `${spriteSize}px`);
     image.style.setProperty("--foe-sprite-left", `${anchorX - spriteSize / 2}px`);
     image.style.setProperty("--foe-sprite-top", `${anchorY - spriteSize}px`);

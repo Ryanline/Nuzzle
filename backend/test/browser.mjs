@@ -188,6 +188,8 @@ await page.click(`[data-select-lead="${replacementId}"]`);
 if (!(await page.locator(".lead-details-card").textContent())?.includes(replacementName)) throw new Error("Selecting a lead did not show its battle details.");
 if (await page.locator(".lead-stat").count() !== 6) throw new Error("The lead preview did not show all six battle stats together.");
 if (await page.locator(".lead-move-grid > span").count() !== 4) throw new Error("The lead preview did not show all four moves.");
+const leadChoiceTops = await page.locator(".lead-choice").evaluateAll((choices) => choices.map((choice) => Math.round(choice.getBoundingClientRect().top)));
+if (new Set(leadChoiceTops).size !== 1) throw new Error("The six lead choices did not fit in one row.");
 if ((await page.locator(".lead-arena").evaluate((element) => getComputedStyle(element).backgroundImage)).includes("arena.png")) throw new Error("The lead preview still uses the legacy arena image.");
 if (await page.locator(".lead-arena .battle-platform").count() !== 2) throw new Error("The lead preview did not use the shared CSS battlefield platforms.");
 await page.click("[data-start-battle]");
@@ -216,7 +218,8 @@ const battlefieldBounds = await page.locator(".battle-arena").evaluate((arena) =
     playerSprite: bounds(".battler-slot.player"),
     playerPlatformVisibleFraction: (arenaRect.bottom - playerPlatform.top) / playerPlatform.height,
     enemyAnchorErrorX: Math.abs((enemyImageRect.left + enemyImageRect.width / 2) - (enemyPlatform.left + enemyPlatform.width / 2)),
-    enemyAnchorErrorY: Math.abs(enemyImageRect.bottom - (enemyPlatform.bottom - enemyPlatform.height * .1 + 16)),
+    enemyAnchorErrorY: Math.abs(enemyImageRect.bottom - (enemyPlatform.bottom - enemyPlatform.height * .1 + 30)),
+    enemyContained: enemyImageRect.left >= arenaRect.left && enemyImageRect.right <= arenaRect.right && enemyImageRect.top >= arenaRect.top && enemyImageRect.bottom <= arenaRect.bottom,
   };
 });
 const overlaps = (one, two) => one.left < two.right && one.right > two.left && one.top < two.bottom && one.bottom > two.top;
@@ -224,6 +227,7 @@ if (overlaps(battlefieldBounds.enemyHud, battlefieldBounds.enemySprite) || overl
 if (battlefieldBounds.enemyHud.left >= battlefieldBounds.enemySprite.left || battlefieldBounds.playerHud.left <= battlefieldBounds.playerSprite.left) throw new Error("The battlefield does not use the intended opposing-corner layout.");
 if (battlefieldBounds.playerPlatformVisibleFraction < 0.45 || battlefieldBounds.playerPlatformVisibleFraction > 0.6) throw new Error("The player's platform is not approximately half-clipped by the bottom of the arena.");
 if (battlefieldBounds.enemyAnchorErrorX > 1 || battlefieldBounds.enemyAnchorErrorY > 1) throw new Error("The foe's full-canvas bottom-center was not aligned to the shared platform anchor.");
+if (!battlefieldBounds.enemyContained) throw new Error(`The foe sprite canvas falls outside the battle arena: ${JSON.stringify(battlefieldBounds.enemySprite)}`);
 
 const turnResponse = page.waitForResponse((response) => response.url().includes("/choices") && response.request().method() === "POST");
 await page.click('[data-battle-move="1"]');
