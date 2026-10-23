@@ -5,13 +5,20 @@ import { promisify } from "node:util";
 
 const scrypt = promisify(crypto.scrypt);
 const SESSION_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
+const ADMIN_USERNAME_KEY = String(process.env.NUZZLE_ADMIN_USERNAME || "ryanline").trim().toLowerCase();
 
 function authError(message, statusCode = 400) {
   throw Object.assign(new Error(message), { statusCode });
 }
 
 function publicUser(user) {
-  return { id: user.id, username: user.username, createdAt: user.createdAt, avatarVersion: user.avatarVersion || null };
+  return {
+    id: user.id,
+    username: user.username,
+    createdAt: user.createdAt,
+    avatarVersion: user.avatarVersion || null,
+    isAdmin: user.usernameKey === ADMIN_USERNAME_KEY,
+  };
 }
 
 function sessionHash(token) {
@@ -47,7 +54,7 @@ export class AuthStore {
     await mkdir(path.dirname(this.filename), { recursive: true });
     try {
       const stored = JSON.parse(await readFile(this.filename, "utf8"));
-      this.data.users = Array.isArray(stored.users) ? stored.users : [];
+      this.data.users = Array.isArray(stored.users) ? stored.users.map((user) => ({ ...user, usernameKey: user.usernameKey || String(user.username || "").toLowerCase() })) : [];
       this.data.sessions = Array.isArray(stored.sessions) ? stored.sessions : [];
     } catch (error) {
       if (error.code !== "ENOENT") throw error;

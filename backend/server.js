@@ -6,6 +6,7 @@ import { BattleService } from "./battle-service.js";
 import { BattleStore } from "./battle-store.js";
 import { AuthStore, SESSION_LIFETIME_MS } from "./auth-store.js";
 import { GameStore, publicContent } from "./game-store.js";
+import { TrainerStore } from "./trainer-store.js";
 
 const backendDirectory = path.dirname(fileURLToPath(import.meta.url));
 const projectDirectory = path.dirname(backendDirectory);
@@ -16,6 +17,7 @@ const host = process.env.HOST || "127.0.0.1";
 
 const auth = new AuthStore(path.join(dataDirectory, "auth.json"));
 const game = new GameStore(path.join(dataDirectory, "game.json"));
+const trainers = new TrainerStore(path.join(dataDirectory, "trainers.json"));
 const service = new BattleService(new BattleStore(path.join(dataDirectory, "battles")), {
   settle: (record) => record.userId
     ? game.applyBattleItemAcquisitions(record.userId, record.id, record.itemAcquisitions)
@@ -24,6 +26,7 @@ const service = new BattleService(new BattleStore(path.join(dataDirectory, "batt
 const avatarDirectory = path.join(dataDirectory, "avatars");
 await auth.initialize();
 await game.initialize();
+await trainers.initialize();
 await service.initialize();
 
 const loginAttempts = new Map();
@@ -66,6 +69,12 @@ function sessionHeader(token, maxAge = Math.floor(SESSION_LIFETIME_MS / 1000)) {
 function requireUser(request) {
   const user = auth.userForToken(sessionToken(request));
   if (!user) throw Object.assign(new Error("Please log in to continue."), { statusCode: 401 });
+  return user;
+}
+
+function requireAdmin(request) {
+  const user = requireUser(request);
+  if (!user.isAdmin) throw Object.assign(new Error("Administrator access is required."), { statusCode: 403 });
   return user;
 }
 
@@ -189,6 +198,38 @@ async function api(request, response, pathname) {
     json(response, 200, publicContent());
     return true;
   }
+  if (request.method === "GET" && pathname === "/api/today") {
+    const { opponentTeam, ...today } = await trainers.current();
+    json(response, 200, today);
+    return true;
+  }
+  if (pathname === "/api/admin/trainers") {
+    requireAdmin(request);
+    if (request.method === "GET") {
+      json(response, 200, await trainers.adminState());
+      return true;
+    }
+    if (request.method === "POST") {
+      await trainers.add(await requestBody(request));
+      json(response, 201, await trainers.adminState());
+      return true;
+    }
+    throw Object.assign(new Error("Method not allowed."), { statusCode: 405 });
+  }
+  if (request.method === "PUT" && pathname === "/api/admin/trainers/order") {
+    requireAdmin(request);
+    const body = await requestBody(request);
+    await trainers.reorder(body.ids);
+    json(response, 200, await trainers.adminState());
+    return true;
+  }
+  const trainerMatch = pathname.match(/^\/api\/admin\/trainers\/([0-9a-f-]+)$/i);
+  if (request.method === "DELETE" && trainerMatch) {
+    requireAdmin(request);
+    await trainers.remove(trainerMatch[1]);
+    json(response, 200, await trainers.adminState());
+    return true;
+  }
   if (request.method === "GET" && pathname === "/api/game") {
     const user = requireUser(request);
     json(response, 200, await game.get(user.id));
@@ -227,7 +268,16 @@ async function api(request, response, pathname) {
     const user = requireUser(request);
     const body = await requestBody(request);
     const playerTeam = await game.battleTeam(user.id, body.partyIds, body.leadId);
-    json(response, 201, await service.create({ ...body, playerTeam }, user.id));
+    const today = await trainers.current();
+    json(response, 201, await service.create({
+      ...body,
+      playerTeam,
+      opponentTeam: today.opponentTeam,
+      trainerName: today.trainer.name,
+      trainerSpriteId: today.trainer.spriteId,
+      challengeDate: today.date,
+      challengeNumber: today.number,
+    }, user.id));
     return true;
   }
   const match = pathname.match(/^\/api\/battles\/([0-9a-f-]+)(?:\/(choices|forfeit))?$/i);

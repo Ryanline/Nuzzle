@@ -89,6 +89,25 @@ test("a player can switch to any configured party member", async () => {
   assert.ok(next.turn >= 2);
 });
 
+test("a daily trainer and team are snapshotted into the battle", async () => {
+  const { service } = await serviceFixture();
+  const opponentTeam = [{ name: "Starmie", species: "Starmie", ability: "Natural Cure", level: 100, moves: ["Surf"] }];
+  const state = await service.create({
+    partyIds: ["vaporeon"],
+    leadId: "vaporeon",
+    opponentTeam,
+    trainerName: "Misty",
+    trainerSpriteId: "misty",
+    challengeDate: "2026-10-23",
+    challengeNumber: 9,
+  });
+  assert.equal(state.opponent.name, "Misty");
+  assert.equal(state.opponent.spriteId, "misty");
+  assert.equal(state.opponent.active.id, "starmie");
+  assert.equal(state.challengeDate, "2026-10-23");
+  assert.equal(state.challengeNumber, 9);
+});
+
 test("Zero to Hero exposes Palafin's transformed stats and sprite after switching out", async () => {
   const { service } = await serviceFixture();
   const playerTeam = [

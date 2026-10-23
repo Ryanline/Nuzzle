@@ -43,6 +43,15 @@ test("usernames are unique regardless of capitalization", async () => {
   await assert.rejects(auth.register("trainerone", "another long password"), /already registered/);
 });
 
+test("only the configured ryanline account is an administrator", async () => {
+  const { auth } = await authFixture();
+  const owner = await auth.register("RyanLine", "this is a long password");
+  const member = await auth.register("AnotherTrainer", "another long password");
+  assert.equal(owner.user.isAdmin, true);
+  assert.equal(member.user.isAdmin, false);
+  await assert.rejects(auth.register("RYANLINE", "yet another password"), /already registered/);
+});
+
 test("logout invalidates only the supplied session", async () => {
   const { auth } = await authFixture();
   const registration = await auth.register("MistyFan", "this is a long password");

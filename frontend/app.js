@@ -10,7 +10,9 @@
     return `https://play.pokemonshowdown.com/sprites/${back ? "gen5-back" : "gen5"}/${encodeURIComponent(spriteId)}.png`;
   };
   const healthTone = (percent) => percent <= 20 ? "critical" : percent <= 50 ? "warning" : "healthy";
-  const trainerSprite = "assets/trainers/brock.png";
+  const trainerSprite = (id = "brock") => id === "brock"
+    ? "assets/trainers/brock.png"
+    : `https://play.pokemonshowdown.com/sprites/trainers/${encodeURIComponent(id)}.png`;
   const app = document.querySelector("#app");
   const tooltip = document.querySelector("#tooltip");
   const savedTheme = localStorage.getItem("nuzzleTheme");
@@ -30,7 +32,15 @@
     exeggutor: { name: "Exeggutor", types: ["Grass", "Psychic"], ability: "Chlorophyll", item: "Sitrus Berry", nature: "Quiet", natureUp: "SpA", natureDown: "Spe", hp: "100.0% (331/331)", stats: "Atk 226 / Def 206 / SpA 286 / SpD 166 / Spe 146", moves: ["Psychic", "Giga Drain", "Sludge Bomb", "Sleep Powder"] },
   };
 
-  const opponent = ["steelix", "golem", "rhyperior", "aerodactyl", "sudowoodo", "magcargo"];
+  const fallbackToday = {
+    date: "2026-10-15",
+    number: 1,
+    trainer: {
+      name: "Brock",
+      spriteId: "brock",
+      pokemon: ["steelix", "golem", "rhyperior", "aerodactyl", "sudowoodo", "magcargo"].map((id) => ({ id, name: id, spriteId: id })),
+    },
+  };
   const partyIds = ["flareon", "raichu", "vaporeon", "gengar", "venusaur", "pidgeot"];
   const pcIds = [...partyIds, "arcanine", "lapras", "alakazam", "machamp", "nidoking", "exeggutor"];
   const moves = {
@@ -88,6 +98,13 @@
   let martListScrollTop = 0;
   let activeBagGroup = "Held Items";
   let inventory = {};
+  let todayState = fallbackToday;
+  let rolloverTimer = null;
+  let adminConfig = null;
+  let configBusy = false;
+  let configError = "";
+  let trainerFormOpen = false;
+  let trainerDraft = { name: "", spriteId: "brock", teamText: "" };
 
   function applyGameState(nextState) {
     gameState = nextState;
@@ -113,6 +130,34 @@
   async function loadGame() {
     await loadContent();
     applyGameState(await apiRequest("/api/game"));
+  }
+
+  async function loadToday() {
+    todayState = await apiRequest("/api/today");
+    clearTimeout(rolloverTimer);
+    const delay = Math.max(1000, Date.parse(todayState.nextRolloverAt) - Date.now() + 500);
+    rolloverTimer = setTimeout(async () => {
+      try {
+        await loadToday();
+        if (currentUser) await loadGame();
+        render();
+      } catch {}
+    }, Math.min(delay, 2_147_000_000));
+  }
+
+  async function loadAdminConfig() {
+    if (!currentUser?.isAdmin) return;
+    configBusy = true;
+    configError = "";
+    render();
+    try {
+      adminConfig = await apiRequest("/api/admin/trainers");
+    } catch (error) {
+      configError = error.message;
+    } finally {
+      configBusy = false;
+      render();
+    }
   }
 
   function escapeHtml(value) {
@@ -374,7 +419,8 @@
   }
 
   function title() {
-    return "Nuzzle #1: Brock (10/15/2026)";
+    const [year, month, day] = String(todayState.date).split("-");
+    return `Nuzzle #${todayState.number}: ${todayState.trainer.name} (${Number(month)}/${Number(day)}/${year})`;
   }
 
   function header() {
@@ -409,16 +455,18 @@
   }
 
   function home() {
+    const trainer = todayState.trainer;
     return `<section class="screen home-screen">${header()}<div class="landing">
-      <div class="trainer-wrap"><img class="sprite trainer" src="${trainerSprite}" alt="Gym Leader Brock" /></div>
-      <div class="opponent-team" aria-label="Brock's team">${opponent.map((id) => `<button type="button" aria-label="${id}"><img class="sprite" src="${sprite(id)}" alt="${id}" /></button>`).join("")}</div>
+      <div class="trainer-wrap"><img class="sprite trainer" src="${trainerSprite(trainer.spriteId)}" alt="${escapeHtml(trainer.name)}" /></div>
+      <div class="opponent-team" aria-label="${escapeHtml(trainer.name)}'s team">${trainer.pokemon.map((pokemon) => `<button type="button" aria-label="${escapeHtml(pokemon.name)}"><img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId)}" alt="${escapeHtml(pokemon.name)}" /></button>`).join("")}</div>
       ${navigation()}
     </div></section>`;
   }
 
   function lead() {
     const chosen = [...team].slice(0, 6);
-    return `<section class="screen lead-screen">${header()}<div class="arena battle-arena lead-arena"><div class="battle-platform enemy" aria-hidden="true"></div><div class="battle-platform player" aria-hidden="true"></div><img class="sprite trainer" src="${trainerSprite}" alt="Gym Leader Brock" /></div>
+    const trainer = todayState.trainer;
+    return `<section class="screen lead-screen">${header()}<div class="arena battle-arena lead-arena"><div class="battle-platform enemy" aria-hidden="true"></div><div class="battle-platform player" aria-hidden="true"></div><img class="sprite trainer" src="${trainerSprite(trainer.spriteId)}" alt="${escapeHtml(trainer.name)}" /></div>
       <div class="lead-prompt"><p class="prompt">How will you start the battle?</p><h2 class="section-label">Choose Lead</h2>
       <div class="lead-grid">${chosen.map(monButton).join("")}</div><div class="lead-details-slot" data-lead-details aria-live="polite">${leadDetails(selectedLeadId)}</div></div>
       ${battleError ? `<p class="battle-error" role="alert">${escapeHtml(battleError)}</p>` : ""}
@@ -474,7 +522,7 @@
     const movesHtml = battleState.moves.map((move) => `<button class="move-button type-${move.type.toLowerCase()}" type="button" data-battle-move="${move.slot}" data-battle-move-tip="${move.slot}" ${move.disabled || battleLoading || battleState.ended ? "disabled" : ""}><strong>${escapeHtml(move.name)}</strong><span>${escapeHtml(move.type)}</span><small>${move.pp}/${move.maxPp}</small></button>`).join("");
     const switchesHtml = battleState.player.team.map((pokemon) => `<button class="switch-choice ${pokemon.active ? "selected" : ""} ${pokemon.fainted ? "fainted" : ""}" type="button" data-battle-switch="${pokemon.slot}" data-mon-tip="${pokemon.id}" ${!pokemon.canSwitch || battleLoading || battleState.ended ? "disabled" : ""}><img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId)}" alt=""/><span>${escapeHtml(pokemon.name)}</span><small>${pokemon.fainted ? "fainted" : `${pokemon.percent}%`}</small></button>`).join("");
     const prompt = battleState.ended
-      ? `<strong>${battleState.winner === "Player" ? "You won!" : battleState.winner === "Brock" ? "Brock won." : "Battle over."}</strong>`
+      ? `<strong>${battleState.winner === "Player" ? "You won!" : battleState.winner ? `${escapeHtml(battleState.winner)} won.` : "Battle over."}</strong>`
       : battleState.forcedSwitch
         ? "Choose your next Pokémon."
         : battleLoading || battleState.waiting
@@ -686,6 +734,98 @@
     return `<section class="screen">${header()}<div class="simple-stage">${content}${backButton()}</div></section>`;
   }
 
+  function settingsScreen() {
+    const adminLink = currentUser?.isAdmin
+      ? `<button class="settings-link-card" type="button" data-route="config"><span><strong>daily trainer config</strong><small>Build and order the upcoming trainer queue</small></span><b aria-hidden="true">›</b></button>`
+      : "";
+    return `<section class="screen">${header()}<div class="simple-stage settings-stage"><h2>Settings</h2>${adminLink}<section class="settings-card"><h3>Theme</h3><p>Use the moon switch in the header to change this device between light and dark mode.</p></section>${backButton()}</div></section>`;
+  }
+
+  function formatGameDate(date) {
+    const [year, month, day] = String(date || "").split("-");
+    return `${Number(month)}/${Number(day)}/${year}`;
+  }
+
+  function configScreen() {
+    if (!currentUser?.isAdmin) return settingsScreen();
+    const current = adminConfig?.current;
+    const queue = adminConfig?.queue || [];
+    const sprites = adminConfig?.sprites || [];
+    const currentCard = current ? `<section class="config-current"><span>live now · Nuzzle #${current.number}</span><strong>${escapeHtml(current.trainer.name)}</strong><small>${formatGameDate(current.date)}</small><div>${current.trainer.pokemon.map((pokemon) => `<img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId)}" alt="${escapeHtml(pokemon.name)}">`).join("")}</div></section>` : "";
+    const rows = queue.map((trainer, index) => `<article class="trainer-queue-row" data-trainer-row="${trainer.id}">
+      <div class="trainer-order-controls"><button type="button" aria-label="Move ${escapeHtml(trainer.name)} up" data-move-trainer="${trainer.id}" data-direction="up" ${index === 0 ? "disabled" : ""}>↑</button><button type="button" aria-label="Move ${escapeHtml(trainer.name)} down" data-move-trainer="${trainer.id}" data-direction="down" ${index === queue.length - 1 ? "disabled" : ""}>↓</button></div>
+      <div class="trainer-queue-copy"><span>${formatGameDate(trainer.scheduledDate)} · Nuzzle #${current ? current.number + index + 1 : index + 1}</span><strong>${escapeHtml(trainer.name)}</strong><div>${trainer.pokemon.map((pokemon) => `<img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId)}" alt="${escapeHtml(pokemon.name)}">`).join("")}</div></div>
+      <img class="sprite trainer-queue-avatar" src="${trainerSprite(trainer.spriteId)}" alt="">
+      <button class="trainer-remove" type="button" aria-label="Remove ${escapeHtml(trainer.name)}" data-remove-trainer="${trainer.id}">×</button>
+    </article>`).join("");
+    const form = trainerFormOpen ? `<form class="trainer-form" data-trainer-form>
+      <div class="trainer-form-head"><h2>Add trainer</h2><button type="button" data-close-trainer-form aria-label="Close">×</button></div>
+      <label>Trainer name<input name="name" maxlength="40" required placeholder="Misty" value="${escapeHtml(trainerDraft.name)}"></label>
+      <label>Trainer sprite<select name="spriteId" data-trainer-sprite>${sprites.map((trainer) => `<option value="${trainer.id}" ${trainer.id === trainerDraft.spriteId ? "selected" : ""}>${escapeHtml(trainer.name)}</option>`).join("")}</select></label>
+      <div class="trainer-sprite-preview"><img class="sprite" src="${trainerSprite(trainerDraft.spriteId || sprites[0]?.id)}" alt="Selected trainer sprite" data-trainer-sprite-preview></div>
+      <label>Showdown team<textarea name="teamText" rows="14" required placeholder="Starmie @ Leftovers&#10;Ability: Natural Cure&#10;Level: 100&#10;- Surf&#10;- Psychic&#10;- Ice Beam&#10;- Recover">${escapeHtml(trainerDraft.teamText)}</textarea></label>
+      <p class="config-help">The first Pokémon will lead. Paste between one and six complete Showdown sets.</p>
+      ${configError ? `<p class="battle-error" role="alert">${escapeHtml(configError)}</p>` : ""}
+      <button class="gloss-button blue" type="submit" ${configBusy ? "disabled" : ""}>${configBusy ? "adding…" : "add to queue"}</button>
+    </form>` : "";
+    return `<section class="screen config-screen">${header()}<div class="config-stage"><div class="config-heading"><div><p>Admin</p><h2>Daily trainer queue</h2></div><button class="config-add" type="button" data-open-trainer-form aria-label="Add trainer">+</button></div>
+      ${currentCard}${configError && !trainerFormOpen ? `<p class="battle-error" role="alert">${escapeHtml(configError)}</p>` : ""}
+      <div class="trainer-queue" data-trainer-queue>${configBusy && !adminConfig ? '<p class="config-empty">Loading queue…</p>' : rows || '<p class="config-empty">No trainers queued. Brock will be used as the fallback.</p>'}</div>
+      ${form}<button class="gloss-button purple config-back" type="button" data-route="settings">back to settings</button></div></section>`;
+  }
+
+  async function addTrainer(form) {
+    if (configBusy) return;
+    const data = new FormData(form);
+    trainerDraft = { name: String(data.get("name") || ""), spriteId: String(data.get("spriteId") || "brock"), teamText: String(data.get("teamText") || "") };
+    configBusy = true;
+    configError = "";
+    try {
+      adminConfig = await apiRequest("/api/admin/trainers", {
+        method: "POST",
+        body: JSON.stringify(trainerDraft),
+      });
+      trainerFormOpen = false;
+      trainerDraft = { name: "", spriteId: "brock", teamText: "" };
+    } catch (error) {
+      configError = error.message;
+      trainerFormOpen = true;
+    } finally {
+      configBusy = false;
+      render();
+    }
+  }
+
+  async function removeTrainer(id) {
+    if (configBusy) return;
+    configBusy = true;
+    try {
+      adminConfig = await apiRequest(`/api/admin/trainers/${id}`, { method: "DELETE" });
+      configError = "";
+    } catch (error) {
+      configError = error.message;
+    } finally {
+      configBusy = false;
+      render();
+    }
+  }
+
+  async function persistTrainerOrder(ids) {
+    if (configBusy) return;
+    configBusy = true;
+    try {
+      adminConfig = await apiRequest("/api/admin/trainers/order", { method: "PUT", body: JSON.stringify({ ids }) });
+      configError = "";
+    } catch (error) {
+      configError = error.message;
+      await loadAdminConfig();
+      return;
+    } finally {
+      configBusy = false;
+      render();
+    }
+  }
+
   function render() {
     if (route === "encounters") {
       const encounterList = document.querySelector(".encounter-list");
@@ -702,7 +842,7 @@
       if (battleLogFollow) battleLogHasNew = false;
     }
     hideTooltip();
-    const screens = { home, lead, battle, pc, bag, encounters: encountersScreen, mart };
+    const screens = { home, lead, battle, pc, bag, encounters: encountersScreen, mart, settings: settingsScreen, config: configScreen };
     app.innerHTML = screens[route] ? screens[route]() : simpleScreen(route);
     bind();
   }
@@ -972,7 +1112,8 @@
         openAuth(requestedRoute);
         return;
       }
-      const nextRoute = requestedRoute === "lead" && battleState && !battleState.ended ? "battle" : requestedRoute;
+      let nextRoute = requestedRoute === "lead" && battleState && !battleState.ended ? "battle" : requestedRoute;
+      if (nextRoute === "config" && !currentUser?.isAdmin) nextRoute = "settings";
       if (route === "encounters" && nextRoute !== "encounters") {
         encountersRevealedThisVisit = new Set();
         encounterListScrollTop = 0;
@@ -988,6 +1129,35 @@
       if (route === "mart") purchaseMessage = "";
       render();
       scrollTo(0, 0);
+      if (route === "config" && !adminConfig) void loadAdminConfig();
+    }));
+    document.querySelector("[data-open-trainer-form]")?.addEventListener("click", () => {
+      trainerFormOpen = true;
+      configError = "";
+      trainerDraft = { name: "", spriteId: adminConfig?.sprites?.[0]?.id || "brock", teamText: "" };
+      render();
+    });
+    document.querySelector("[data-close-trainer-form]")?.addEventListener("click", () => {
+      trainerFormOpen = false;
+      configError = "";
+      render();
+    });
+    document.querySelector("[data-trainer-form]")?.addEventListener("submit", (event) => {
+      event.preventDefault();
+      void addTrainer(event.currentTarget);
+    });
+    document.querySelector("[data-trainer-sprite]")?.addEventListener("change", (event) => {
+      const preview = document.querySelector("[data-trainer-sprite-preview]");
+      if (preview) preview.src = trainerSprite(event.currentTarget.value);
+    });
+    document.querySelectorAll("[data-remove-trainer]").forEach((button) => button.addEventListener("click", () => void removeTrainer(button.dataset.removeTrainer)));
+    document.querySelectorAll("[data-move-trainer]").forEach((button) => button.addEventListener("click", () => {
+      const ids = (adminConfig?.queue || []).map((trainer) => trainer.id);
+      const from = ids.indexOf(button.dataset.moveTrainer);
+      const to = button.dataset.direction === "up" ? from - 1 : from + 1;
+      if (from < 0 || to < 0 || to >= ids.length) return;
+      ids.splice(to, 0, ids.splice(from, 1)[0]);
+      void persistTrainerOrder(ids);
     }));
     document.querySelectorAll("[data-select-lead]").forEach((button) => button.addEventListener("click", () => {
       selectedLeadId = button.dataset.selectLead;
@@ -1288,7 +1458,7 @@
 
   async function loadSession() {
     try {
-      await loadContent();
+      await Promise.all([loadContent(), loadToday()]);
       const result = await apiRequest("/api/auth/me");
       currentUser = result.user;
       if (currentUser) {
@@ -1304,5 +1474,12 @@
   applyTheme();
   render();
   window.addEventListener("resize", alignOpponentSprite);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") return;
+    void loadToday().then(async () => {
+      if (currentUser) await loadGame();
+      render();
+    }).catch(() => {});
+  });
   void loadSession();
 })();

@@ -118,8 +118,8 @@ function eventEntry(line, context) {
     case "-weather": text = detail === "none" ? "The weather cleared." : `${effectName(detail)} began.`; break;
     case "-fieldstart": text = `${effectName(detail)} took effect.`; break;
     case "-fieldend": text = `${effectName(detail)} ended.`; break;
-    case "-sidestart": text = `${effectName(detail)} affected ${subject === "p1: Player" ? "your team" : "Brock's team"}.`; break;
-    case "-sideend": text = `${effectName(detail)} ended for ${subject === "p1: Player" ? "your team" : "Brock's team"}.`; break;
+    case "-sidestart": text = `${effectName(detail)} affected ${subject === "p1: Player" ? "your team" : `${context.record.trainerName || "Brock"}'s team`}.`; break;
+    case "-sideend": text = `${effectName(detail)} ended for ${subject === "p1: Player" ? "your team" : `${context.record.trainerName || "Brock"}'s team`}.`; break;
     case "win": text = `${subject} won the battle.`; category = "result"; break;
     case "tie": text = "The battle ended in a tie."; category = "result"; break;
     default: break;
@@ -170,11 +170,12 @@ export class BattleController {
     void this.consumePlayer("p2");
     void this.consumeSpectator();
     const playerTeam = Teams.pack(this.record.playerTeam || buildPlayerTeam(this.record.partyIds, this.record.leadId));
-    const brockTeam = Teams.pack(buildBrockTeam());
+    const opponentTeam = Teams.pack(this.record.opponentTeam || buildBrockTeam());
+    const trainerName = this.record.trainerName || "Brock";
     await this.streams.omniscient.write([
       `>start ${JSON.stringify({ formatid: FORMAT, seed: this.record.seed })}`,
       `>player p1 ${JSON.stringify({ name: "Player", team: playerTeam })}`,
-      `>player p2 ${JSON.stringify({ name: "Brock", team: brockTeam })}`,
+      `>player p2 ${JSON.stringify({ name: trainerName, team: opponentTeam })}`,
     ].join("\n"));
     await this.waitForState(0);
     return this;
@@ -380,10 +381,13 @@ export class BattleController {
         team: playerTeam.map((pokemon, index) => ({ ...pokemon, slot: index + 1, canSwitch: !pokemon.active && !pokemon.fainted && !trapped })),
       },
       opponent: {
-        name: "Brock",
+        name: this.record.trainerName || "Brock",
+        spriteId: this.record.trainerSpriteId || "brock",
         active: opponentTeam.find((pokemon) => pokemon.active) || null,
         team: opponentTeam,
       },
+      challengeDate: this.record.challengeDate || null,
+      challengeNumber: this.record.challengeNumber || null,
       moves,
       log: [...this.log],
       events: this.log.map((entry) => entry.text),
@@ -411,7 +415,7 @@ export class BattleService {
     }
   }
 
-  async create({ partyIds, leadId, playerTeam = null }, userId = null) {
+  async create({ partyIds, leadId, playerTeam = null, opponentTeam = null, trainerName = "Brock", trainerSpriteId = "brock", challengeDate = null, challengeNumber = null }, userId = null) {
     const teamSnapshot = playerTeam || buildPlayerTeam(partyIds, leadId);
     if (!Array.isArray(teamSnapshot) || teamSnapshot.length < 1 || teamSnapshot.length > 6) choiceError("Choose between one and six Pokémon.");
     const record = {
@@ -423,6 +427,11 @@ export class BattleService {
       partyIds: [...partyIds],
       leadId,
       playerTeam: structuredClone(teamSnapshot),
+      opponentTeam: structuredClone(opponentTeam || buildBrockTeam()),
+      trainerName,
+      trainerSpriteId,
+      challengeDate,
+      challengeNumber,
       choices: { p1: [], p2: [] },
       forfeited: false,
       itemAcquisitions: [],

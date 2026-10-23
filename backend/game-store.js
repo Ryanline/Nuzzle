@@ -13,6 +13,7 @@ import {
   starterPokemon,
 } from "./content.js";
 import { generateEncounterMoves } from "./movesets.js";
+import { gameDate } from "./game-clock.js";
 
 const require = createRequire(import.meta.url);
 const { Dex, toID } = require("pokemon-showdown");
@@ -83,12 +84,6 @@ function generateBatch(run, count, guaranteeStarter, reservedFamilies) {
     reservedFamilies.add(species.encounterFamilyId);
   }
   return generated;
-}
-
-function dateInZone(now, timeZone) {
-  const parts = new Intl.DateTimeFormat("en-US", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(now);
-  const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-  return `${value.year}-${value.month}-${value.day}`;
 }
 
 function encounterCount(date) {
@@ -209,7 +204,7 @@ export class GameStore {
   async mutate(userId, operation) {
     let result;
     this.pending = this.pending.catch(() => {}).then(async () => {
-      const date = dateInZone(this.now(), this.timeZone);
+      const date = gameDate(this.now(), this.timeZone);
       const month = date.slice(0, 7);
       let run = this.data.runs[userId] ||= newRun(userId, month);
       migrateOpeningEncounters(run);
