@@ -113,7 +113,7 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .opponent-team img { width: 164px; height: 140px; max-width: 100%; transform: translateX(-20px) scale(1.2); }
 .home-actions { display: grid; gap: 7px; margin-top: auto; }
 
-.arena { position: relative; height: clamp(370px, 56vh, 560px); margin: 0 -26px; overflow: hidden; background: linear-gradient(to bottom, #cbc5b8 0 42%, #aca598 43% 45%, #8e877d 46% 100%); }
+.arena { position: relative; height: clamp(370px, 56vh, 560px); margin: 0 -26px; overflow: hidden; background: #58ad62 url("assets/arena.jpg") center center / cover no-repeat; }
 .lead-arena .trainer { position: absolute; z-index: 2; top: calc(-2% + 16px); left: calc(73.5% - 60.5px); width: 121px; height: 157px; }
 .lead-arena .trainer-misty { transform: translateY(-2px) scale(.72); }
 .lead-prompt, .battle-panel { padding-top: 14px; }
@@ -162,7 +162,6 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
   height: clamp(300px, 42vh, 430px);
   border-top: 1px solid #999183;
   border-bottom: 1px solid #6f6961;
-  background: linear-gradient(to bottom, #cbc5b8 0 42%, #aca598 43% 45%, #8e877d 46% 100%);
 }
 .battle-platform {
   position: absolute;

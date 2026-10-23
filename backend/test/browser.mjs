@@ -253,7 +253,7 @@ if (await page.locator(".lead-stat").count() !== 6) throw new Error("The lead pr
 if (await page.locator(".lead-move-grid > span").count() !== 4) throw new Error("The lead preview did not show all four moves.");
 const leadChoiceTops = await page.locator(".lead-choice").evaluateAll((choices) => choices.map((choice) => Math.round(choice.getBoundingClientRect().top)));
 if (new Set(leadChoiceTops).size !== 1) throw new Error("The six lead choices did not fit in one row.");
-if ((await page.locator(".lead-arena").evaluate((element) => getComputedStyle(element).backgroundImage)).includes("arena.png")) throw new Error("The lead preview still uses the legacy arena image.");
+if (!(await page.locator(".lead-arena").evaluate((element) => getComputedStyle(element).backgroundImage)).includes("assets/arena.jpg")) throw new Error("The lead preview did not load the grassy arena background.");
 if (await page.locator(".lead-arena .battle-platform").count() !== 2) throw new Error("The lead preview did not use the shared CSS battlefield platforms.");
 if (await page.locator(".lead-arena .battle-platform").first().evaluate((element) => getComputedStyle(element).backgroundImage) !== "none") throw new Error("The lead preview still shows an oval platform.");
 const trainerAnchorError = await page.locator(".lead-arena").evaluate((arena) => {
@@ -272,7 +272,7 @@ if (await page.locator(".battle-platform").count() !== 2) throw new Error("The C
 if (await page.locator(".battle-platform").first().evaluate((element) => getComputedStyle(element).backgroundImage) !== "none") throw new Error("The battle still shows an oval platform.");
 const playerSpriteSource = await page.locator(".battler-slot.player img").getAttribute("src");
 if (!playerSpriteSource?.includes("gen5-back") && !playerSpriteSource?.includes("sprites-back")) throw new Error("The generated player Pokémon did not use a back sprite.");
-if ((await page.locator(".battle-arena").evaluate((element) => getComputedStyle(element).backgroundImage)).includes("arena.png")) throw new Error("The battle still uses the old arena image.");
+if (!(await page.locator(".battle-arena").evaluate((element) => getComputedStyle(element).backgroundImage)).includes("assets/arena.jpg")) throw new Error("The battle did not load the grassy arena background.");
 const battlefieldBounds = await page.locator(".battle-arena").evaluate((arena) => {
   const arenaRect = arena.getBoundingClientRect();
   const bounds = (selector) => {
