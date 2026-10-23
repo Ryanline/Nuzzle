@@ -23,6 +23,7 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 375, height: 667 }
     const account = screen.querySelector(".account-button").getBoundingClientRect();
     const app = screen.closest(".app").getBoundingClientRect();
     const opponentTeam = screen.querySelector(".opponent-team").getBoundingClientRect();
+    const opponentButton = screen.querySelector(".opponent-team button");
     return {
       viewportHeight: window.innerHeight,
       settingsBottom: settings.bottom,
@@ -31,11 +32,14 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 375, height: 667 }
       documentScrollHeight: document.documentElement.scrollHeight,
       appCenter: app.left + app.width / 2,
       opponentTeamCenter: opponentTeam.left + opponentTeam.width / 2,
+      opponentTeamOverflow: getComputedStyle(screen.querySelector(".opponent-team")).overflow,
+      opponentButtonOverflow: getComputedStyle(opponentButton).overflow,
     };
   });
   if (landingBounds.settingsBottom > landingBounds.viewportHeight + 1 || landingBounds.settingsHeight < 34) throw new Error(`Landing controls do not fit ${viewport.width}x${viewport.height}.`);
   if (landingBounds.accountTop < -1 || landingBounds.documentScrollHeight > landingBounds.viewportHeight + 1) throw new Error(`Landing page overflows ${viewport.width}x${viewport.height}.`);
   if (Math.abs(landingBounds.appCenter - landingBounds.opponentTeamCenter) > 1) throw new Error(`The opponent team is not centered at ${viewport.width}x${viewport.height}.`);
+  if (landingBounds.opponentTeamOverflow !== "visible" || landingBounds.opponentButtonOverflow !== "visible") throw new Error(`Wide opponent sprites can be clipped at ${viewport.width}x${viewport.height}.`);
 }
 await page.setViewportSize({ width: 390, height: 844 });
 if (await page.locator(".menu-toggle").count()) throw new Error("The obsolete hamburger menu is still rendered.");
