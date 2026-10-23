@@ -530,17 +530,17 @@
     const evTotal = Object.values(mon.evs || {}).reduce((sum, value) => sum + value, 0);
     const trainingRows = statOrder.map(([key, label]) => `<div class="training-stat-row"><strong>${label}</strong><span>${mon.calculatedStats?.[key] ?? "—"}</span><span>${mon.ivs?.[key] ?? "—"}</span><span>${mon.evs?.[key] ?? "—"}<small>/252</small></span></div>`).join("");
     const detailTabs = `<div class="pc-detail-tabs" role="tablist" aria-label="Pokémon stat details"><button type="button" role="tab" aria-selected="${pcDetailView === "stats"}" class="${pcDetailView === "stats" ? "selected" : ""}" data-pc-detail-view="stats">stats</button><button type="button" role="tab" aria-selected="${pcDetailView === "training"}" class="${pcDetailView === "training" ? "selected" : ""}" data-pc-detail-view="training">IVs &amp; EVs</button></div>`;
+    const pokemonFacts = `<div class="pokemon-facts"><p><span>Ability</span><strong>${mon.ability}</strong></p><p><span>Nature</span><strong>${mon.nature}</strong></p><p><span>Held item</span><strong>${mon.item}</strong></p></div>`;
     const detailContent = pcDetailView === "training"
       ? `<section class="training-details" role="tabpanel"><div class="training-stat-head"><span>Stat</span><span>Final</span><span>IV</span><span>EV</span></div>${trainingRows}<p class="ev-total"><span>Total EVs</span><strong>${evTotal} / 510</strong></p></section>`
-      : `<section class="sheet-section" role="tabpanel"><div class="stat-grid">${stats}</div><h3>Moves</h3><div class="sheet-moves">${mon.moves.map((move) => `<span>${move}</span>`).join("")}</div></section>`;
-    const sheetContent = swapChooser || itemChooser || `${detailTabs}${detailContent}${pcItemMessage ? `<p class="sheet-feedback" role="status">${pcItemMessage}</p>` : ""}<div class="sheet-actions"><button class="gloss-button ${onTeam ? "slate" : "blue"}" type="button" data-team-toggle="${id}">${primaryLabel}</button><button class="gloss-button gold" type="button" data-open-pc-items>item</button></div>`;
+      : `${pokemonFacts}<section class="sheet-section" role="tabpanel"><div class="stat-grid">${stats}</div><h3>Moves</h3><div class="sheet-moves">${mon.moves.map((move) => `<span>${move}</span>`).join("")}</div></section>`;
+    const sheetContent = swapChooser || itemChooser || `${detailTabs}<div class="pc-detail-panel">${detailContent}</div>${pcItemMessage ? `<p class="sheet-feedback" role="status">${pcItemMessage}</p>` : ""}<div class="sheet-actions"><button class="gloss-button ${onTeam ? "slate" : "blue"}" type="button" data-team-toggle="${id}">${primaryLabel}</button><button class="gloss-button gold" type="button" data-open-pc-items>item</button><button class="gloss-button neutral" type="button" data-close-pc-sheet>close</button></div>`;
     const alternateMode = swapChooser || itemChooser;
     return `<div class="sheet-backdrop" data-close-pc-sheet><section class="pokemon-sheet" role="dialog" aria-modal="true" aria-labelledby="pokemon-sheet-title">
       <button class="sheet-close" type="button" data-close-pc-sheet aria-label="Close Pokémon details" autofocus>×</button>
       <div class="pokemon-summary"><img class="sprite" src="${sprite(id)}" alt="${mon.name}"/><div><p class="sheet-kicker">Pokémon details</p><h2 id="pokemon-sheet-title">${mon.name}</h2><div class="sheet-types">${mon.types.map((type) => `<span class="type-chip ${type.toLowerCase()}">${type}</span>`).join("")}</div></div></div>
-      <div class="pokemon-facts"><p><span>Ability</span><strong>${mon.ability}</strong></p><p><span>Nature</span><strong>${mon.nature}</strong></p><p><span>Held item</span><strong>${mon.item}</strong></p></div>
       <div class="sheet-mode-content">${sheetContent}</div>
-      <button class="plain-button sheet-secondary-action" type="button" ${swapChooser ? "data-cancel-pc-swap" : itemChooser ? "data-cancel-pc-items" : "data-close-pc-sheet"}>${alternateMode ? "cancel" : "close"}</button>
+      ${alternateMode ? `<button class="gloss-button neutral sheet-secondary-action" type="button" ${swapChooser ? "data-cancel-pc-swap" : "data-cancel-pc-items"}>cancel</button>` : ""}
     </section></div>`;
   }
 

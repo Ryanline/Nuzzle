@@ -138,18 +138,21 @@ await page.click(".page-back");
 await page.click('[data-route="pc"]');
 await page.click(`[data-pc-detail="${outgoingId}"]`);
 const pcActionSpacing = await page.locator(".pokemon-sheet").evaluate((sheet) => {
+  const teamButton = sheet.querySelector("[data-team-toggle]").getBoundingClientRect();
   const itemButton = sheet.querySelector("[data-open-pc-items]").getBoundingClientRect();
-  const closeButton = sheet.querySelector(".sheet-secondary-action").getBoundingClientRect();
+  const closeButton = sheet.querySelector(".sheet-actions [data-close-pc-sheet]").getBoundingClientRect();
   const sheetBounds = sheet.getBoundingClientRect();
   return {
-    gap: closeButton.top - itemButton.bottom,
+    firstGap: itemButton.top - teamButton.bottom,
+    secondGap: closeButton.top - itemButton.bottom,
     closeBottom: closeButton.bottom,
     sheetBottom: sheetBounds.bottom,
   };
 });
-if (pcActionSpacing.gap < 10) throw new Error("The PC item and close buttons do not have a clear visual gap.");
+if (pcActionSpacing.firstGap < 9 || Math.abs(pcActionSpacing.firstGap - pcActionSpacing.secondGap) > 1) throw new Error("The PC drawer actions do not have consistent spacing.");
 if (pcActionSpacing.closeBottom > pcActionSpacing.sheetBottom + 1) throw new Error("The PC drawer actions overflow the drawer.");
 await page.click('[data-pc-detail-view="training"]');
+if (await page.locator(".training-details .pokemon-facts").count() || await page.locator(".pc-detail-panel > .pokemon-facts").count()) throw new Error("The IV and EV view still includes the general Pokémon facts.");
 if (await page.locator(".training-stat-row").count() !== 6) throw new Error("The PC training view did not show all six battle stats.");
 if (!(await page.locator(".ev-total").textContent())?.includes("/ 510")) throw new Error("The PC training view did not show the total EV limit.");
 await page.click('[data-pc-detail-view="stats"]');
