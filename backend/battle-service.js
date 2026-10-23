@@ -44,6 +44,24 @@ function conditionPercent(condition = "") {
   return Math.max(1, Math.round((Number(match[1]) / Number(match[2])) * 100));
 }
 
+const permanentItemTransferSources = new Set([
+  "ability: magician", "ability: pickpocket",
+  "move: covet", "move: switcheroo", "move: thief", "move: trick",
+]);
+
+export function acquisitionFromProtocol(line, record) {
+  if (!line.startsWith("|-item|p1")) return null;
+  const [, subject, itemName, ...annotations] = splitProtocol(line);
+  const source = annotations.find((entry) => entry.startsWith("[from] "))?.slice(7).toLowerCase();
+  if (!permanentItemTransferSources.has(source)) return null;
+  const pokemonName = displayName(subject);
+  const original = record.playerTeam.find((set) => toID(set.name || set.species) === toID(pokemonName));
+  if (!original || original.item) return null;
+  const pokemonId = record.partyIds.find((id) => toID(id) === toID(original.species || original.name));
+  if (!pokemonId) return null;
+  return { pokemonId, itemId: toID(itemName), source };
+}
+
 function eventEntry(line, context) {
   if (!line.startsWith("|")) return null;
   const [type, subject, detail, extra] = splitProtocol(line);
@@ -127,9 +145,10 @@ function pokemonView(pokemon, ownSide) {
 }
 
 export class BattleController {
-  constructor(record, persist) {
+  constructor(record, persist, settle = async () => {}) {
     this.record = record;
     this.persist = persist;
+    this.settle = settle;
     this.stream = new BattleStream({ noCatch: true });
     this.streams = getPlayerStreams(this.stream);
     this.currentRequest = null;
@@ -141,6 +160,7 @@ export class BattleController {
     this.waiters = new Set();
     this.replayIndexes = { p1: 0, p2: 0 };
     this.failure = null;
+    this.settlement = null;
   }
 
   async start() {
@@ -179,6 +199,15 @@ export class BattleController {
     try {
       for await (const chunk of this.streams.spectator) {
         for (const line of chunk.split("\n")) {
+          const acquisition = acquisitionFromProtocol(line, this.record);
+          if (acquisition) {
+            this.record.itemAcquisitions ||= [];
+            const duplicate = this.record.itemAcquisitions.some((entry) => entry.pokemonId === acquisition.pokemonId && entry.itemId === acquisition.itemId);
+            if (!duplicate) {
+              this.record.itemAcquisitions.push(acquisition);
+              await this.persist(this.record);
+            }
+          }
           const entry = eventEntry(line, this);
           if (entry) this.log.push({ id: ++this.logSequence, ...entry });
         }
@@ -281,6 +310,7 @@ export class BattleController {
     await this.persist(this.record);
     await this.streams.p1.write(choice);
     await this.waitForState(previousVersion);
+    await this.settleIfEnded();
     return this.state();
   }
 
@@ -293,7 +323,21 @@ export class BattleController {
       await this.waitForState(previousVersion);
       await new Promise((resolve) => setImmediate(resolve));
     }
+    await this.settleIfEnded();
     return this.state();
+  }
+
+  async settleIfEnded() {
+    if (!this.stream.battle?.ended || this.record.itemsSettled) return;
+    for (let attempt = 0; attempt < 20 && !this.log.some((entry) => entry.category === "result"); attempt++) {
+      await new Promise((resolve) => setImmediate(resolve));
+    }
+    if (!this.settlement) this.settlement = (async () => {
+      await this.settle(this.record);
+      this.record.itemsSettled = true;
+      await this.persist(this.record);
+    })();
+    await this.settlement;
   }
 
   state() {
@@ -346,16 +390,18 @@ export class BattleController {
 }
 
 export class BattleService {
-  constructor(store) {
+  constructor(store, { settle = async () => {} } = {}) {
     this.store = store;
+    this.settle = settle;
     this.battles = new Map();
   }
 
   async initialize() {
     for (const record of await this.store.loadAll()) {
       try {
-        const battle = new BattleController(record, (next) => this.store.save(next));
+        const battle = new BattleController(record, (next) => this.store.save(next), this.settle);
         await battle.start();
+        await battle.settleIfEnded();
         this.battles.set(record.id, battle);
       } catch (error) {
         console.error(`Could not replay battle ${record.id}:`, error);
@@ -377,9 +423,11 @@ export class BattleService {
       playerTeam: structuredClone(teamSnapshot),
       choices: { p1: [], p2: [] },
       forfeited: false,
+      itemAcquisitions: [],
+      itemsSettled: false,
     };
     await this.store.save(record);
-    const battle = new BattleController(record, (next) => this.store.save(next));
+    const battle = new BattleController(record, (next) => this.store.save(next), this.settle);
     await battle.start();
     this.battles.set(record.id, battle);
     return battle.state();

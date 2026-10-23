@@ -116,6 +116,7 @@ const starterIds = new Set([
 
 const csvRows = parseCsv(await readFile(approvalsFilename, "utf8"));
 const approvedSpeciesIds = new Set(csvRows.map((row) => row.pokemon).filter(Boolean).map(canonicalSpeciesId));
+approvedSpeciesIds.delete("smeargle");
 for (const forms of Object.values(groupedForms)) {
   if (forms.some((id) => approvedSpeciesIds.has(id))) forms.forEach((id) => approvedSpeciesIds.add(id));
 }
@@ -187,12 +188,12 @@ const strongHeld = new Set([
 ].map(toID));
 
 function heldPrice(item) {
-  if (premiumHeld.has(item.id)) return 1200;
-  if (strongHeld.has(item.id)) return 800;
-  if (item.isBerry) return ["sitrusberry", "lumberry", "custapberry"].includes(item.id) ? 350 : 180;
-  if (item.id.endsWith("memory")) return 250;
-  if (["charcoal", "blackbelt", "blackglasses", "dragonfang", "fairyfeather", "hardstone", "magnet", "metalcoat", "miracleseed", "mysticwater", "nevermeltice", "poisonbarb", "sharpbeak", "silkscarf", "silverpowder", "softsand", "spelltag", "twistedspoon"].includes(item.id)) return 300;
-  return heldConsumables.has(item.id) ? 450 : 550;
+  if (premiumHeld.has(item.id)) return 2500;
+  if (strongHeld.has(item.id)) return 1800;
+  if (item.isBerry) return ["sitrusberry", "lumberry", "custapberry"].includes(item.id) ? 1000 : 600;
+  if (item.id.endsWith("memory")) return 750;
+  if (["charcoal", "blackbelt", "blackglasses", "dragonfang", "fairyfeather", "hardstone", "magnet", "metalcoat", "miracleseed", "mysticwater", "nevermeltice", "poisonbarb", "sharpbeak", "silkscarf", "silverpowder", "softsand", "spelltag", "twistedspoon"].includes(item.id)) return 750;
+  return heldConsumables.has(item.id) ? 1200 : 1400;
 }
 
 const trainingDefinitions = Object.freeze({
@@ -208,18 +209,184 @@ const trainingDefinitions = Object.freeze({
   hondewberry: { detail: "−1 Sp. Atk EV", price: 8, effect: "ev", stat: "spa", amount: -1, icon: "SPA−" },
   grepaberry: { detail: "−1 Sp. Def EV", price: 8, effect: "ev", stat: "spd", amount: -1, icon: "SPD−" },
   tamatoberry: { detail: "−1 Speed EV", price: 8, effect: "ev", stat: "spe", amount: -1, icon: "SPE−" },
-  bottlecap: { detail: "Set one IV from 0–31", price: 750, effect: "iv", icon: "IV" },
-  naturemint: { detail: "Choose any nature", price: 400, effect: "nature", icon: "N" },
-  rotomcatalog: { detail: "Change Rotom's form", price: 1200, effect: "rotom", icon: "R" },
-  abilitycapsule: { detail: "Change to an ordinary ability", price: 600, effect: "ability-capsule", icon: "AC" },
-  abilitypatch: { detail: "Change to the hidden ability", price: 1400, effect: "ability-patch", icon: "AP" },
-  rednectar: { detail: "Change Oricorio to Baile Style", price: 300, effect: "form", target: "oricorio", icon: "R" },
-  yellownectar: { detail: "Change Oricorio to Pom-Pom Style", price: 300, effect: "form", target: "oricoriopompom", icon: "Y" },
-  pinknectar: { detail: "Change Oricorio to Pa'u Style", price: 300, effect: "form", target: "oricoriopau", icon: "P" },
-  purplenectar: { detail: "Change Oricorio to Sensu Style", price: 300, effect: "form", target: "oricoriosensu", icon: "P" },
-  combatcud: { detail: "Change Paldean Tauros to Combat Breed", price: 500, effect: "form", target: "taurospaldeacombat", icon: "C" },
-  blazecud: { detail: "Change Paldean Tauros to Blaze Breed", price: 500, effect: "form", target: "taurospaldeablaze", icon: "B" },
-  aquacud: { detail: "Change Paldean Tauros to Aqua Breed", price: 500, effect: "form", target: "taurospaldeaaqua", icon: "A" },
+  bottlecap: { detail: "Set one IV from 0–31", price: 900, effect: "iv", icon: "IV" },
+  naturemint: { detail: "Choose any nature", price: 1500, effect: "nature", icon: "N" },
+  rotomcatalog: { detail: "Change Rotom's form", price: 2000, effect: "rotom", icon: "R" },
+  abilitycapsule: { detail: "Change to an ordinary ability", price: 2000, effect: "ability-capsule", icon: "AC" },
+  abilitypatch: { detail: "Change to the hidden ability", price: 3000, effect: "ability-patch", icon: "AP" },
+  rednectar: { detail: "Change Oricorio to Baile Style", price: 750, effect: "form", target: "oricorio", icon: "R" },
+  yellownectar: { detail: "Change Oricorio to Pom-Pom Style", price: 750, effect: "form", target: "oricoriopompom", icon: "Y" },
+  pinknectar: { detail: "Change Oricorio to Pa'u Style", price: 750, effect: "form", target: "oricoriopau", icon: "P" },
+  purplenectar: { detail: "Change Oricorio to Sensu Style", price: 750, effect: "form", target: "oricoriosensu", icon: "P" },
+  combatcud: { detail: "Change Paldean Tauros to Combat Breed", price: 1000, effect: "form", target: "taurospaldeacombat", icon: "C" },
+  blazecud: { detail: "Change Paldean Tauros to Blaze Breed", price: 1000, effect: "form", target: "taurospaldeablaze", icon: "B" },
+  aquacud: { detail: "Change Paldean Tauros to Aqua Breed", price: 1000, effect: "form", target: "taurospaldeaaqua", icon: "A" },
+});
+
+const excludedTmMoves = new Set([
+  "agility", "amnesia", "batonpass", "bellydrum", "bulkup", "calmmind", "clangoroussoul",
+  "coil", "cosmicpower", "cottonguard", "curse", "doubleteam", "dragondance",
+  "filletaway", "geomancy", "growth", "honeclaws", "howl", "irondefense", "minimize",
+  "nastyplot", "noretreat", "quiverdance", "revivalblessing", "rockpolish", "shedtail",
+  "shellsmash", "shiftgear", "spore", "swordsdance", "tailglow", "tidyup", "victorydance",
+  "workup",
+]);
+const recoveryMoves = new Set([
+  "healorder", "milkdrink", "recover", "roost", "shoreup", "slackoff", "softboiled", "strengthsap",
+]);
+const weatherHealingMoves = new Set(["moonlight", "morningsun", "synthesis"]);
+const protectionMoves = new Set([
+  "banefulbunker", "burningbulwark", "detect", "kingsshield", "matblock", "obstruct", "protect",
+  "silktrap", "spikyshield",
+]);
+const weatherAndTerrainMoves = new Set([
+  "electricterrain", "grassyterrain", "hail", "mistyterrain", "psychicterrain", "raindance",
+  "sandstorm", "snowscape", "sunnyday",
+]);
+const premiumStatusMoves = new Map(Object.entries({
+  auroraveil: 1500,
+  lightscreen: 1350,
+  reflect: 1350,
+  substitute: 1500,
+  wish: 1500,
+}));
+const strongStatusMoves = new Set([
+  "encore", "haze", "leechseed", "partingshot", "stealthrock", "taunt", "thunderwave",
+  "toxic", "toxicspikes", "trick", "willowisp",
+]);
+const conditionalStatusMoves = new Set([
+  "destinybond", "disable", "glare", "hypnosis", "magiccoat", "sleeppowder", "stickyweb",
+  "tailwind", "trickroom", "whirlwind",
+]);
+const lowValueStatusMoves = new Set([
+  "babydolleyes", "charm", "confide", "defensecurl", "flash", "growl", "harden", "leer",
+  "nobleroar", "playnice", "sandattack", "scaryface", "smokescreen", "stringshot", "supersonic",
+  "sweetscent", "tailwhip", "tickle", "withdraw",
+]);
+const majorStatuses = new Set(["brn", "frz", "par", "psn", "slp", "tox"]);
+const utilityAttackAdjustments = new Map(Object.entries({
+  flipturn: 300,
+  knockoff: 300,
+  rapidspin: 300,
+  uturn: 300,
+  voltswitch: 300,
+}));
+const rechargeMoves = new Set(["blastburn", "eternabeam", "frenzyplant", "gigaimpact", "hydrocannon", "hyperbeam", "meteorassault", "prismaticlaser", "roaroftime", "rockwrecker"]);
+const twoTurnMoves = new Set(["bounce", "dig", "dive", "electroshot", "fly", "freezeshock", "geomancy", "iceburn", "meteorbeam", "phantomforce", "razorwind", "shadowforce", "skullbash", "skyattack", "solarblade", "solarbeam"]);
+const fixedTmPrices = new Map(Object.entries({
+  aurawheel: 1800,
+  dreameater: 1100,
+  focuspunch: 1800,
+  lastresort: 1800,
+  populationbomb: 2400,
+  rapidspin: 1300,
+}));
+
+function roundTmPrice(value, minimum = 100) {
+  return Math.max(minimum, Math.ceil(value / 50) * 50);
+}
+
+function secondaryValue(secondary) {
+  const chance = Number(secondary?.chance || 100);
+  if (majorStatuses.has(secondary?.status)) return chance * 5;
+  if (secondary?.volatileStatus === "flinch" || secondary?.volatileStatus === "confusion") return chance * 2.5;
+  const drops = Object.values(secondary?.boosts || {}).filter((amount) => amount < 0);
+  if (drops.length) return chance * (Math.max(...drops.map(Math.abs)) >= 2 ? 2 : 1);
+  return 0;
+}
+
+function selfBoostValue(move, secondaries) {
+  let value = Object.values(move.self?.boosts || {}).some((amount) => amount > 0) ? 1000 : 0;
+  for (const secondary of secondaries) {
+    if (Object.values(secondary?.self?.boosts || {}).some((amount) => amount > 0)) value += Number(secondary.chance || 100) * 10;
+  }
+  return value;
+}
+
+function effectiveBasePower(move) {
+  if (!move.multihit) return move.basePower;
+  const hits = Array.isArray(move.multihit) ? (move.multihit[0] + move.multihit[1]) / 2 : move.multihit;
+  return move.basePower * hits;
+}
+
+function tmPrice(move) {
+  if (fixedTmPrices.has(move.id)) return fixedTmPrices.get(move.id);
+  if (move.category === "Status") {
+    if (move.id === "splash") return 100;
+    if (lowValueStatusMoves.has(move.id)) return 250;
+    if (protectionMoves.has(move.id) || move.id === "perishsong") return 2000;
+    if (weatherHealingMoves.has(move.id)) return 1750;
+    if (weatherAndTerrainMoves.has(move.id)) return 1200;
+    if (recoveryMoves.has(move.id)) return 2000;
+    if (premiumStatusMoves.has(move.id)) return premiumStatusMoves.get(move.id);
+    if (strongStatusMoves.has(move.id)) return 1000;
+    if (conditionalStatusMoves.has(move.id)) return 750;
+    return 500;
+  }
+
+  if (["electroball", "gyroball"].includes(move.id)) return 1000;
+
+  const accuracy = move.accuracy === true ? 100 : Number(move.accuracy || 100);
+  const secondaries = move.secondaries || (move.secondary ? [move.secondary] : []);
+  const effects = Math.min(900, secondaries.reduce((sum, secondary) => sum + secondaryValue(secondary), 0));
+  let value = effectiveBasePower(move) * 16 + effects + selfBoostValue(move, secondaries) - Math.max(0, 100 - accuracy) * 10;
+  if (move.accuracy === true) value += 100;
+  if (move.priority > 0) value += 500;
+  if (move.drain) value += (move.drain[0] / move.drain[1]) * 100 * 10;
+  if (move.recoil) value -= 250;
+  if (rechargeMoves.has(move.id)) value -= 500;
+  if (twoTurnMoves.has(move.id)) value -= 300;
+  const selfDrops = Object.values(move.self?.boosts || {}).filter((amount) => amount < 0);
+  if (selfDrops.length) value -= Math.max(...selfDrops.map(Math.abs)) >= 2 ? 400 : 200;
+  value += utilityAttackAdjustments.get(move.id) || 0;
+  return roundTmPrice(value, 500);
+}
+
+function excludedTm(move) {
+  if (excludedTmMoves.has(move.id)) return true;
+  if (move.category !== "Status") return false;
+  return [move.boosts, move.self?.boosts].some((boosts) => Object.values(boosts || {}).some((amount) => amount > 0));
+}
+
+const learnableMoveIdsBySpecies = new Map();
+export function learnableMoveIds(speciesId) {
+  if (!learnableMoveIdsBySpecies.has(speciesId)) {
+    let ids = [];
+    try {
+      const directlyLearned = new Set(Dex.species.getFullLearnset(speciesId).flatMap(({ learnset }) => Object.keys(learnset)));
+      ids = [...directlyLearned].filter((id) => {
+        const move = Dex.moves.get(id);
+        return move.exists && !move.isMax && !move.isZ && move.id !== "struggle" && !excludedTm(move);
+      });
+    } catch {}
+    learnableMoveIdsBySpecies.set(speciesId, Object.freeze([...new Set(ids)]));
+  }
+  return learnableMoveIdsBySpecies.get(speciesId);
+}
+
+const approvedMoveIds = new Set(pokemonCatalog.flatMap((pokemon) => learnableMoveIds(pokemon.id)));
+const tmCatalog = [...approvedMoveIds].map((id) => {
+  const move = Dex.moves.get(id);
+  const accuracy = move.accuracy === true ? "—" : `${move.accuracy}%`;
+  const power = move.category === "Status" ? "—" : move.basePower || "—";
+  return Object.freeze({
+    id: `tm-${move.id}`,
+    name: move.name,
+    group: "TMs",
+    detail: `${move.type} · ${move.category} · Power ${power} · Accuracy ${accuracy}`,
+    description: move.shortDesc || move.desc || "Teaches this move to an eligible Pokémon.",
+    price: tmPrice(move),
+    effect: "tm",
+    moveId: move.id,
+    move: move.name,
+    type: move.type,
+    category: move.category,
+    power: move.basePower,
+    accuracy: move.accuracy,
+    consumable: true,
+    purchaseLimit: null,
+    icon: "TM",
+  });
 });
 
 const approvedHeldNames = csvRows.map((row) => row["held items"]).filter(Boolean);
@@ -229,15 +396,15 @@ export const itemCatalog = [
   ...approvedHeldNames.map((approvedName) => {
     const item = Dex.items.get(approvedName);
     if (!item.exists) throw new Error(`Unknown approved held item: ${approvedName}`);
-    const consumable = Boolean(item.isBerry || heldConsumables.has(item.id));
     return Object.freeze({
       id: item.id,
       name: item.name,
       group: "Held Items",
       detail: item.shortDesc || item.desc || "Held item",
       price: heldPrice(item),
-      consumable,
-      purchaseLimit: consumable ? null : 1,
+      consumable: false,
+      battleConsumable: Boolean(item.isBerry || heldConsumables.has(item.id)),
+      purchaseLimit: 1,
       icon: item.name.split(/\s+/).map((word) => word[0]).join("").slice(0, 3).toUpperCase(),
     });
   }),
@@ -247,6 +414,7 @@ export const itemCatalog = [
     if (!definition) throw new Error(`Missing training-item behavior for ${approvedName}`);
     return Object.freeze({ id, name: approvedName, group: "Training Items", consumable: true, purchaseLimit: null, ...definition });
   }),
+  ...tmCatalog,
 ].sort((left, right) => left.group.localeCompare(right.group) || left.name.localeCompare(right.name));
 
 export const itemById = new Map(itemCatalog.map((item) => [item.id, item]));
@@ -259,5 +427,6 @@ export function contentSummary() {
     starters: starterPokemon.length,
     heldItems: itemCatalog.filter((item) => item.group === "Held Items").length,
     trainingItems: itemCatalog.filter((item) => item.group === "Training Items").length,
+    tms: itemCatalog.filter((item) => item.group === "TMs").length,
   };
 }

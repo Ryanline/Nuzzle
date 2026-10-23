@@ -1,0 +1,30 @@
+[Unit]
+Description=Nuzzle web application
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=nuzzle
+Group=nuzzle
+WorkingDirectory=/opt/nuzzle/current
+Environment=NODE_ENV=production
+Environment=HOST=127.0.0.1
+Environment=PORT=3000
+Environment=NUZZLE_DATA_DIR=/var/lib/nuzzle
+ExecStart=/usr/bin/node backend/server.js
+Restart=on-failure
+RestartSec=3
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/nuzzle
+ProtectControlGroups=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

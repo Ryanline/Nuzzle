@@ -11,9 +11,9 @@ The interface is intentionally simple, practical, and restrained. It uses clear 
 ## Core flow
 
 1. View and inspect the daily opponent.
-2. Begin a fresh run by claiming a twelve-Pokémon opening encounter, then reveal the remaining daily encounters.
+2. Begin a fresh run by individually claiming twelve opening encounters, then receive the ordinary daily encounters on later dates.
 3. Inspect Pokémon, manage the team, and apply items through the PC.
-4. Buy and organize Held Items and Training Items. TMs remain deferred.
+4. Buy and organize Held Items, Training Items, and TMs.
 5. Choose a lead and begin the daily battle.
 6. Eventually receive results, casualties, rewards, and streak changes.
 
@@ -37,10 +37,10 @@ The prototype includes:
 - Showdown-style move and Pokémon information on hover
 - Long-press information cards on touch devices without triggering the underlying action
 - A party-selecting and rearrangeable PC box with Pokémon details, team swapping, and item use
-- Three daily encounters, or four on Sunday, with a persisted twelve-Pokémon opening batch for fresh runs
+- Twelve separate persisted opening encounters for fresh runs, then three daily encounters or four on Sunday
 - The complete approved catalog of 523 encounter entries, 139 Held Items, and 24 Training Items
 - Persistent account-scoped rosters, teams, encounters, money, inventory, purchases, equipment, and training
-- Categorized Bag and Mart views for Held Items and Training Items; TMs are intentionally absent for now
+- Categorized Bag and Mart views for Held Items, Training Items, and eligible moves from approved Pokémon's legal learnsets as TMs
 - Working purchases and contextual held-item and training-item actions
 - Account/profile controls, persistent sessions, theme selection, and leaderboard/settings placeholders
 - Local arena and sprite assets

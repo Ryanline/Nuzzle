@@ -54,33 +54,91 @@ if (await page.locator("html").getAttribute("data-theme") !== "dark") throw new 
 if (await page.evaluate(() => localStorage.getItem("nuzzleTheme")) !== "dark") throw new Error("The selected theme was not remembered on the device.");
 await page.click("[data-toggle-theme]");
 await page.click(".page-back");
-if (!(await page.locator('[data-route="encounters"]').first().textContent())?.includes("encounter first")) throw new Error("Battle was not locked for an empty run.");
-await page.locator('[data-route="encounters"]').first().click();
-await page.click('[data-encounter="0"]');
-await page.waitForSelector(".encounter-batch");
+const emptyRunBattleButton = page.locator('button[data-route="encounters"]', { hasText: /^battle$/i });
+if (await emptyRunBattleButton.count() !== 1) throw new Error("The empty-run Battle button did not retain its normal label and redirect to encounters.");
+await emptyRunBattleButton.click();
+const encounterScroll = await page.locator(".encounter-list").evaluate((element) => ({ clientHeight: element.clientHeight, scrollHeight: element.scrollHeight }));
+if (encounterScroll.scrollHeight <= encounterScroll.clientHeight) throw new Error("The 12 opening encounters did not receive a contained scroll area.");
+for (let slot = 0; slot < 12; slot++) {
+  const scrollTopBeforeReveal = slot === 5
+    ? await page.locator(".encounter-list").evaluate((element) => {
+      element.scrollTop = 240;
+      return element.scrollTop;
+    })
+    : null;
+  const encounterResponse = page.waitForResponse((response) => response.url().includes(`/api/game/encounters/${slot}`) && response.request().method() === "POST");
+  await page.click(`[data-encounter="${slot}"]`);
+  if (!(await encounterResponse).ok()) throw new Error(`Opening encounter ${slot + 1} failed.`);
+  if (scrollTopBeforeReveal !== null) {
+    const scrollTopAfterReveal = await page.locator(".encounter-list").evaluate((element) => element.scrollTop);
+    if (Math.abs(scrollTopAfterReveal - scrollTopBeforeReveal) > 2) throw new Error("Revealing an encounter reset the list scroll position.");
+  }
+  if (slot === 0) {
+    const firstEncounter = await page.evaluate(() => fetch("/api/game").then((response) => response.json()));
+    if (firstEncounter.roster.length !== 1 || !firstEncounter.battleUnlocked) throw new Error("The first individual encounter did not add one Pokémon and unlock battle.");
+    if (await page.locator(".encounter-card.revealed").count() !== 1) throw new Error("A newly claimed encounter did not remain visible during its reveal visit.");
+  }
+}
 const generatedGame = await page.evaluate(() => fetch("/api/game").then((response) => response.json()));
-if (generatedGame.roster.length !== 12 || generatedGame.teamIds.length !== 6) throw new Error("The opening encounter did not add 12 Pokémon and select an initial team.");
+if (generatedGame.roster.length !== 12 || generatedGame.teamIds.length !== 6) throw new Error("The 12 opening encounters did not build the initial roster and team.");
 const outgoingId = generatedGame.teamIds[0];
+const outgoingPokemon = generatedGame.roster.find((pokemon) => pokemon.id === outgoingId);
+const content = await page.evaluate(() => fetch("/api/content").then((response) => response.json()));
+const teachableTm = content.items.find((item) => item.group === "TMs" && outgoingPokemon.learnableMoveIds.includes(item.moveId) && !outgoingPokemon.moves.some((move) => move.toLowerCase().replace(/[^a-z0-9]+/g, "") === item.moveId));
+if (!teachableTm) throw new Error("No compatible TM was available for the PC teaching flow.");
 const replacementId = generatedGame.roster.find((pokemon) => !generatedGame.teamIds.includes(pokemon.id)).id;
 const replacementName = generatedGame.roster.find((pokemon) => pokemon.id === replacementId).name;
 await page.click(".page-back");
+await page.click('[data-route="encounters"]');
+if (await page.locator(".encounter-card.revealed").count()) throw new Error("Previously claimed encounters remained visible after returning to the screen.");
+if (!await page.locator(".encounter-empty").count()) throw new Error("The completed encounter screen did not show its empty state.");
+await page.click(".page-back");
 await page.click('[data-route="mart"]');
-if (await page.locator('[data-shop-group="TMs"]').count()) throw new Error("The deferred TM category appeared in the Mart.");
+if (await page.locator('[data-shop-group="TMs"]').count() !== 1) throw new Error("The TM category did not appear in the Mart.");
 if (await page.locator(".shop-item").count() !== 139) throw new Error("The Mart did not render every approved held item.");
 await page.click('[data-shop-group="Training Items"]');
 if (await page.locator(".shop-item").count() !== 24) throw new Error("The Mart did not render every approved training item.");
+await page.click('[data-shop-group="TMs"]');
+if (await page.locator(".shop-item").count() !== 690) throw new Error("The Mart did not render every eligible TM.");
+await page.click(`[data-open-purchase="${teachableTm.id}"]`);
+const tmPurchaseResponse = page.waitForResponse((response) => response.url().includes(`/api/game/shop/${teachableTm.id}`) && response.request().method() === "POST");
+await page.click(`[data-purchase-form="${teachableTm.id}"] button[type="submit"]`);
+if (!(await tmPurchaseResponse).ok()) throw new Error("Purchasing a TM failed.");
+await page.click('[data-shop-group="Training Items"]');
+await page.click('[data-item-about="hpup"]');
+if (!(await page.locator(".mart-item-description").textContent())?.includes("HP EV")) throw new Error("The Mart item information drawer did not show the item description.");
+await page.click(".mart-sheet .sheet-close");
+await page.click('[data-open-purchase="hpup"]');
+await page.fill("#purchase-quantity", "5");
+if ((await page.locator("[data-purchase-quantity-output]").textContent())?.trim() !== "×5") throw new Error("The selected bulk quantity did not update.");
+if ((await page.locator("[data-purchase-price]").textContent())?.trim() !== "₽50") throw new Error("The bulk purchase price did not update.");
 const purchaseResponse = page.waitForResponse((response) => response.url().includes("/api/game/shop/hpup") && response.request().method() === "POST");
-await page.click('[data-buy="hpup"]');
+await page.click('[data-purchase-form="hpup"] button[type="submit"]');
 if (!(await purchaseResponse).ok()) throw new Error("Purchasing a training item failed.");
+const purchasedGame = await page.evaluate(() => fetch("/api/game").then((response) => response.json()));
+if (purchasedGame.inventory.hpup !== 5) throw new Error("The bulk purchase quantity was not persisted.");
 await page.click(".page-back");
 await page.click('[data-route="pc"]');
 await page.click(`[data-pc-detail="${outgoingId}"]`);
+await page.click('[data-pc-detail-view="training"]');
+if (await page.locator(".training-stat-row").count() !== 6) throw new Error("The PC training view did not show all six battle stats.");
+if (!(await page.locator(".ev-total").textContent())?.includes("/ 510")) throw new Error("The PC training view did not show the total EV limit.");
+await page.click('[data-pc-detail-view="stats"]');
 await page.click("[data-open-pc-items]");
 await page.click('[data-pc-item="hpup"]');
 const trainingResponse = page.waitForResponse((response) => response.url().includes(`/api/game/pokemon/${outgoingId}/train`) && response.request().method() === "POST");
 await page.click("[data-train-form] button[type=submit]");
 if (!(await trainingResponse).ok()) throw new Error("Using a purchased training item failed.");
 await page.waitForSelector(".sheet-feedback");
+await page.click("[data-open-pc-items]");
+await page.click('[data-pc-item-group="TMs"]');
+await page.click(`[data-pc-item="${teachableTm.id}"]`);
+const tmTrainingResponse = page.waitForResponse((response) => response.url().includes(`/api/game/pokemon/${outgoingId}/train`) && response.request().method() === "POST");
+await page.click("[data-train-form] button[type=submit]");
+if (!(await tmTrainingResponse).ok()) throw new Error("Teaching a purchased TM failed.");
+const tmTrainedGame = await page.evaluate(() => fetch("/api/game").then((response) => response.json()));
+if (tmTrainedGame.roster.find((pokemon) => pokemon.id === outgoingId).moves[0] !== teachableTm.move) throw new Error("The selected move slot was not replaced by the TM.");
+if (tmTrainedGame.inventory[teachableTm.id]) throw new Error("The successfully used TM was not consumed.");
 await page.click(".sheet-close");
 await page.click(`[data-pc-detail="${outgoingId}"]`);
 await page.click(`[data-team-toggle="${outgoingId}"]`);
@@ -95,6 +153,9 @@ await page.click(".sheet-close");
 await page.click(".page-back");
 await page.click('[data-route="lead"]');
 await page.click(`[data-select-lead="${replacementId}"]`);
+if (!(await page.locator(".lead-details-card").textContent())?.includes(replacementName)) throw new Error("Selecting a lead did not show its battle details.");
+if (await page.locator(".lead-stat").count() !== 6) throw new Error("The lead preview did not show all six battle stats together.");
+if (await page.locator(".lead-move-grid > span").count() !== 4) throw new Error("The lead preview did not show all four moves.");
 await page.click("[data-start-battle]");
 await page.waitForSelector('.battle-screen [data-battle-move="1"]');
 

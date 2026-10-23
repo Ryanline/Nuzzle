@@ -6,18 +6,19 @@ import {
   encounterPokemon,
   itemById,
   itemCatalog,
+  learnableMoveIds,
   natureNames,
   pokemonById,
   pokemonCatalog,
   starterPokemon,
 } from "./content.js";
+import { generateEncounterMoves } from "./movesets.js";
 
 const require = createRequire(import.meta.url);
 const { Dex, toID } = require("pokemon-showdown");
 const stats = ["hp", "atk", "def", "spa", "spd", "spe"];
 const statLabels = { hp: "HP", atk: "Atk", def: "Def", spa: "SpA", spd: "SpD", spe: "Spe" };
-const startingMoney = 2500;
-const moveCache = new Map();
+const startingMoney = 50000;
 
 function gameError(message, statusCode = 400) {
   throw Object.assign(new Error(message), { statusCode });
@@ -33,45 +34,9 @@ function randomGender(species) {
 }
 
 function defaultMoves(speciesId) {
-  if (moveCache.has(speciesId)) return [...moveCache.get(speciesId)];
-  if (speciesId === "ditto") return ["Transform"];
-  if (speciesId === "unown") return ["Hidden Power"];
-  let pool;
-  try {
-    pool = [...Dex.species.getMovePool(speciesId, true)].map((id) => Dex.moves.get(id));
-  } catch {
-    pool = [];
-  }
-  const excluded = new Set(["explosion", "selfdestruct", "finalgambit", "memento", "healingwish", "lunardance"]);
-  const damaging = pool.filter((move) => move.exists && move.basePower > 0 && !move.isMax && !move.isZ && !excluded.has(move.id));
-  const species = Dex.species.get(speciesId);
-  const score = (move) => (species.types.includes(move.type) ? 500 : 0) + move.basePower * (move.accuracy === true ? 1 : Number(move.accuracy || 70) / 100) + (move.priority || 0) * 15;
-  damaging.sort((left, right) => score(right) - score(left) || left.name.localeCompare(right.name));
-  const selected = [];
-  const usedTypes = new Set();
-  for (const move of damaging) {
-    if (selected.length >= 3) break;
-    if (usedTypes.has(move.type) && damaging.some((candidate) => !usedTypes.has(candidate.type))) continue;
-    selected.push(move.name);
-    usedTypes.add(move.type);
-  }
-  const preferredStatus = [
-    "recover", "roost", "synthesis", "moonlight", "morningsun", "shoreup", "slackoff", "strengthsap", "wish",
-    "quiverdance", "shellsmash", "dragondance", "nastyplot", "swordsdance", "calmmind", "bulkup",
-    "spore", "sleeppowder", "willowisp", "thunderwave", "toxic", "leechseed", "stealthrock", "protect", "substitute",
-  ];
-  for (const id of preferredStatus) {
-    if (selected.length >= 4) break;
-    const move = pool.find((candidate) => candidate.id === id);
-    if (move) selected.push(move.name);
-  }
-  for (const move of damaging) {
-    if (selected.length >= 4) break;
-    if (!selected.includes(move.name)) selected.push(move.name);
-  }
-  while (selected.length < 4) selected.push(selected.at(-1) || "Tackle");
-  moveCache.set(speciesId, selected.slice(0, 4));
-  return selected.slice(0, 4);
+  if (speciesId === "ditto") return ["Transform", "Transform", "Transform", "Transform"];
+  if (speciesId === "unown") return ["Hidden Power", "Hidden Power", "Hidden Power", "Hidden Power"];
+  return generateEncounterMoves(speciesId);
 }
 
 function createPokemon(speciesData) {
@@ -132,19 +97,27 @@ function encounterCount(date) {
 
 function ensureDaily(run, date) {
   if (run.daily?.date === date) return;
+  if (run.daily?.encounters.some((encounter) => encounter.kind === "opening" && !encounter.claimed)) return;
   const reserved = new Set(run.roster.map((pokemon) => pokemon.encounterFamilyId));
-  const total = encounterCount(date);
   const opening = run.roster.length === 0 && !run.openingBatchClaimed;
+  const total = opening ? 12 : encounterCount(date);
   const encounters = [];
   for (let slot = 0; slot < total; slot++) {
-    const isOpening = opening && slot === 0;
     encounters.push({
-      kind: isOpening ? "opening" : "single",
+      kind: opening ? "opening" : "single",
       claimed: false,
-      pokemon: generateBatch(run, isOpening ? 12 : 1, isOpening && run.starterGuarantee, reserved),
+      pokemon: generateBatch(run, 1, opening && slot === 0 && run.starterGuarantee, reserved),
     });
   }
   run.daily = { date, encounters };
+  if (opening) run.starterGuarantee = false;
+}
+
+function migrateOpeningEncounters(run) {
+  if (!run.daily?.encounters?.some((encounter) => encounter.kind === "opening" && encounter.pokemon.length > 1)) return;
+  run.daily.encounters = run.daily.encounters.flatMap((encounter) => encounter.kind === "opening"
+    ? encounter.pokemon.map((pokemon) => ({ kind: "opening", claimed: encounter.claimed, pokemon: [pokemon] }))
+    : [encounter]);
 }
 
 function natureAdjustment(natureName, stat) {
@@ -175,6 +148,11 @@ function pokemonView(pokemon) {
     calculatedStats: values,
     hp: `100.0% (${values.hp}/${values.hp})`,
     stats: stats.filter((stat) => stat !== "hp").map((stat) => `${statLabels[stat]} ${values[stat]}`).join(" / "),
+    moveDetails: pokemon.moves.map((name) => {
+      const move = Dex.moves.get(name);
+      return { name, type: move.exists ? move.type : "Normal" };
+    }),
+    learnableMoveIds: [...learnableMoveIds(pokemon.speciesId)],
     item: pokemon.heldItemId ? itemById.get(pokemon.heldItemId)?.name || "None" : "None",
   };
 }
@@ -206,7 +184,7 @@ export class GameStore {
     this.filename = filename;
     this.timeZone = timeZone;
     this.now = now;
-    this.data = { version: 1, runs: {} };
+    this.data = { version: 2, runs: {} };
     this.pending = Promise.resolve();
     this.writeSequence = 0;
   }
@@ -234,6 +212,7 @@ export class GameStore {
       const date = dateInZone(this.now(), this.timeZone);
       const month = date.slice(0, 7);
       let run = this.data.runs[userId] ||= newRun(userId, month);
+      migrateOpeningEncounters(run);
       if (!run.month) run.month = month;
       if (run.month !== month) run = this.data.runs[userId] = newRun(userId, month);
       ensureDaily(run, date);
@@ -281,10 +260,13 @@ export class GameStore {
         if (pokemon.heldItemId === "leftovers") run.inventory.leftovers = (run.inventory.leftovers || 0) + 1;
       }
       if (encounter.kind === "opening") {
-        run.openingBatchClaimed = true;
-        run.starterGuarantee = false;
+        run.openingBatchClaimed = run.daily.encounters.every((candidate) => candidate.claimed);
       }
-      if (!run.teamIds.length) run.teamIds = run.roster.slice(0, 6).map((pokemon) => pokemon.id);
+      if (encounter.kind === "opening" && run.teamIds.length < 6) {
+        for (const pokemon of encounter.pokemon) {
+          if (run.teamIds.length < 6 && !run.teamIds.includes(pokemon.id)) run.teamIds.push(pokemon.id);
+        }
+      } else if (!run.teamIds.length) run.teamIds = run.roster.slice(0, 6).map((pokemon) => pokemon.id);
       return this.publicState(run);
     });
   }
@@ -327,12 +309,28 @@ export class GameStore {
     });
   }
 
+  async applyBattleItemAcquisitions(userId, battleId, acquisitions = []) {
+    return this.mutate(userId, (run) => {
+      run.settledItemBattleIds ||= [];
+      if (run.settledItemBattleIds.includes(battleId)) return this.publicState(run);
+      for (const acquisition of acquisitions) {
+        const pokemon = run.roster.find((candidate) => candidate.id === acquisition.pokemonId);
+        const item = itemById.get(acquisition.itemId);
+        if (!pokemon || pokemon.heldItemId || !item || item.group !== "Held Items") continue;
+        run.inventory[item.id] = (run.inventory[item.id] || 0) + 1;
+        pokemon.heldItemId = item.id;
+      }
+      run.settledItemBattleIds.push(battleId);
+      return this.publicState(run);
+    });
+  }
+
   async useTrainingItem(userId, pokemonId, itemId, options = {}) {
     return this.mutate(userId, (run) => {
       let pokemon = run.roster.find((candidate) => candidate.id === pokemonId);
       const item = itemById.get(itemId);
       if (!pokemon) gameError("Pokémon not found.", 404);
-      if (!item || item.group !== "Training Items") gameError("That is not a training item.");
+      if (!item || !["Training Items", "TMs"].includes(item.group)) gameError("That item cannot be used for training.");
       if ((run.inventory[item.id] || 0) < 1) gameError(`You do not own ${item.name}.`, 409);
       let used = 1;
       if (item.effect === "ev") {
@@ -376,6 +374,12 @@ export class GameStore {
         if (!target || target.encounterFamilyId !== pokemon.encounterFamilyId) gameError(`${item.name} cannot be used on ${pokemon.name}.`, 409);
         if (pokemon.speciesId === target.id) gameError(`${pokemon.name} already has that form.`, 409);
         pokemon = this.changeForm(run, pokemon, target.id);
+      } else if (item.effect === "tm") {
+        const slot = Number(options.slot);
+        if (!learnableMoveIds(pokemon.speciesId).includes(item.moveId)) gameError(`${pokemon.name} cannot learn ${item.move}.`, 409);
+        if (pokemon.moves.some((move) => toID(move) === item.moveId)) gameError(`${pokemon.name} already knows ${item.move}.`, 409);
+        if (!Number.isInteger(slot) || slot < 0 || slot >= pokemon.moves.length) gameError("Choose a move to replace.");
+        pokemon.moves[slot] = item.move;
       }
       run.inventory[item.id] -= used;
       if (run.inventory[item.id] <= 0) delete run.inventory[item.id];

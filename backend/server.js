@@ -14,13 +14,17 @@ const dataDirectory = process.env.NUZZLE_DATA_DIR || path.join(backendDirectory,
 const port = Number(process.env.PORT || 3000);
 const host = process.env.HOST || "127.0.0.1";
 
-const service = new BattleService(new BattleStore(path.join(dataDirectory, "battles")));
 const auth = new AuthStore(path.join(dataDirectory, "auth.json"));
 const game = new GameStore(path.join(dataDirectory, "game.json"));
+const service = new BattleService(new BattleStore(path.join(dataDirectory, "battles")), {
+  settle: (record) => record.userId
+    ? game.applyBattleItemAcquisitions(record.userId, record.id, record.itemAcquisitions)
+    : Promise.resolve(),
+});
 const avatarDirectory = path.join(dataDirectory, "avatars");
-await service.initialize();
 await auth.initialize();
 await game.initialize();
+await service.initialize();
 
 const loginAttempts = new Map();
 const sessionCookie = "nuzzle_session";
@@ -65,8 +69,15 @@ function requireUser(request) {
   return user;
 }
 
+function clientAddress(request) {
+  const directAddress = request.socket.remoteAddress || "unknown";
+  const localProxy = ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(directAddress);
+  if (!localProxy) return directAddress;
+  return String(request.headers["x-forwarded-for"] || "").split(",")[0].trim() || directAddress;
+}
+
 function rateLimitLogin(request) {
-  const key = request.socket.remoteAddress || "unknown";
+  const key = clientAddress(request);
   const now = Date.now();
   const recent = (loginAttempts.get(key) || []).filter((timestamp) => now - timestamp < 10 * 60 * 1000);
   if (recent.length >= 20) throw Object.assign(new Error("Too many login attempts. Please wait and try again."), { statusCode: 429 });
@@ -195,7 +206,7 @@ async function api(request, response, pathname) {
     json(response, 200, await game.setTeam(user.id, body.teamIds));
     return true;
   }
-  const shopMatch = pathname.match(/^\/api\/game\/shop\/([a-z0-9]+)$/);
+  const shopMatch = pathname.match(/^\/api\/game\/shop\/([a-z0-9-]+)$/);
   if (request.method === "POST" && shopMatch) {
     const user = requireUser(request);
     const body = await requestBody(request);

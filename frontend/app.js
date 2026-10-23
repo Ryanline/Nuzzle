@@ -58,6 +58,8 @@
   let team = new Set(partyIds);
   let pcOrder = [...pcIds];
   let encounters = [];
+  let encountersRevealedThisVisit = new Set();
+  let encounterListScrollTop = 0;
   let battleState = null;
   let battleLoading = false;
   let battleError = "";
@@ -67,8 +69,9 @@
   let battleLogHasNew = false;
   let battleLogInitialized = false;
   let battleLogRenderedIds = new Set();
-  let balance = 2500;
+  let balance = 50000;
   let selectedPcId = null;
+  let pcDetailView = "stats";
   let pcSwapMode = false;
   let pcItemMode = false;
   let activePcItemGroup = "Training Items";
@@ -79,6 +82,10 @@
   let gameBusy = false;
   let purchaseMessage = "";
   let activeShopGroup = "Held Items";
+  let martSheetItemId = null;
+  let martSheetMode = null;
+  let martPurchaseQuantity = 1;
+  let martListScrollTop = 0;
   let activeBagGroup = "Held Items";
   let inventory = {};
 
@@ -287,6 +294,8 @@
       battleState = null;
       gameState = null;
       encounters = [];
+      encountersRevealedThisVisit = new Set();
+      encounterListScrollTop = 0;
       mons = {};
       team = new Set();
       pcOrder = [];
@@ -379,7 +388,7 @@
     const currentClass = (name) => current === name ? " is-current" : "";
     const currentPage = (name) => current === name ? ' aria-current="page"' : "";
     return `<nav class="${className}" aria-label="Game sections">
-      <button class="gloss-button red${currentClass("battle")}"${currentPage("battle")} data-route="${currentUser && gameState && !gameState.battleUnlocked ? "encounters" : "lead"}">${currentUser && gameState && !gameState.battleUnlocked ? "encounter first" : "battle"}</button>
+      <button class="gloss-button red${currentClass("battle")}"${currentPage("battle")} data-route="${currentUser && gameState && !gameState.battleUnlocked ? "encounters" : "lead"}">battle</button>
       <button class="gloss-button orange${currentClass("pc")}"${currentPage("pc")} data-route="pc">pc box</button>
       <button class="gloss-button gold${currentClass("bag")}"${currentPage("bag")} data-route="bag">bag</button>
       <button class="gloss-button green${currentClass("encounters")}"${currentPage("encounters")} data-route="encounters">encounter (${encounters.filter((item) => !item.claimed).length})</button>
@@ -411,7 +420,7 @@
     const chosen = [...team].slice(0, 6);
     return `<section class="screen lead-screen">${header()}<div class="arena lead-arena"><img class="sprite trainer" src="${trainerSprite}" alt="Gym Leader Brock" /></div>
       <div class="lead-prompt"><p class="prompt">How will you start the battle?</p><h2 class="section-label">Choose Lead</h2>
-      <div class="lead-grid">${chosen.map(monButton).join("")}</div></div>
+      <div class="lead-grid">${chosen.map(monButton).join("")}</div><div class="lead-details-slot" data-lead-details aria-live="polite">${leadDetails(selectedLeadId)}</div></div>
       ${battleError ? `<p class="battle-error" role="alert">${escapeHtml(battleError)}</p>` : ""}
       <div class="lead-actions"><button class="gloss-button red" type="button" data-start-battle ${selectedLeadId && !battleLoading ? "" : "disabled"}>${battleLoading ? "starting…" : "start battle"}</button><button class="gloss-button purple" type="button" data-route="home">back</button></div>
     </section>`;
@@ -421,6 +430,27 @@
     const mon = mons[id];
     const selected = id === selectedLeadId;
     return `<button class="lead-choice${selected ? " selected" : ""}" type="button" data-select-lead="${id}" aria-pressed="${selected}"><img class="sprite" src="${sprite(id)}" alt=""/><span>${mon.name}</span></button>`;
+  }
+
+  function leadDetails(id) {
+    const mon = mons[id];
+    if (!mon) return "";
+    const statLabels = { hp: "HP", atk: "Atk", def: "Def", spa: "SpA", spd: "SpD", spe: "Spe" };
+    const statOrder = ["hp", "atk", "def", "spa", "spd", "spe"];
+    const statValues = mon.calculatedStats || {};
+    const statLine = statOrder.map((stat) => {
+      const label = statLabels[stat];
+      const natureChange = label === mon.natureUp ? " raised" : label === mon.natureDown ? " lowered" : "";
+      const marker = natureChange === " raised" ? " ↑" : natureChange === " lowered" ? " ↓" : "";
+      return `<span class="lead-stat${natureChange}" aria-label="${label}, ${statValues[stat] ?? "—"}${natureChange ? `, ${natureChange.trim()} by ${mon.nature} nature` : ""}"><small>${label}${marker}</small> <strong>${statValues[stat] ?? "—"}</strong></span>`;
+    }).join("");
+    const moveDetails = mon.moveDetails || mon.moves.map((name) => ({ name, type: "Normal" }));
+    return `<article class="lead-details-card" aria-label="${escapeHtml(mon.name)} battle details">
+      <header><strong>${escapeHtml(mon.name)}</strong><span class="lead-detail-types">${mon.types.map((type) => `<i class="type-chip ${type.toLowerCase()}">${escapeHtml(type)}</i>`).join("")}</span></header>
+      <p class="lead-fact-line"><span><b>Ability:</b> ${escapeHtml(mon.ability)}</span><span><b>Item:</b> ${escapeHtml(mon.item || "None")}</span></p>
+      <div class="lead-stat-line" aria-label="Battle stats">${statLine}</div>
+      <div class="lead-move-grid">${moveDetails.map((move) => `<span><strong>${escapeHtml(move.name)}</strong><i class="type-chip ${move.type.toLowerCase()}">${escapeHtml(move.type)}</i></span>`).join("")}</div>
+    </article>`;
   }
 
   function battle() {
@@ -496,7 +526,14 @@
     const swapChooser = pcSwapMode && !onTeam ? `<section class="swap-chooser" aria-labelledby="swap-heading"><h3 id="swap-heading">Who should ${mon.name} replace?</h3><p>The new Pokémon will take the same team position.</p><div class="swap-grid">${[...team].map((teamId) => `<button type="button" data-team-replace="${teamId}"><img class="sprite" src="${sprite(teamId)}" alt=""/><span>${mons[teamId].name}</span></button>`).join("")}</div></section>` : "";
     const primaryLabel = onTeam ? "remove from team" : "add to team";
     const itemChooser = pcItemMode ? pcItemPanel(mon) : "";
-    const sheetContent = swapChooser || itemChooser || `<section class="sheet-section"><h3>Stats</h3><div class="stat-grid">${stats}</div></section><section class="sheet-section"><h3>Moves</h3><div class="sheet-moves">${mon.moves.map((move) => `<span>${move}</span>`).join("")}</div></section>${pcItemMessage ? `<p class="sheet-feedback" role="status">${pcItemMessage}</p>` : ""}<div class="sheet-actions"><button class="gloss-button ${onTeam ? "slate" : "blue"}" type="button" data-team-toggle="${id}">${primaryLabel}</button><button class="gloss-button gold" type="button" data-open-pc-items>item</button></div>`;
+    const statOrder = [["hp", "HP"], ["atk", "Atk"], ["def", "Def"], ["spa", "SpA"], ["spd", "SpD"], ["spe", "Spe"]];
+    const evTotal = Object.values(mon.evs || {}).reduce((sum, value) => sum + value, 0);
+    const trainingRows = statOrder.map(([key, label]) => `<div class="training-stat-row"><strong>${label}</strong><span>${mon.calculatedStats?.[key] ?? "—"}</span><span>${mon.ivs?.[key] ?? "—"}</span><span>${mon.evs?.[key] ?? "—"}<small>/252</small></span></div>`).join("");
+    const detailTabs = `<div class="pc-detail-tabs" role="tablist" aria-label="Pokémon stat details"><button type="button" role="tab" aria-selected="${pcDetailView === "stats"}" class="${pcDetailView === "stats" ? "selected" : ""}" data-pc-detail-view="stats">stats</button><button type="button" role="tab" aria-selected="${pcDetailView === "training"}" class="${pcDetailView === "training" ? "selected" : ""}" data-pc-detail-view="training">IVs &amp; EVs</button></div>`;
+    const detailContent = pcDetailView === "training"
+      ? `<section class="training-details" role="tabpanel"><div class="training-stat-head"><span>Stat</span><span>Final</span><span>IV</span><span>EV</span></div>${trainingRows}<p class="ev-total"><span>Total EVs</span><strong>${evTotal} / 510</strong></p></section>`
+      : `<section class="sheet-section" role="tabpanel"><div class="stat-grid">${stats}</div><h3>Moves</h3><div class="sheet-moves">${mon.moves.map((move) => `<span>${move}</span>`).join("")}</div></section>`;
+    const sheetContent = swapChooser || itemChooser || `${detailTabs}${detailContent}${pcItemMessage ? `<p class="sheet-feedback" role="status">${pcItemMessage}</p>` : ""}<div class="sheet-actions"><button class="gloss-button ${onTeam ? "slate" : "blue"}" type="button" data-team-toggle="${id}">${primaryLabel}</button><button class="gloss-button gold" type="button" data-open-pc-items>item</button></div>`;
     const alternateMode = swapChooser || itemChooser;
     return `<div class="sheet-backdrop" data-close-pc-sheet><section class="pokemon-sheet" role="dialog" aria-modal="true" aria-labelledby="pokemon-sheet-title">
       <button class="sheet-close" type="button" data-close-pc-sheet aria-label="Close Pokémon details" autofocus>×</button>
@@ -509,18 +546,15 @@
 
   function encountersScreen() {
     const remaining = encounters.filter((encounter) => !encounter.claimed).length;
+    const visibleEncounters = encounters.map((encounter, slot) => ({ encounter, slot })).filter(({ encounter, slot }) => !encounter.claimed || encountersRevealedThisVisit.has(slot));
     return `<section class="screen">${header()}<div class="encounter-stage"><p class="encounter-count">${remaining ? `${remaining} encounter${remaining === 1 ? "" : "s"} remaining` : "All encounters revealed"}</p>
-      <div class="encounter-list">${encounters.map((encounter, index) => {
+      <div class="encounter-list">${visibleEncounters.length ? visibleEncounters.map(({ encounter, slot: index }) => {
         if (!encounter.claimed) {
-          const opening = encounter.kind === "opening";
-          return `<button class="encounter-card mystery${opening ? " opening" : ""}" type="button" data-encounter="${index}" aria-label="Reveal encounter ${index + 1}"><span class="encounter-mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span class="encounter-copy"><strong>${opening ? "Begin your run" : "Unknown encounter"}</strong><small>${opening ? "Your first encounter brings 12 Pokémon" : "Tap to reveal"}</small></span><span class="encounter-number">${index + 1}</span></button>`;
-        }
-        if (encounter.kind === "opening") {
-          return `<article class="encounter-batch"><header><strong>Your first 12 Pokémon</strong><span>Added to PC</span></header><div>${encounter.pokemon.map((pokemon) => `<button type="button" data-mon-tip="${pokemon.id}" aria-label="${escapeHtml(pokemon.name)}"><img class="sprite" src="${sprite(pokemon.id)}" alt=""/><small>${escapeHtml(pokemon.name)}</small></button>`).join("")}</div></article>`;
+          return `<button class="encounter-card mystery" type="button" data-encounter="${index}" aria-label="Reveal encounter ${index + 1}"><span class="encounter-mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span class="encounter-copy"><strong>Unknown encounter</strong><small>Tap to reveal</small></span></button>`;
         }
         const mon = encounter.pokemon[0];
         return `<article class="encounter-card revealed" data-mon-tip="${mon.id}"><span class="encounter-sprite"><img class="sprite" src="${sprite(mon.id)}" alt="${escapeHtml(mon.name)}"/></span><span class="encounter-copy"><strong>${escapeHtml(mon.name)}</strong><span class="encounter-types">${mon.types.map((type) => `<span class="type-chip ${type.toLowerCase()}">${type}</span>`).join("")}</span></span><span class="encounter-status">Added to PC</span></article>`;
-      }).join("")}</div>
+      }).join("") : '<div class="encounter-empty"><h2>All encounters claimed</h2><p>Your Pokémon are waiting in the PC.</p></div>'}</div>
       ${backButton()}
     </div></section>`;
   }
@@ -530,7 +564,7 @@
   }
 
   let shopItems = [];
-  const itemGroupOrder = ["Held Items", "Training Items"];
+  const itemGroupOrder = ["Held Items", "Training Items", "TMs"];
   const natureOptions = [
     { name: "Hardy" }, { name: "Lonely", up: "Atk", down: "Def" }, { name: "Brave", up: "Atk", down: "Spe" }, { name: "Adamant", up: "Atk", down: "SpA" }, { name: "Naughty", up: "Atk", down: "SpD" },
     { name: "Bold", up: "Def", down: "Atk" }, { name: "Docile" }, { name: "Relaxed", up: "Def", down: "Spe" }, { name: "Impish", up: "Def", down: "SpA" }, { name: "Lax", up: "Def", down: "SpD" },
@@ -540,7 +574,7 @@
   ];
 
   function itemIcon(item) {
-    const iconClass = item.group === "Held Items" ? "held" : "training";
+    const iconClass = item.group === "Held Items" ? "held" : item.group === "TMs" ? "tm" : "training";
     return `<span class="item-icon ${iconClass}" aria-hidden="true">${item.icon}</span>`;
   }
 
@@ -557,7 +591,12 @@
       } else if (item.effect === "ability-patch") controls = `<p>Change <strong>${escapeHtml(mon.ability)}</strong> to <strong>${escapeHtml(mon.hiddenAbility || "no eligible hidden ability")}</strong>.</p>`;
       else if (item.effect === "rotom") controls = `<label>Rotom form<select name="form">${[["rotom", "Base"], ["rotomheat", "Heat"], ["rotomwash", "Wash"], ["rotomfrost", "Frost"], ["rotomfan", "Fan"], ["rotommow", "Mow"]].map(([id, label]) => `<option value="${id}" ${id === mon.speciesId ? "disabled" : ""}>${label}</option>`).join("")}</select></label>`;
       else if (item.effect === "form") controls = `<p>Change ${escapeHtml(mon.name)} to the form associated with ${escapeHtml(item.name)}.</p>`;
-      const unusable = (item.effect === "ability-capsule" && !mon.ordinaryAbilities.some((ability) => ability !== mon.ability)) || (item.effect === "ability-patch" && (!mon.hiddenAbility || mon.hiddenAbility === mon.ability));
+      else if (item.effect === "tm") controls = `<fieldset class="move-replace-field"><legend>Choose a move to replace</legend><div class="move-replace-grid">${mon.moves.map((move, slot) => `<label><input type="radio" name="slot" value="${slot}" ${slot === 0 ? "checked" : ""}><span>${escapeHtml(move)}</span></label>`).join("")}</div></fieldset>`;
+      const cannotLearnTm = item.effect === "tm" && !mon.learnableMoveIds?.includes(item.moveId);
+      const alreadyKnowsTm = item.effect === "tm" && mon.moves.some((move) => move.toLowerCase().replace(/[^a-z0-9]+/g, "") === item.moveId);
+      const unusable = (item.effect === "ability-capsule" && !mon.ordinaryAbilities.some((ability) => ability !== mon.ability)) || (item.effect === "ability-patch" && (!mon.hiddenAbility || mon.hiddenAbility === mon.ability)) || cannotLearnTm || alreadyKnowsTm;
+      if (cannotLearnTm) controls = `<p class="sheet-feedback">${escapeHtml(mon.name)} cannot learn ${escapeHtml(item.name)}.</p>`;
+      else if (alreadyKnowsTm) controls = `<p class="sheet-feedback">${escapeHtml(mon.name)} already knows ${escapeHtml(item.name)}.</p>`;
       return `<section class="pc-item-chooser training-config" aria-labelledby="pc-item-heading"><h3 id="pc-item-heading">Use ${escapeHtml(item.name)}</h3><p>${escapeHtml(item.detail)}</p><form data-train-form data-item-id="${item.id}">${controls}<button class="gloss-button blue pc-item-confirm" type="submit" ${unusable ? "disabled" : ""}>confirm</button></form></section>`;
     }
     const ownedItems = shopItems.filter((item) => item.group === activePcItemGroup && inventory[item.id]);
@@ -565,7 +604,8 @@
     const activeTabId = `pc-item-tab-${activePcItemGroup.toLowerCase().replaceAll(" ", "-")}`;
     const rows = ownedItems.length ? ownedItems.map((item) => {
       const action = item.group === "Held Items" ? "give" : "use";
-      return `<div class="pc-item-row">${itemIcon(item)}<span class="item-copy"><strong>${item.name}</strong><small>${item.detail}</small></span><span class="item-quantity">×${inventory[item.id]}</span><button class="item-action" type="button" data-pc-item="${item.id}">${action}</button></div>`;
+      const incompatible = item.group === "TMs" && !mon.learnableMoveIds?.includes(item.moveId);
+      return `<div class="pc-item-row${incompatible ? " incompatible" : ""}">${itemIcon(item)}<span class="item-copy"><strong>${escapeHtml(item.name)}</strong><small>${incompatible ? `Cannot be learned by ${escapeHtml(mon.name)}` : escapeHtml(item.detail)}</small></span><span class="item-quantity">×${inventory[item.id]}</span><button class="item-action" type="button" data-pc-item="${item.id}" ${incompatible ? "disabled" : ""}>${action}</button></div>`;
     }).join("") : `<div class="pc-item-empty"><strong>No items</strong><span>This category is empty.</span></div>`;
     return `<section class="pc-item-chooser" aria-labelledby="pc-item-heading"><h3 id="pc-item-heading">Use item on ${mon.name}</h3><div class="shop-segments pc-item-segments" data-active-index="${activeGroupIndex}" role="tablist" aria-label="Item categories">${itemGroupOrder.map((group) => { const selected = group === activePcItemGroup; return `<button id="pc-item-tab-${group.toLowerCase().replaceAll(" ", "-")}" type="button" role="tab" aria-selected="${selected}" data-pc-item-group="${group}" class="${selected ? "selected" : ""}">${group}</button>`; }).join("")}</div><div class="pc-item-list" role="tabpanel" aria-labelledby="${activeTabId}">${rows}</div></section>`;
   }
@@ -574,16 +614,52 @@
     return shopItems.filter((item) => item.group === activeShopGroup).map((item) => {
       const owned = inventory[item.id] || 0;
       const soldOut = item.purchaseLimit === 1 && gameState?.purchasedUnique.includes(item.id);
-      return `<div class="shop-item">${itemIcon(item)}<span class="item-copy"><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.detail)}${owned ? ` · Owned: ${owned}` : ""}</small></span><button class="price-button" type="button" data-buy="${item.id}" ${balance < item.price || soldOut ? "disabled" : ""}>${soldOut ? "bought" : `${item.price} coins`}</button></div>`;
+      return `<div class="shop-item">${itemIcon(item)}<span class="item-copy"><strong>${escapeHtml(item.name)}</strong>${owned ? `<small>Owned: ${owned}</small>` : ""}</span><button class="item-about-button" type="button" data-item-about="${item.id}" aria-label="About ${escapeHtml(item.name)}">?</button><button class="price-button" type="button" data-open-purchase="${item.id}" ${balance < item.price || soldOut ? "disabled" : ""}>${soldOut ? "bought" : `₽${item.price.toLocaleString()}`}</button></div>`;
     }).join("");
+  }
+
+  function maxPurchaseQuantity(item) {
+    if (!item || item.price < 1) return 0;
+    const affordable = Math.min(999, Math.floor(balance / item.price));
+    if (item.purchaseLimit === 1) return gameState?.purchasedUnique.includes(item.id) ? 0 : Math.min(1, affordable);
+    return affordable;
+  }
+
+  function martSheet() {
+    const item = shopItems.find((candidate) => candidate.id === martSheetItemId);
+    if (!item || !martSheetMode) return "";
+    const owned = inventory[item.id] || 0;
+    const maxQuantity = maxPurchaseQuantity(item);
+    const summary = `<div class="mart-sheet-summary">${itemIcon(item)}<h2 id="mart-sheet-title">${escapeHtml(item.name)}</h2></div>`;
+    if (martSheetMode === "info") {
+      const purchaseRule = item.purchaseLimit === 1 ? "Once per run" : "Repeatable purchase";
+      return `<div class="sheet-backdrop mart-sheet-backdrop" data-close-mart-sheet><section class="mart-sheet" role="dialog" aria-modal="true" aria-labelledby="mart-sheet-title">
+        <button class="sheet-close" type="button" data-close-mart-sheet aria-label="Close item information">×</button>${summary}
+        <p class="mart-item-description">${escapeHtml(item.description || item.detail)}</p>
+        <div class="mart-item-facts"><span><small>Price</small><strong>₽${item.price.toLocaleString()}</strong></span><span><small>Owned</small><strong>${owned}</strong></span><span><small>Limit</small><strong>${purchaseRule}</strong></span></div>
+        <div class="mart-sheet-actions">${maxQuantity ? `<button class="gloss-button blue" type="button" data-sheet-buy="${item.id}">buy</button>` : ""}<button class="plain-button" type="button" data-close-mart-sheet>close</button></div>
+      </section></div>`;
+    }
+    const quantity = Math.max(1, Math.min(maxQuantity || 1, martPurchaseQuantity));
+    const total = item.price * quantity;
+    return `<div class="sheet-backdrop mart-sheet-backdrop" data-close-mart-sheet><section class="mart-sheet purchase-sheet" role="dialog" aria-modal="true" aria-labelledby="mart-sheet-title">
+      <button class="sheet-close" type="button" data-close-mart-sheet aria-label="Close purchase">×</button>${summary}
+      <form data-purchase-form="${item.id}">
+        <div class="purchase-ledger"><p><span>Money</span><span class="purchase-value">₽${balance.toLocaleString()}</span></p><p><span>In bag</span><span class="purchase-value">${owned}</span></p><p><span>Quantity</span><span class="purchase-value" data-purchase-quantity-output>×${quantity}</span></p><p><span>Price</span><span class="purchase-value" data-purchase-price>₽${total.toLocaleString()}</span></p></div>
+        <label class="purchase-slider-label" for="purchase-quantity"><span>Slide to choose quantity</span><small>1–${maxQuantity}</small></label>
+        <input class="purchase-slider" id="purchase-quantity" name="quantity" type="range" min="1" max="${Math.max(1, maxQuantity)}" value="${quantity}" ${maxQuantity <= 1 ? "disabled" : ""}>
+        <button class="gloss-button blue purchase-confirm" type="submit" ${maxQuantity ? "" : "disabled"}>buy</button>
+      </form>
+      <button class="plain-button mart-sheet-cancel" type="button" data-close-mart-sheet>cancel</button>
+    </section></div>`;
   }
 
   function mart() {
     const activeGroupIndex = itemGroupOrder.indexOf(activeShopGroup);
     const activeTabId = `shop-tab-${activeShopGroup.toLowerCase().replaceAll(" ", "-")}`;
-    return `<section class="screen">${header()}<div class="mart-stage"><div class="mart-summary"><p class="purchase-message" aria-live="polite">${purchaseMessage}</p><p class="balance">Balance: <strong>${balance.toLocaleString()} coins</strong></p></div>
+    return `<section class="screen">${header()}<div class="mart-stage"><div class="mart-summary"><p class="purchase-message" aria-live="polite">${purchaseMessage}</p><p class="balance">Balance: <strong>₽${balance.toLocaleString()}</strong></p></div>
       <div class="shop-segments" data-active-index="${activeGroupIndex}" role="tablist" aria-label="Mart categories">${itemGroupOrder.map((group) => { const selected = group === activeShopGroup; return `<button id="shop-tab-${group.toLowerCase().replaceAll(" ", "-")}" type="button" role="tab" aria-selected="${selected}" data-shop-group="${group}" class="${selected ? "selected" : ""}">${group}</button>`; }).join("")}</div>
-      <div class="shop-list" id="shop-items" role="tabpanel" aria-labelledby="${activeTabId}">${shopRows()}</div>${backButton()}</div></section>`;
+      <div class="shop-list" id="shop-items" role="tabpanel" aria-labelledby="${activeTabId}">${shopRows()}</div>${backButton()}</div>${martSheet()}</section>`;
   }
 
   function bagContents() {
@@ -598,7 +674,7 @@
     const total = shopItems.reduce((sum, item) => sum + (inventory[item.id] || 0), 0);
     const activeGroupIndex = itemGroupOrder.indexOf(activeBagGroup);
     const activeTabId = `bag-tab-${activeBagGroup.toLowerCase().replaceAll(" ", "-")}`;
-    return `<section class="screen">${header()}<div class="bag-stage"><div class="bag-summary"><span>${total} item${total === 1 ? "" : "s"}</span><span>${balance.toLocaleString()} coins</span></div>
+    return `<section class="screen">${header()}<div class="bag-stage"><div class="bag-summary"><span>${total} item${total === 1 ? "" : "s"}</span><span>₽${balance.toLocaleString()}</span></div>
       <div class="shop-segments bag-segments" data-active-index="${activeGroupIndex}" role="tablist" aria-label="Bag categories">${itemGroupOrder.map((group) => { const selected = group === activeBagGroup; return `<button id="bag-tab-${group.toLowerCase().replaceAll(" ", "-")}" type="button" role="tab" aria-selected="${selected}" data-bag-group="${group}" class="${selected ? "selected" : ""}">${group}</button>`; }).join("")}</div>
       <div class="bag-contents" role="tabpanel" aria-labelledby="${activeTabId}">${bagContents()}</div>${backButton()}</div></section>`;
   }
@@ -611,6 +687,14 @@
   }
 
   function render() {
+    if (route === "encounters") {
+      const encounterList = document.querySelector(".encounter-list");
+      if (encounterList) encounterListScrollTop = encounterList.scrollTop;
+    }
+    if (route === "mart") {
+      const shopList = document.querySelector(".shop-list");
+      if (shopList) martListScrollTop = shopList.scrollTop;
+    }
     const currentLog = document.querySelector("[data-battle-log]");
     if (currentLog) {
       battleLogScrollTop = currentLog.scrollTop;
@@ -682,6 +766,7 @@
     gameBusy = true;
     try {
       applyGameState(await apiRequest(`/api/game/encounters/${slot}`, { method: "POST", body: "{}" }));
+      encountersRevealedThisVisit.add(slot);
     } catch (error) {
       purchaseMessage = error.message;
     } finally {
@@ -690,18 +775,36 @@
     }
   }
 
-  async function purchaseItem(item) {
+  async function purchaseItem(item, quantity = 1) {
     if (gameBusy) return;
     gameBusy = true;
     try {
-      applyGameState(await apiRequest(`/api/game/shop/${item.id}`, { method: "POST", body: JSON.stringify({ quantity: 1 }) }));
-      purchaseMessage = `${item.name} added to your bag.`;
+      applyGameState(await apiRequest(`/api/game/shop/${item.id}`, { method: "POST", body: JSON.stringify({ quantity }) }));
+      purchaseMessage = `${quantity === 1 ? item.name : `${quantity} ${item.name}`} added to your bag.`;
+      martSheetItemId = null;
+      martSheetMode = null;
+      martPurchaseQuantity = 1;
     } catch (error) {
       purchaseMessage = error.message;
     } finally {
       gameBusy = false;
       render();
     }
+  }
+
+  function updateMartPurchaseQuantity(value) {
+    const item = shopItems.find((candidate) => candidate.id === martSheetItemId);
+    const input = document.querySelector("#purchase-quantity");
+    if (!item || !input) return;
+    const maximum = maxPurchaseQuantity(item);
+    const quantity = Math.max(1, Math.min(maximum || 1, Math.floor(Number(value) || 1)));
+    martPurchaseQuantity = quantity;
+    input.value = String(quantity);
+    const total = item.price * quantity;
+    const quantityLabel = document.querySelector("[data-purchase-quantity-output]");
+    const priceLabel = document.querySelector("[data-purchase-price]");
+    if (quantityLabel) quantityLabel.textContent = `×${quantity}`;
+    if (priceLabel) priceLabel.textContent = `₽${total.toLocaleString()}`;
   }
 
   async function persistTeam(teamIds) {
@@ -790,6 +893,20 @@
 
   function bind() {
     alignOpponentSprite();
+    const encounterList = document.querySelector(".encounter-list");
+    if (encounterList) {
+      encounterList.scrollTop = encounterListScrollTop;
+      encounterList.addEventListener("scroll", () => {
+        encounterListScrollTop = encounterList.scrollTop;
+      }, { passive: true });
+    }
+    const shopList = document.querySelector(".shop-list");
+    if (shopList) {
+      shopList.scrollTop = martListScrollTop;
+      shopList.addEventListener("scroll", () => {
+        martListScrollTop = shopList.scrollTop;
+      }, { passive: true });
+    }
     document.querySelector("[data-toggle-theme]")?.addEventListener("click", (event) => {
       theme = theme === "dark" ? "light" : "dark";
       localStorage.setItem("nuzzleTheme", theme);
@@ -848,7 +965,18 @@
         openAuth(requestedRoute);
         return;
       }
-      route = requestedRoute === "lead" && battleState && !battleState.ended ? "battle" : requestedRoute;
+      const nextRoute = requestedRoute === "lead" && battleState && !battleState.ended ? "battle" : requestedRoute;
+      if (route === "encounters" && nextRoute !== "encounters") {
+        encountersRevealedThisVisit = new Set();
+        encounterListScrollTop = 0;
+      }
+      if (route === "mart" && nextRoute !== "mart") {
+        martSheetItemId = null;
+        martSheetMode = null;
+        martPurchaseQuantity = 1;
+        martListScrollTop = 0;
+      }
+      route = nextRoute;
       if (route === "lead") selectedLeadId = null;
       if (route === "mart") purchaseMessage = "";
       render();
@@ -861,6 +989,8 @@
         choice.classList.toggle("selected", selected);
         choice.setAttribute("aria-pressed", String(selected));
       });
+      const details = document.querySelector("[data-lead-details]");
+      if (details) details.innerHTML = leadDetails(selectedLeadId);
       document.querySelector("[data-start-battle]")?.removeAttribute("disabled");
     }));
     document.querySelector("[data-start-battle]")?.addEventListener("click", startBattle);
@@ -903,11 +1033,20 @@
       render();
     });
     document.querySelectorAll("[data-encounter]").forEach((button) => button.addEventListener("click", () => void claimEncounter(Number(button.dataset.encounter))));
-    const bindShopPurchases = () => document.querySelectorAll("[data-buy]").forEach((button) => button.addEventListener("click", () => {
-      const item = shopItems.find((candidate) => candidate.id === button.dataset.buy);
-      if (!item) return;
-      void purchaseItem(item);
-    }));
+    const bindShopRows = () => {
+      document.querySelectorAll("[data-item-about]").forEach((button) => button.addEventListener("click", () => {
+        martSheetItemId = button.dataset.itemAbout;
+        martSheetMode = "info";
+        render();
+      }));
+      document.querySelectorAll("[data-open-purchase]").forEach((button) => button.addEventListener("click", () => {
+        martSheetItemId = button.dataset.openPurchase;
+        martSheetMode = "buy";
+        martPurchaseQuantity = 1;
+        render();
+        requestAnimationFrame(() => document.querySelector("#purchase-quantity")?.focus({ preventScroll: true }));
+      }));
+    };
     document.querySelectorAll("[data-shop-group]").forEach((button) => button.addEventListener("click", () => {
       if (button.dataset.shopGroup === activeShopGroup) return;
       activeShopGroup = button.dataset.shopGroup;
@@ -922,9 +1061,31 @@
       const shopList = document.querySelector(".shop-list");
       shopList.setAttribute("aria-labelledby", button.id);
       shopList.innerHTML = shopRows();
-      bindShopPurchases();
+      martListScrollTop = 0;
+      shopList.scrollTop = 0;
+      bindShopRows();
     }));
-    bindShopPurchases();
+    bindShopRows();
+    document.querySelectorAll("[data-close-mart-sheet]").forEach((element) => element.addEventListener("click", (event) => {
+      if (element.classList.contains("mart-sheet-backdrop") && event.target !== element) return;
+      martSheetItemId = null;
+      martSheetMode = null;
+      martPurchaseQuantity = 1;
+      render();
+    }));
+    document.querySelector("[data-sheet-buy]")?.addEventListener("click", (event) => {
+      martSheetItemId = event.currentTarget.dataset.sheetBuy;
+      martSheetMode = "buy";
+      martPurchaseQuantity = 1;
+      render();
+      requestAnimationFrame(() => document.querySelector("#purchase-quantity")?.focus({ preventScroll: true }));
+    });
+    document.querySelector("#purchase-quantity")?.addEventListener("input", (event) => updateMartPurchaseQuantity(event.currentTarget.value));
+    document.querySelector("[data-purchase-form]")?.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const item = shopItems.find((candidate) => candidate.id === event.currentTarget.dataset.purchaseForm);
+      if (item) void purchaseItem(item, martPurchaseQuantity);
+    });
     const bindVisitMart = () => document.querySelector("[data-visit-mart]")?.addEventListener("click", (event) => {
       activeShopGroup = event.currentTarget.dataset.visitMart;
       purchaseMessage = "";
@@ -948,7 +1109,11 @@
       bindVisitMart();
     }));
     bindVisitMart();
-    document.querySelectorAll("[data-pc-detail]").forEach((button) => button.addEventListener("click", () => { selectedPcId = button.dataset.pcDetail; pcSwapMode = false; pcItemMode = false; pendingPcItemId = null; selectedNature = null; pcItemMessage = ""; render(); }));
+    document.querySelectorAll("[data-pc-detail]").forEach((button) => button.addEventListener("click", () => { selectedPcId = button.dataset.pcDetail; pcDetailView = "stats"; pcSwapMode = false; pcItemMode = false; pendingPcItemId = null; selectedNature = null; pcItemMessage = ""; render(); }));
+    document.querySelectorAll("[data-pc-detail-view]").forEach((button) => button.addEventListener("click", () => {
+      pcDetailView = button.dataset.pcDetailView;
+      render();
+    }));
     document.querySelectorAll("[data-close-pc-sheet]").forEach((element) => element.addEventListener("click", (event) => {
       if (element.classList.contains("sheet-backdrop") && event.target !== element) return;
       selectedPcId = null;
@@ -974,7 +1139,7 @@
     document.querySelectorAll("[data-pc-item]").forEach((button) => button.addEventListener("click", () => {
       const item = shopItems.find((candidate) => candidate.id === button.dataset.pcItem);
       if (!item || !inventory[item.id]) return;
-      if (item.group === "Training Items") {
+      if (item.group !== "Held Items") {
         pendingPcItemId = item.id;
         selectedNature = null;
         render();
@@ -989,6 +1154,7 @@
       const options = Object.fromEntries(fields.entries());
       if (options.quantity) options.quantity = Number(options.quantity);
       if (options.value) options.value = Number(options.value);
+      if (options.slot !== undefined) options.slot = Number(options.slot);
       if (item) void trainPokemon(item, options);
     });
     document.querySelector("[data-team-toggle]")?.addEventListener("click", (event) => {
@@ -1088,6 +1254,7 @@
       element.addEventListener("click", () => {
         if (element.dataset.held || dragArmed) { delete element.dataset.held; dragArmed = false; return; }
         selectedPcId = element.dataset.pcMon;
+        pcDetailView = "stats";
         pcSwapMode = false;
         pcItemMode = false;
         pendingPcItemId = null;

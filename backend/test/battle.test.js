@@ -3,7 +3,7 @@ import { mkdtemp } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { BattleService } from "../battle-service.js";
+import { acquisitionFromProtocol, BattleService } from "../battle-service.js";
 import { BattleStore } from "../battle-store.js";
 import { buildBrockTeam, buildPlayerTeam, PLAYER_IDS } from "../teams.js";
 
@@ -35,6 +35,26 @@ test("Brock has six itemless Pokémon with four moves each", () => {
     assert.deepEqual(Object.values(set.ivs), [15, 15, 15, 15, 15, 15]);
     assert.deepEqual(Object.values(set.evs), [85, 85, 85, 85, 85, 85]);
   }
+});
+
+test("item-transfer protocol only records acquisitions by initially itemless player Pokémon", () => {
+  const record = {
+    partyIds: ["delphox", "scizor"],
+    playerTeam: [
+      { name: "Delphox", species: "Delphox", item: "" },
+      { name: "Scizor", species: "Scizor", item: "Leftovers" },
+    ],
+  };
+  assert.deepEqual(
+    acquisitionFromProtocol("|-item|p1a: Delphox|Choice Specs|[from] ability: Magician|[of] p2a: Alakazam", record),
+    { pokemonId: "delphox", itemId: "choicespecs", source: "ability: magician" }
+  );
+  assert.deepEqual(
+    acquisitionFromProtocol("|-item|p1a: Delphox|Sticky Barb|[from] move: Trick", record),
+    { pokemonId: "delphox", itemId: "stickybarb", source: "move: trick" }
+  );
+  assert.equal(acquisitionFromProtocol("|-item|p1a: Scizor|Choice Band|[from] move: Trick", record), null);
+  assert.equal(acquisitionFromProtocol("|-item|p1a: Delphox|Sitrus Berry|[from] ability: Frisk", record), null);
 });
 
 test("Showdown advances a real turn and rejects stale choices", async () => {

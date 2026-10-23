@@ -92,12 +92,15 @@ A run contains the player's living roster, money, and combat inventory since the
 - The approvals CSV is the explicit eligibility list. Do not infer eligibility from every species available in Showdown.
 - Every approved species/form may be used by both players and trainers unless a later rule explicitly says otherwise.
 - Generated encounters must be persisted before presentation. Refreshing cannot reroll them.
+- A newly claimed encounter remains visible for the current visit so the result can be inspected. After leaving and returning, claimed cards are hidden; the server still retains their results and claim state.
+- The encounter count and Back button remain fixed while the encounter-card list scrolls independently on small screens.
 
 ### Fresh runs and starter guarantees
 
 - A fresh run begins with zero Pokémon, so its trainer battle is locked at first.
-- Claiming the first encounter of a fresh run grants a batch of twelve Pokémon and automatically places the first six on the team. This opening batch consumes one of that date's ordinary encounter slots.
-- The first result in that twelve-Pokémon batch is the guaranteed starter for the first-ever encounter, the first encounter of a new month, or the first encounter after a wipe.
+- A fresh run presents twelve separate opening encounters instead of that date's ordinary three/four encounters. Each card is revealed and claimed individually, and unclaimed opening encounters remain available across date rollover.
+- The first claimed opening Pokémon unlocks battling. The first six claimed Pokémon automatically fill the team; the remaining six go to the PC.
+- The first of the twelve opening encounters is the guaranteed starter for the first-ever encounter, the first encounter of a new month, or the first encounter after a wipe.
 - Overlapping conditions create one guarantee, not multiple guarantees.
 - The guarantee is consumed only after the encounter is successfully generated and persisted.
 - The guaranteed result is a fully evolved starter; there is no starter choice screen.
@@ -105,7 +108,7 @@ A run contains the player's living roster, money, and combat inventory since the
 - Starters never appear in ordinary encounters, including Sundays.
 - Guaranteed starters use the same stat, nature, ability, gender, and shiny generation rules as other encounters.
 
-After the opening batch is claimed, its remaining daily encounter slots behave as ordinary single-Pokémon encounters.
+After all twelve opening encounters are claimed, later dates use the ordinary three-encounter schedule, or four encounters on Sunday.
 
 ### Duplicate prevention
 
@@ -234,9 +237,9 @@ An Ability Capsule never grants a hidden ability.
 - Consume it only after the ability changes.
 - Zen Mode is not an allowed hidden ability for either Darmanitan.
 
-### Persistent form-changing items
+### Consumable form-changing items
 
-Form changes persist outside battle, but do not change duplicate-family identity.
+Form changes persist outside battle, but do not change duplicate-family identity. Every form-changing item is consumed after a successful change and can be purchased again. An item is not consumed when the selected Pokémon or target form is ineligible.
 
 #### Rotom Catalog
 
@@ -245,7 +248,7 @@ Form changes persist outside battle, but do not change duplicate-family identity
 - It is a one-use training item and may be repurchased after use.
 - It is consumed only after confirming a different form.
 - Returning to base form also requires and consumes another Catalog.
-- It costs `1,200` coins in the initial economy.
+- It costs ₽2,000 in the initial economy.
 
 #### Oricorio Nectars
 
@@ -266,14 +269,20 @@ Move changes associated with form changes are **Deferred** until the move system
 
 - Pokémon may hold at most one held item.
 - Players may move owned held items between Pokémon outside battle.
-- Non-consumable held items may be purchased from the shop only once per run.
-- Held items that activate once or are consumed within a battle may be purchased in any quantity.
+- Every held item may be purchased from the shop only once per run, including items that activate once or are consumed within a battle.
 - Each owned copy may be equipped to only one Pokémon at a time.
 - Battle-consumable held items are restored for later battles; consumption is temporary battle state, not permanent inventory deletion.
-- Multiple copies therefore allow multiple party members to equip the same consumable simultaneously.
+- Additional copies can only come from an explicit encounter reward, such as Snorlax's Leftovers.
 - An individual holder's death after a win does not delete the owned held item.
 - A full wipe deletes the run's inventory and resets purchase restrictions.
-- Items may be sold. Sale values and exact sale behavior are deferred with economy pricing.
+- Items cannot currently be sold. Selling may be reconsidered later but is not part of the present item loop.
+- Thief and Covet permanently take an opponent's held item when the user's Pokémon entered battle without an item.
+- Trick and Switcheroo are temporary when the user's Pokémon entered battle holding an item: its original owned item is restored after battle, even if it was given away and no item was received in return.
+- Trick and Switcheroo permanently take the received item when the user's Pokémon entered battle without an item.
+- Item-stealing abilities such as Magician and Pickpocket follow the same empty-handed rule. Delphox and Klefki can have Magician; Barbaracle, Grimmsnarl, Shiftry, Tinkaton, and Weavile can have Pickpocket in the approved roster.
+- Persisted stolen items are added to inventory and equipped to the Pokémon that acquired them. Battle settlement is idempotent, so reloading or replaying a completed battle cannot grant the same item twice.
+- Recycle restores an item consumed during the current battle only. Because held-item consumption is temporary, it does not change post-battle inventory.
+- Knock Off removes the opponent's item for the current battle. Trainer item loss requires no persistence because each trainer battle is a one-off for that player.
 
 ### Snorlax and Leftovers
 
@@ -284,24 +293,41 @@ Move changes associated with form changes are **Deferred** until the move system
 
 ### Initial economy and prices
 
-- A fresh run starts with `2,500` coins.
-- Vitamins cost `10` coins per one-EV item.
-- EV-reduction berries cost `8` coins per one-EV item.
-- Bottle Cap costs `750`; Nature Mint `400`; Ability Capsule `600`; Ability Patch `1,400`; Rotom Catalog `1,200`.
-- Each Nectar costs `300`; each Paldean Tauros Cud costs `500`.
-- Premium held items cost `1,200`: Assault Vest, Booster Energy, Choice Band, Choice Scarf, Choice Specs, Covert Cloak, Focus Sash, Heavy-Duty Boots, Leftovers, Life Orb, Loaded Dice, and Rocky Helmet.
-- Strong held items cost `800`: Eject Button, Eject Pack, Expert Belt, Flame Orb, Light Clay, Mental Herb, Mirror Herb, Power Herb, Protective Pads, Safety Goggles, Scope Lens, Shed Shell, Throat Spray, Toxic Orb, Weakness Policy, Wide Lens, and Wise Glasses.
-- Most Berries cost `180`; Sitrus, Lum, and Custap Berries cost `350`.
-- Type Memories cost `250`; ordinary single-type power boosters cost `300`.
-- Other one-use held items cost `450`; other reusable held items cost `550`.
+- A fresh monthly run starts with ₽50,000.
+- Vitamins cost ₽10 per EV and EV-reduction berries cost ₽8 per EV. Fully allocating 510 EVs therefore costs ₽5,100 before reductions.
+- Bottle Caps cost ₽900 each; Nature Mints ₽1,500; Ability Capsules ₽2,000; Ability Patches ₽3,000; and the Rotom Catalog ₽2,000.
+- Each Nectar costs ₽750 and each Paldean Tauros Cud costs ₽1,000.
+- Premium held items cost ₽2,500: Assault Vest, Booster Energy, Choice Band, Choice Scarf, Choice Specs, Covert Cloak, Focus Sash, Heavy-Duty Boots, Leftovers, Life Orb, Loaded Dice, and Rocky Helmet.
+- Strong held items cost ₽1,800. Most other reusable held items cost ₽1,400 and other battle-consumable held items cost ₽1,200.
+- Most Berries cost ₽600; Sitrus, Lum, and Custap Berries cost ₽1,000.
+- Type Memories and ordinary single-type power boosters cost ₽750.
 
 These are first-pass balance values and live in the content layer so playtesting can tune them without changing inventory rules. Battle payouts, sale values, and special rewards remain **Deferred**.
 
 ## 10. Moves and TMs
 
-Initial move-generation policy, cross-generation learnset policy, TMs, move tutoring, and later player editing restrictions are **Deferred** for a dedicated owner discussion. Until that discussion, generated Pokémon receive a deterministic temporary battle-ready moveset from their Showdown learnset. No TMs are present in the Mart or Bag.
+- Eligible moves in an approved Pokémon's Pokémon Showdown learnset are available as TMs. TMs replace level-up, egg, tutor, HM, and conventional limited-TM move-learning paths.
+- Every Pokémon remains level 100. Newly encountered Pokémon receive a randomly generated battle-ready moveset from their direct Showdown learnset; that result is persisted and never rerolled on refresh.
+- Each ordinary type receives one damaging STAB slot. Eligible STAB normally requires at least 60 effective base power and 70% accuracy. Bullet Punch for Scizor and Accelerock for Midday/Dusk Lycanroc are the only explicit sub-60-BP priority exceptions. If a species has no qualifying move for a type, the generator falls back to a weaker legal damaging STAB with at least 70% accuracy.
+- STAB choices are weighted toward 75–100 effective base power, while 60–74 BP moves such as Aerial Ace remain viable with moderately lower weight. Accuracy scales selection weight literally: a 70%-accurate move receives 70% of the weight of an otherwise equivalent perfectly accurate move. Physical and special moves are also weighted toward the species's stronger attacking stat. Thunder and Fire Blast remain possible while attacks below 70% accuracy do not generate normally.
+- Dual-type Pokémon ordinarily receive one damaging STAB move for each type. Pyukumuku, Wobbuffet, Ditto, and Unown are explicit exceptions because their legal learnsets do not provide conventional damaging STAB for every type. Revelation Dance supplies Oricorio's non-Flying STAB according to its battle behavior.
+- Setup moves remain eligible for naturally generated encounter movesets even though setup moves are excluded from the TM catalog.
+- Approved guaranteed signature moves fill their natural STAB slot if selected there; otherwise they occupy the first available plain slot. Optional signature-pool moves participate normally without being forced.
 
-Do not treat the older move-generation proposal as final approval. Generated moves must eventually be persisted so refreshes cannot reroll them.
+Guaranteed signatures currently include Hyper Fang (Raticate), Shell Side Arm (Galarian Slowbro), Raging Bull (all Tauros), Leaf Blade (Sceptile), Needle Arm (Cacturne), Weather Ball (Castform), Horn Leech (Sawsbuck), Gear Grind (Klinklang), Esper Wing (Hisuian Braviary), King's Shield (Aegislash), Topsy-Turvy (Malamar), Flying Press (Hawlucha), Forest's Curse (Trevenant), Trick-or-Treat (Gourgeist), Spirit Shackle (Decidueye), Triple Arrows (Hisuian Decidueye), Darkest Lariat (Incineroar), Beak Blast (Toucannon), Ice Hammer (Crabominable), Revelation Dance (Oricorio), Pollen Puff (Ribombee), Accelerock (Midday/Dusk Lycanroc), Baneful Bunker (Toxapex), Trop Kick (Tsareena), Shore Up (Palossand), Multi-Attack (Silvally), Zing Zap (Togedemaru), Anchor Shot (Dhelmise), Aura Wheel (Morpeko), Stone Axe (Kleavor), Bullet Punch (Scizor), Torch Song (Skeledirge), Aqua Step (Quaquaval), Flower Trick (Meowscarada), Double Shock (Pawmot), Population Bomb (Maushold), Salt Cure (Garganacl), Gigaton Hammer (Tinkaton), Matcha Gotcha (Sinistcha), Electro Shot (Archaludon), Jet Punch (Palafin), Triple Dive (Wugtrio), Spin Out (Revavroom), and Fillet Away (Veluza).
+
+Optional signature-pool moves currently include Volt Tackle (Raichu), Crabhammer (Kingler), Bonemerang/Bone Club (Marowak), Shadow Bone (Alolan Marowak), Blaze Kick (Blaziken), Muddy Water (Swampert), Heat Crash (Emboar), Ceaseless Edge (Hisuian Samurott), Night Daze (Zoroark), Fire Lash (Salazzle), Clanging Scales (Kommo-o), Dire Claw (Sneasler), and Kowtow Cleave (Kingambit).
+- A Pokémon may only use a TM for a move in its own Showdown learnset. Teaching a move replaces one of its current four moves.
+- TMs are repeatable purchases and are consumed only after a legal move change succeeds.
+- Damaging moves begin at ₽16 per point of effective base power. Major-status secondary effects add ₽5 per percentage point, capped at ₽900. One-stage stat drops add ₽1 per percentage point and drops of two or more stages add ₽2 per percentage point. Accuracy below 100% subtracts ₽10 per percentage point. Damaging priority moves add a flat ₽500 regardless of priority bracket. Any chance to raise the user's stats adds ₽10 per percentage point, and draining moves add ₽10 per percentage point of damage recovered. Recoil, recharge turns, two-turn attacks, self-drops, and exceptional utility apply small adjustments. The result has a ₽500 floor and always rounds up to the nearest ₽50.
+- Fixed-hit multihit moves use their total base power. Variable two-to-five-hit moves use 3.5 hits, their expected average. Electro Ball and Gyro Ball cost ₽1,000 rather than attempting to estimate their variable damage.
+- Manual exceptions override the formula where move mechanics make its estimate misleading: Population Bomb costs ₽2,400; Aura Wheel, Focus Punch, and Last Resort cost ₽1,800; Rapid Spin costs ₽1,300; and Dream Eater costs ₽1,100.
+- The catalog uses direct learnsets inherited through a Pokémon's evolutionary family. Sketch does not make every sketchable move a TM through Smeargle; a move is omitted when no approved Pokémon directly learns it.
+- Smeargle is excluded from the approved player, trainer, and encounter roster.
+- Protect, Detect, Baneful Bunker, King's Shield, Spiky Shield, and their close equivalents cost ₽2,000. Recover and its direct equivalents also cost ₽2,000, while weather-dependent Synthesis, Morning Sun, and Moonlight cost ₽1,750. Reflect and Light Screen cost ₽1,350. Weather and terrain setters cost ₽1,200. Perish Song costs ₽2,000. Generally strong and accurate status moves such as Thunder Wave cost ₽1,000; useful but unreliable or conditional moves such as Sleep Powder cost ₽750; ordinary niche status moves cost ₽500; low-value moves such as Growl cost ₽250; and Splash costs ₽100.
+- Pure stat-boosting status moves are excluded, including Swords Dance, Dragon Dance, Nasty Plot, Calm Mind, Bulk Up, Quiver Dance, Shell Smash, Tail Glow, Belly Drum, Shift Gear, Victory Dance, Geomancy, No Retreat, Clangorous Soul, Coil, Iron Defense, Amnesia, Agility, and Rock Polish. Spore, Revival Blessing, Shed Tail, Baton Pass, Minimize, and Double Team are also excluded.
+
+Training items and TMs are consumed after a successful use and may be purchased repeatedly. Generated moves and later TM changes are persisted so refreshes cannot reroll or undo them.
 
 ## 11. Battles
 
@@ -394,7 +420,6 @@ trainer_eligible
 
 ## 15. Explicitly deferred or open work
 
-- Initial moves, legal learnset policy, TMs, tutors, and moveset editing.
 - Battle payouts, sale values, and special economy rewards.
 - Trainer templates beyond the existing Brock slice.
 - Exact daily trainer generation and difficulty progression.
