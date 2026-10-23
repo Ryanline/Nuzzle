@@ -114,7 +114,7 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .home-actions { display: grid; gap: 7px; margin-top: auto; }
 
 .arena { position: relative; height: clamp(370px, 56vh, 560px); margin: 0 -26px; overflow: hidden; background: linear-gradient(to bottom, #cbc5b8 0 42%, #aca598 43% 45%, #8e877d 46% 100%); }
-.lead-arena .trainer { position: absolute; z-index: 2; top: calc(-2% + 8px); right: 12%; width: 121px; height: 157px; }
+.lead-arena .trainer { position: absolute; z-index: 2; top: calc(-2% + 16px); right: 12%; width: 121px; height: 157px; }
 .lead-prompt, .battle-panel { padding-top: 14px; }
 .lead-prompt { min-height: 0; flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain; }
 .prompt { margin: 0 0 4px; color: #5e5e5e; font-size: 19px; }
