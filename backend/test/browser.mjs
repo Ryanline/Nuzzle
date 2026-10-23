@@ -227,7 +227,8 @@ if (!(await page.locator(".battle-hud.player").textContent())?.includes(replacem
 if (!(await page.locator(".battle-hud.enemy").textContent())?.includes("Lv. 100")) throw new Error("Brock's Pokémon is not level 100.");
 if (await page.locator("[data-battle-move]").count() !== 4) throw new Error("The engine did not provide four moves.");
 if (await page.locator(".battle-platform").count() !== 2) throw new Error("The CSS battlefield platforms were not rendered.");
-if (!(await page.locator(".battler-slot.player img").getAttribute("src"))?.includes("gen5-back")) throw new Error("The generated player Pokémon did not use a back sprite.");
+const playerSpriteSource = await page.locator(".battler-slot.player img").getAttribute("src");
+if (!playerSpriteSource?.includes("gen5-back") && !playerSpriteSource?.includes("sprites-back")) throw new Error("The generated player Pokémon did not use a back sprite.");
 if ((await page.locator(".battle-arena").evaluate((element) => getComputedStyle(element).backgroundImage)).includes("arena.png")) throw new Error("The battle still uses the old arena image.");
 const battlefieldBounds = await page.locator(".battle-arena").evaluate((arena) => {
   const arenaRect = arena.getBoundingClientRect();
