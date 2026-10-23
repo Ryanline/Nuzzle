@@ -368,7 +368,7 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .sheet-feedback { position: absolute; z-index: 2; top: 13px; right: 56px; max-width: calc(100% - 120px); margin: 0; padding: 4px 8px; overflow: hidden; border: 1px solid #aac5ae; border-radius: 10px; background: #edf6ee; color: #397443; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .plain-button { min-height: 42px; border: 1px solid #999; border-radius: 7px; background: #fff; cursor: pointer; }
 .plain-button:hover { background: #f1f1f1; }
-.sheet-secondary-action { flex: 0 0 42px; width: 100%; margin-top: 7px; }
+.sheet-secondary-action { flex: 0 0 42px; width: 100%; margin-top: 11px; }
 .swap-chooser { display: flex; min-height: 0; flex: 1; flex-direction: column; margin-top: 16px; padding-top: 13px; border-top: 1px solid #bbb; }
 .swap-chooser h3 { margin: 0; color: #284f9e; font-size: 17px; }
 .swap-chooser > p { margin: 3px 0 10px; color: var(--muted); font-size: 12px; }
@@ -705,7 +705,7 @@ html[data-theme="dark"] .auth-error { color: #ff9297; }
   .pc-mon { height: 76px; }
   .pc-mon img { width: 60px; height: 57px; }
   .team-mark { top: 2px; right: 2px; padding: 1px 3px; font-size: 7px; }
-  .pokemon-sheet { align-self: flex-end; width: 100%; height: min(570px, calc(100dvh - 22px)); max-height: calc(100dvh - 22px); padding: 15px 14px 12px; border-radius: 13px 13px 0 0; }
+  .pokemon-sheet { align-self: flex-end; width: 100%; height: min(590px, calc(100dvh - 22px)); max-height: calc(100dvh - 22px); padding: 15px 14px 12px; border-radius: 13px 13px 0 0; }
   .sheet-backdrop { align-items: flex-end; padding: 0; }
   .pokemon-summary { min-height: 108px; gap: 10px; }
   .pokemon-summary > img { flex-basis: 105px; width: 105px; height: 100px; }

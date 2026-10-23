@@ -137,6 +137,18 @@ if (purchasedGame.inventory.hpup !== 5) throw new Error("The bulk purchase quant
 await page.click(".page-back");
 await page.click('[data-route="pc"]');
 await page.click(`[data-pc-detail="${outgoingId}"]`);
+const pcActionSpacing = await page.locator(".pokemon-sheet").evaluate((sheet) => {
+  const itemButton = sheet.querySelector("[data-open-pc-items]").getBoundingClientRect();
+  const closeButton = sheet.querySelector(".sheet-secondary-action").getBoundingClientRect();
+  const sheetBounds = sheet.getBoundingClientRect();
+  return {
+    gap: closeButton.top - itemButton.bottom,
+    closeBottom: closeButton.bottom,
+    sheetBottom: sheetBounds.bottom,
+  };
+});
+if (pcActionSpacing.gap < 10) throw new Error("The PC item and close buttons do not have a clear visual gap.");
+if (pcActionSpacing.closeBottom > pcActionSpacing.sheetBottom + 1) throw new Error("The PC drawer actions overflow the drawer.");
 await page.click('[data-pc-detail-view="training"]');
 if (await page.locator(".training-stat-row").count() !== 6) throw new Error("The PC training view did not show all six battle stats.");
 if (!(await page.locator(".ev-total").textContent())?.includes("/ 510")) throw new Error("The PC training view did not show the total EV limit.");
