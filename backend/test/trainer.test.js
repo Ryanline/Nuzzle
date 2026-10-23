@@ -28,7 +28,7 @@ test("the Nuzzle day rolls over at 11:00 AM America/New_York", () => {
   assert.equal(gameDate(new Date("2026-12-10T15:59:59Z")), "2026-12-09");
   assert.equal(gameDate(new Date("2026-12-10T16:00:00Z")), "2026-12-10");
   assert.equal(nextRolloverAt(new Date("2026-10-23T14:00:00Z")), "2026-10-23T15:00:00.000Z");
-  assert.equal(gameNumber("2026-10-23"), 9);
+  assert.equal(gameNumber("2026-10-23"), 2);
 });
 
 test("Showdown team imports are normalized and invalid sets are rejected", () => {
@@ -47,7 +47,7 @@ test("queued trainers can be reordered and publish one immutable snapshot per da
 
   const first = await store.current();
   assert.equal(first.date, "2026-10-23");
-  assert.equal(first.number, 9);
+  assert.equal(first.number, 2);
   assert.equal(first.trainer.name, "Brock");
 
   await store.add({ name: "Misty", spriteId: "misty", teamText: mistyTeam });

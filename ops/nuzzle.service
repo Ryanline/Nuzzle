@@ -13,7 +13,7 @@ Environment=HOST=127.0.0.1
 Environment=PORT=3000
 Environment=NUZZLE_DATA_DIR=/var/lib/nuzzle
 Environment=NUZZLE_TIME_ZONE=America/New_York
-Environment=NUZZLE_LAUNCH_DATE=2026-10-15
+Environment=NUZZLE_LAUNCH_DATE=2026-10-22
 Environment=NUZZLE_ADMIN_USERNAME=ryanline
 ExecStart=/usr/bin/node backend/server.js
 Restart=on-failure

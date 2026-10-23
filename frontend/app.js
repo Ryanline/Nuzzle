@@ -33,7 +33,7 @@
   };
 
   const fallbackToday = {
-    date: "2026-10-15",
+    date: "2026-10-22",
     number: 1,
     trainer: {
       name: "Brock",
