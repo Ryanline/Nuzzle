@@ -1,0 +1,68 @@
+name: Test and deploy production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run test:browser
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure deployment SSH key
+        env:
+          DEPLOY_KEY: ${{ secrets.NUZZLE_DEPLOY_KEY }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/nuzzle_deploy
+          chmod 600 ~/.ssh/nuzzle_deploy
+          cp ops/known_hosts ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+      - name: Upload immutable release
+        env:
+          RELEASE: /opt/nuzzle/releases/${{ github.sha }}
+        run: |
+          ssh -i ~/.ssh/nuzzle_deploy -o IdentitiesOnly=yes nuzzle-ci@45.55.85.139 "mkdir -p '$RELEASE'"
+          rsync -az --delete \
+            --exclude='.git/' \
+            --exclude='node_modules/' \
+            --exclude='backend/data/' \
+            -e 'ssh -i ~/.ssh/nuzzle_deploy -o IdentitiesOnly=yes' \
+            ./ nuzzle-ci@45.55.85.139:"$RELEASE/"
+      - name: Activate release
+        env:
+          RELEASE: /opt/nuzzle/releases/${{ github.sha }}
+        run: |
+          ssh -i ~/.ssh/nuzzle_deploy -o IdentitiesOnly=yes nuzzle-ci@45.55.85.139 "
+            set -eu
+            cd '$RELEASE'
+            npm ci --omit=dev
+            ln -sfn '$RELEASE' /opt/nuzzle/current.next
+            mv -Tf /opt/nuzzle/current.next /opt/nuzzle/current
+            sudo systemctl restart nuzzle
+            sudo systemctl is-active nuzzle
+          "
+      - name: Verify public health
+        run: curl --fail --show-error --silent --retry 5 --retry-delay 2 https://nuzzle-game.duckdns.org/api/health
