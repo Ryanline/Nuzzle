@@ -320,6 +320,15 @@ if (!(await page.locator(".prompt").textContent())?.includes("Turn 2")) throw ne
 await page.click("[data-forfeit-battle]");
 await page.waitForFunction(() => document.querySelector(".prompt")?.textContent.includes("Brock won"));
 if (await page.locator("[data-forfeit-battle]").count()) throw new Error("Forfeit remained available after the battle ended.");
+await page.waitForSelector(".result-modal");
+if (!(await page.locator(".result-modal").textContent())?.includes("Defeat")) throw new Error("The result overlay did not report the loss.");
+if (await page.locator(".result-mon-card").count() !== 6) throw new Error("The result overlay did not show all six opposing Pokémon.");
+await page.click(".result-close");
+if (await page.locator(".result-modal").count()) throw new Error("The result overlay did not close.");
+if (await page.locator("[data-open-result]").count() !== 1) throw new Error("The completed battle did not retain a result button.");
+await page.click("[data-open-result]");
+await page.waitForSelector(".result-modal");
+await page.click(".result-close");
 
 const imageFailures = await page.locator("img").evaluateAll((images) => images.filter((image) => !image.complete || image.naturalWidth === 0).map((image) => image.src));
 await browser.close();

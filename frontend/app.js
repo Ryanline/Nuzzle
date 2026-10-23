@@ -80,6 +80,7 @@
   let battleLogHasNew = false;
   let battleLogInitialized = false;
   let battleLogRenderedIds = new Set();
+  let resultOverlayOpen = false;
   let balance = 50000;
   let selectedPcId = null;
   let pcDetailView = "stats";
@@ -372,6 +373,7 @@
       trainerFormOpen = false;
       resetAvatarEditor();
       battleState = null;
+      resultOverlayOpen = false;
       gameState = null;
       encounters = [];
       encountersRevealedThisVisit = new Set();
@@ -395,7 +397,12 @@
     const previousId = battleState?.log?.at(-1)?.id || 0;
     const nextId = nextState?.log?.at(-1)?.id || 0;
     if (!battleLogFollow && nextId > previousId) battleLogHasNew = true;
+    const justEnded = Boolean(battleState && battleState.id === nextState?.id && !battleState.ended && nextState?.ended);
     battleState = nextState;
+    if (justEnded) {
+      resultOverlayOpen = true;
+      if (gameState?.dailyBattleId === nextState.id) gameState.dailyBattleEnded = true;
+    }
   }
 
   async function startBattle() {
@@ -409,6 +416,11 @@
         body: JSON.stringify({ partyIds: [...team].slice(0, 6), leadId: selectedLeadId }),
       }));
       if (gameState && !currentUser?.isAdmin) gameState.dailyBattleAttempted = true;
+      if (gameState) {
+        gameState.dailyBattleId = battleState.id;
+        gameState.dailyBattleEnded = false;
+      }
+      resultOverlayOpen = false;
       localStorage.setItem("nuzzleBattleId", battleState.id);
       route = "battle";
     } catch (error) {
@@ -469,9 +481,10 @@
   function navigation(current = "", className = "home-actions") {
     const currentClass = (name) => current === name ? " is-current" : "";
     const currentPage = (name) => current === name ? ' aria-current="page"' : "";
-    const dailyBattleUsed = Boolean(currentUser && gameState?.dailyBattleAttempted && (!battleState || battleState.ended));
+    const dailyBattleUsed = Boolean(currentUser && gameState?.dailyBattleAttempted && gameState?.dailyBattleId);
+    const battleRoute = dailyBattleUsed ? "battle" : currentUser && gameState && !gameState.battleUnlocked ? "encounters" : "lead";
     return `<nav class="${className}" aria-label="Game sections">
-      <button class="gloss-button red${currentClass("battle")}"${currentPage("battle")} data-route="${currentUser && gameState && !gameState.battleUnlocked ? "encounters" : "lead"}" ${dailyBattleUsed ? 'disabled title="Daily battle attempt already used"' : ""}>${dailyBattleUsed ? "battle used today" : "battle"}</button>
+      <button class="gloss-button red${currentClass("battle")}"${currentPage("battle")} data-route="${battleRoute}">${dailyBattleUsed ? gameState.dailyBattleEnded ? "view result" : "resume battle" : "battle"}</button>
       <button class="gloss-button orange${currentClass("pc")}"${currentPage("pc")} data-route="pc">pc box</button>
       <button class="gloss-button gold${currentClass("bag")}"${currentPage("bag")} data-route="bag">bag</button>
       <button class="gloss-button green${currentClass("encounters")}"${currentPage("encounters")} data-route="encounters">encounter (${encounters.filter((item) => !item.claimed).length})</button>
@@ -503,7 +516,7 @@
   function lead() {
     const chosen = [...team].slice(0, 6);
     const trainer = todayState.trainer;
-    return `<section class="screen lead-screen">${header()}<div class="arena battle-arena lead-arena"><div class="battle-platform enemy" aria-hidden="true"></div><div class="battle-platform player" aria-hidden="true"></div><img class="sprite trainer" src="${trainerSprite(trainer.spriteId)}" alt="${escapeHtml(trainer.name)}" /></div>
+    return `<section class="screen lead-screen">${header()}<div class="arena battle-arena lead-arena"><div class="battle-platform enemy" aria-hidden="true"></div><div class="battle-platform player" aria-hidden="true"></div><img class="sprite trainer trainer-${escapeHtml(trainer.spriteId)}" src="${trainerSprite(trainer.spriteId)}" alt="${escapeHtml(trainer.name)}" /></div>
       <div class="lead-prompt"><p class="prompt">How will you start the battle?</p><h2 class="section-label">Choose Lead</h2>
       <div class="lead-grid">${chosen.map(monButton).join("")}</div><div class="lead-details-slot" data-lead-details aria-live="polite">${leadDetails(selectedLeadId)}</div></div>
       ${battleError ? `<p class="battle-error" role="alert">${escapeHtml(battleError)}</p>` : ""}
@@ -572,8 +585,40 @@
     </div><div class="battle-panel${battleLogExpanded ? " log-expanded" : ""}"><section class="battle-log-card${battleLogExpanded ? " expanded" : ""}" aria-labelledby="battle-log-title"><header><h2 id="battle-log-title">Battle log</h2><div>${battleLogHasNew ? '<button type="button" data-battle-log-new>new events</button>' : ""}<button type="button" data-toggle-battle-log aria-expanded="${battleLogExpanded}">${battleLogExpanded ? "collapse" : "expand"}</button></div></header><div class="battle-log-body" data-battle-log role="log" aria-label="Battle events" tabindex="0"><div class="battle-log-stack">${logHtml || '<p class="battle-log-empty">The battle is starting…</p>'}</div></div></section><span class="visually-hidden" role="status" aria-live="polite">${escapeHtml(latestAnnouncement)}</span>
       <div class="battle-command-area" ${battleLogExpanded ? 'inert aria-hidden="true"' : ""}><p class="prompt">${prompt} <small>Turn ${battleState.turn}</small></p>${battleState.forcedSwitch || battleState.ended ? "" : `<h2 class="section-label attack">Attack</h2><div class="move-grid">${movesHtml}</div>`}
       <h2 class="section-label">Switch</h2><div class="switch-grid">${switchesHtml}</div>${battleError ? `<p class="battle-error" role="alert">${escapeHtml(battleError)}</p>` : ""}</div>
-      ${battleState.ended ? '<button class="gloss-button purple give-up" data-route="home">return home</button>' : '<button class="gloss-button red give-up" data-forfeit-battle>give up</button>'}</div>
+      ${battleState.ended ? '<div class="battle-result-actions"><button class="gloss-button green" type="button" data-open-result>result</button><button class="gloss-button purple" data-route="home">return home</button></div>' : '<button class="gloss-button red give-up" data-forfeit-battle>give up</button>'}</div>
+      ${battleState.ended && resultOverlayOpen ? battleResultOverlay() : ""}
     </section>`;
+  }
+
+  function sameResultPokemon(profile, pokemon) {
+    const normalized = (value) => String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    return normalized(profile?.id) === normalized(pokemon?.id)
+      || normalized(profile?.name) === normalized(pokemon?.name)
+      || normalized(profile?.nickname) === normalized(pokemon?.name);
+  }
+
+  function resultPokemon(profile, tone) {
+    if (!profile) return `<span class="result-credit ${tone} text-only">indirect</span>`;
+    return `<span class="result-credit ${tone}"><img class="sprite" src="${sprite(profile.id, false, profile.spriteId)}" alt=""><b>${escapeHtml(profile.nickname || profile.name)}</b></span>`;
+  }
+
+  function battleResultOverlay() {
+    const knockouts = battleState.knockouts || [];
+    const cards = battleState.opponent.team.map((pokemon) => {
+      const defeatedBy = knockouts.filter((entry) => entry.defeated?.side === "opponent" && sameResultPokemon(entry.defeated, pokemon));
+      const defeatedPlayer = knockouts.filter((entry) => entry.credited?.side === "opponent" && sameResultPokemon(entry.credited, pokemon));
+      const greenCredits = defeatedBy.length
+        ? defeatedBy.map((entry) => resultPokemon(entry.credited?.side === "player" ? entry.credited : null, "ko-by")).join("")
+        : `<span class="result-credit empty">${pokemon.fainted ? "no direct KO" : "survived"}</span>`;
+      const redCredits = defeatedPlayer.length
+        ? defeatedPlayer.map((entry) => resultPokemon(entry.defeated, "ko-earned")).join("")
+        : '<span class="result-credit empty">no KOs</span>';
+      return `<article class="result-mon-card"><div class="result-credit-row above" aria-label="Knocked out by">${greenCredits}</div><div class="result-opponent"><img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId)}" alt="${escapeHtml(pokemon.name)}"><strong>${escapeHtml(pokemon.name)}</strong></div><div class="result-credit-row below" aria-label="Pokémon knocked out">${redCredits}</div></article>`;
+    }).join("");
+    const victory = battleState.winner === "Player";
+    const heading = victory ? "Victory!" : battleState.winner ? "Defeat" : "Battle complete";
+    const subheading = battleState.forfeited ? `You forfeited against ${battleState.opponent.name}.` : `${battleState.opponent.name} · Nuzzle #${battleState.challengeNumber || todayState.number}`;
+    return `<div class="result-backdrop" data-close-result><section class="result-modal ${victory ? "victory" : "defeat"}" role="dialog" aria-modal="true" aria-labelledby="result-title"><button class="result-close" type="button" aria-label="Close result" data-close-result>×</button><header><span>daily battle result</span><h2 id="result-title">${heading}</h2><p>${escapeHtml(subheading)}</p></header><div class="result-legend"><span class="green-key">▲ your Pokémon that KO'd it</span><span class="red-key">▼ your Pokémon it KO'd</span></div><div class="result-grid">${cards}</div></section></div>`;
   }
 
   function pc() {
@@ -1177,6 +1222,7 @@
         martListScrollTop = 0;
       }
       route = nextRoute;
+      if (route === "battle" && battleState?.ended) resultOverlayOpen = true;
       if (route === "lead") selectedLeadId = null;
       if (route === "mart") purchaseMessage = "";
       render();
@@ -1275,6 +1321,16 @@
     document.querySelectorAll("[data-battle-switch]").forEach((button) => button.addEventListener("click", () => submitBattleChoice({ type: "switch", slot: Number(button.dataset.battleSwitch) })));
     document.querySelectorAll("[data-battle-move]").forEach((button) => button.addEventListener("click", () => submitBattleChoice({ type: "move", slot: Number(button.dataset.battleMove) })));
     document.querySelector("[data-forfeit-battle]")?.addEventListener("click", forfeitBattle);
+    document.querySelector("[data-open-result]")?.addEventListener("click", () => {
+      resultOverlayOpen = true;
+      render();
+    });
+    document.querySelectorAll("[data-close-result]").forEach((element) => element.addEventListener("click", (event) => {
+      if (element.classList.contains("result-backdrop") && event.target !== element) return;
+      resultOverlayOpen = false;
+      render();
+      requestAnimationFrame(() => document.querySelector("[data-open-result]")?.focus({ preventScroll: true }));
+    }));
     document.querySelector("[data-toggle-battle-log]")?.addEventListener("click", () => {
       battleLogExpanded = !battleLogExpanded;
       render();
@@ -1545,10 +1601,13 @@
 
   async function resumeBattle(shouldRender = true) {
     if (!currentUser) return;
-    const battleId = localStorage.getItem("nuzzleBattleId");
+    const battleId = gameState?.dailyBattleAttempted && gameState?.dailyBattleId
+      ? gameState.dailyBattleId
+      : localStorage.getItem("nuzzleBattleId");
     if (!battleId) return;
     try {
       acceptBattleState(await apiRequest(`/api/battles/${battleId}`));
+      localStorage.setItem("nuzzleBattleId", battleId);
       if (!battleState.ended) route = "battle";
     } catch (error) {
       localStorage.removeItem("nuzzleBattleId");

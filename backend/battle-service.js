@@ -33,6 +33,10 @@ function sideFrom(reference = "") {
   return "system";
 }
 
+function slotFrom(reference = "") {
+  return reference.split(":", 1)[0];
+}
+
 function effectName(effect = "") {
   return effect.replace(/^(?:move|ability|item): /, "");
 }
@@ -158,6 +162,10 @@ export class BattleController {
     this.logTurn = 0;
     this.logSequence = 0;
     this.health = new Map();
+    this.activeProfiles = new Map();
+    this.lastMove = null;
+    this.pendingKnockouts = new Map();
+    this.knockouts = [];
     this.version = 0;
     this.waiters = new Set();
     this.replayIndexes = { p1: 0, p2: 0 };
@@ -202,6 +210,7 @@ export class BattleController {
     try {
       for await (const chunk of this.streams.spectator) {
         for (const line of chunk.split("\n")) {
+          this.trackBattleResult(line);
           const acquisition = acquisitionFromProtocol(line, this.record);
           if (acquisition) {
             this.record.itemAcquisitions ||= [];
@@ -220,6 +229,63 @@ export class BattleController {
       this.failure = error;
       console.error(`Battle ${this.record.id} spectator stream failed:`, error);
     }
+  }
+
+  profileFor(reference = "", details = "") {
+    const slot = slotFrom(reference);
+    const active = this.activeProfiles.get(slot);
+    if (active && (!reference.includes(":") || toID(active.nickname) === toID(displayName(reference)))) return { ...active };
+    const nickname = displayName(reference);
+    const team = sideFrom(reference) === "opponent" ? this.record.opponentTeam : this.record.playerTeam;
+    const set = (team || [])
+      .find((candidate) => toID(candidate.name || candidate.species) === toID(nickname));
+    const speciesName = details.split(",", 1)[0] || set?.species || nickname;
+    const species = Dex.species.get(speciesName);
+    return {
+      side: sideFrom(reference),
+      nickname: nickname || species.name,
+      name: species.name || set?.species || nickname,
+      id: species.id || toID(set?.species || nickname),
+      spriteId: species.spriteid || species.id || toID(set?.species || nickname),
+    };
+  }
+
+  trackBattleResult(line) {
+    if (!line.startsWith("|")) return;
+    const [type, subject, detail, ...annotations] = splitProtocol(line);
+    if (type === "turn") {
+      this.lastMove = null;
+      return;
+    }
+    if (type === "switch" || type === "drag") {
+      const profile = this.profileFor(subject, detail);
+      this.activeProfiles.set(slotFrom(subject), profile);
+      return;
+    }
+    if (type === "move") {
+      this.lastMove = {
+        turn: this.logTurn,
+        attacker: this.profileFor(subject),
+        target: annotations[0] ? this.profileFor(annotations[0]) : null,
+        targetReference: annotations[0] || "",
+      };
+      return;
+    }
+    if (type === "-damage" && isFainted(detail)) {
+      const sourceReference = annotations.find((entry) => entry.startsWith("[of] "))?.slice(5) || "";
+      const hasIndirectSource = annotations.some((entry) => entry.startsWith("[from] "));
+      const directMove = !hasIndirectSource && this.lastMove?.targetReference === subject ? this.lastMove.attacker : null;
+      this.pendingKnockouts.set(subject, sourceReference ? this.profileFor(sourceReference) : directMove);
+      return;
+    }
+    if (type !== "faint") return;
+    const defeated = this.profileFor(subject);
+    const credited = this.pendingKnockouts.has(subject)
+      ? this.pendingKnockouts.get(subject)
+      : this.lastMove?.targetReference === subject ? this.lastMove.attacker : null;
+    this.pendingKnockouts.delete(subject);
+    if (this.knockouts.some((entry) => entry.turn === this.logTurn && entry.defeated.side === defeated.side && entry.defeated.nickname === defeated.nickname)) return;
+    this.knockouts.push({ turn: this.logTurn, defeated, credited: credited || null });
   }
 
   async handleRequest(side, request) {
@@ -388,6 +454,7 @@ export class BattleController {
       },
       challengeDate: this.record.challengeDate || null,
       challengeNumber: this.record.challengeNumber || null,
+      knockouts: structuredClone(this.knockouts),
       moves,
       log: [...this.log],
       events: this.log.map((entry) => entry.text),
@@ -410,6 +477,12 @@ export class BattleService {
   hasDailyAttempt(userId, challengeDate) {
     const key = this.dailyAttemptKey(userId, challengeDate);
     return Boolean(key && this.dailyAttempts.has(key));
+  }
+
+  dailyBattle(userId, challengeDate) {
+    return [...this.battles.values()]
+      .filter((battle) => battle.record.userId === userId && battle.record.challengeDate === challengeDate)
+      .sort((left, right) => String(right.record.createdAt).localeCompare(String(left.record.createdAt)))[0] || null;
   }
 
   async initialize() {

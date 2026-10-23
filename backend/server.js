@@ -233,9 +233,12 @@ async function api(request, response, pathname) {
   if (request.method === "GET" && pathname === "/api/game") {
     const user = requireUser(request);
     const state = await game.get(user.id);
+    const dailyBattle = service.dailyBattle(user.id, state.date);
     json(response, 200, {
       ...state,
       dailyBattleAttempted: !user.isAdmin && service.hasDailyAttempt(user.id, state.date),
+      dailyBattleId: dailyBattle?.record.id || null,
+      dailyBattleEnded: Boolean(dailyBattle?.stream.battle?.ended),
     });
     return true;
   }

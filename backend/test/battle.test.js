@@ -156,6 +156,7 @@ test("non-admin accounts get one daily battle attempt while admins can repeat", 
   const challenge = { partyIds: defaultParty, leadId: "vaporeon", challengeDate: "2026-10-23", challengeNumber: 2 };
   await service.create(challenge, "daily-player");
   assert.equal(service.hasDailyAttempt("daily-player", "2026-10-23"), true);
+  assert.equal(service.dailyBattle("daily-player", "2026-10-23")?.record.challengeNumber, 2);
   await assert.rejects(
     service.create(challenge, "daily-player"),
     (error) => error.statusCode === 409 && /already used/i.test(error.message)
@@ -179,7 +180,7 @@ test("forfeit produces a Brock win", async () => {
 });
 
 test("a six-on-six battle can be played through to a real result", async () => {
-  const { service } = await serviceFixture();
+  const { directory, service } = await serviceFixture();
   let state = await service.create({
     partyIds: ["vaporeon", "machamp", "venusaur", "lapras", "nidoking", "alakazam"],
     leadId: "vaporeon",
@@ -198,5 +199,12 @@ test("a six-on-six battle can be played through to a real result", async () => {
   }
   assert.equal(state.ended, true, "The battle did not finish within 200 player decisions.");
   assert.ok(["Player", "Brock"].includes(state.winner));
+  assert.ok(state.knockouts.length >= 6, "The result did not record the battle's knockouts.");
+  assert.ok(state.knockouts.some((knockout) => knockout.credited), "No knockout was attributed to the Pokémon that caused it.");
+  assert.ok(state.knockouts.every((knockout) => ["player", "opponent"].includes(knockout.defeated.side)));
   assert.ok(battle.record.choices.p2.every((choice) => choice.startsWith("move ") || choice.startsWith("switch ")));
+
+  const restoredService = new BattleService(new BattleStore(directory));
+  await restoredService.initialize();
+  assert.deepEqual(restoredService.get(state.id).state().knockouts, state.knockouts);
 });
