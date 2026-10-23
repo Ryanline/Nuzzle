@@ -42,7 +42,7 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 375, height: 667 }
   if (landingBounds.accountTop < -1 || landingBounds.documentScrollHeight > landingBounds.viewportHeight + 1) throw new Error(`Landing page overflows ${viewport.width}x${viewport.height}.`);
   if (Math.abs(landingBounds.appCenter - landingBounds.opponentTeamCenter) > 1) throw new Error(`The opponent team is not centered at ${viewport.width}x${viewport.height}.`);
   if (landingBounds.opponentTeamOverflow !== "visible" || landingBounds.opponentButtonOverflow !== "visible") throw new Error(`Wide opponent sprites can be clipped at ${viewport.width}x${viewport.height}.`);
-  if (Math.abs(landingBounds.opponentSpriteTranslation + 5) > .1) throw new Error(`Opponent team sprites were not shifted left 5px at ${viewport.width}x${viewport.height}.`);
+  if (Math.abs(landingBounds.opponentSpriteTranslation + 20) > .1) throw new Error(`Opponent team sprites were not shifted left 20px at ${viewport.width}x${viewport.height}.`);
 }
 await page.setViewportSize({ width: 390, height: 844 });
 if (await page.locator(".menu-toggle").count()) throw new Error("The obsolete hamburger menu is still rendered.");
