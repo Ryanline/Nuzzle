@@ -761,7 +761,8 @@
     const form = trainerFormOpen ? `<form class="trainer-form" data-trainer-form>
       <div class="trainer-form-head"><h2>Add trainer</h2><button type="button" data-close-trainer-form aria-label="Close">×</button></div>
       <label>Trainer name<input name="name" maxlength="40" required placeholder="Misty" value="${escapeHtml(trainerDraft.name)}"></label>
-      <label>Trainer sprite<select name="spriteId" data-trainer-sprite>${sprites.map((trainer) => `<option value="${trainer.id}" ${trainer.id === trainerDraft.spriteId ? "selected" : ""}>${escapeHtml(trainer.name)}</option>`).join("")}</select></label>
+      <label>Trainer sprite<input name="spriteId" list="trainer-sprite-options" autocomplete="off" required value="${escapeHtml(trainerDraft.spriteId)}" data-trainer-sprite placeholder="Search 1,500 trainer sprites"></label>
+      <datalist id="trainer-sprite-options">${sprites.map((trainer) => `<option value="${trainer.id}">${escapeHtml(trainer.name)}</option>`).join("")}</datalist>
       <div class="trainer-sprite-preview"><img class="sprite" src="${trainerSprite(trainerDraft.spriteId || sprites[0]?.id)}" alt="Selected trainer sprite" data-trainer-sprite-preview></div>
       <label>Showdown team<textarea name="teamText" rows="14" required placeholder="Starmie @ Leftovers&#10;Ability: Natural Cure&#10;Level: 100&#10;- Surf&#10;- Psychic&#10;- Ice Beam&#10;- Recover">${escapeHtml(trainerDraft.teamText)}</textarea></label>
       <p class="config-help">The first Pokémon will lead. Paste between one and six complete Showdown sets.</p>

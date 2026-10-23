@@ -4,24 +4,19 @@ import path from "node:path";
 import { createRequire } from "node:module";
 import { buildBrockTeam } from "./teams.js";
 import { datesAfter, gameDate, gameNumber, nextGameDate, nextRolloverAt } from "./game-clock.js";
+import { trainerSpriteIds } from "./trainer-sprite-ids.js";
 
 const require = createRequire(import.meta.url);
 const { Dex, Teams, toID } = require("pokemon-showdown");
 
-export const trainerSprites = Object.freeze([
-  { id: "brock", name: "Brock" },
-  { id: "misty", name: "Misty" },
-  { id: "ltsurge", name: "Lt. Surge" },
-  { id: "erika", name: "Erika" },
-  { id: "sabrina", name: "Sabrina" },
-  { id: "koga", name: "Koga" },
-  { id: "blaine", name: "Blaine" },
-  { id: "giovanni", name: "Giovanni" },
-  { id: "blue", name: "Blue" },
-  { id: "lance", name: "Lance" },
-  { id: "cynthia", name: "Cynthia" },
-  { id: "red", name: "Red" },
+const spriteNames = new Map([
+  ["ltsurge", "Lt. Surge"],
 ]);
+function trainerSpriteName(id) {
+  if (spriteNames.has(id)) return spriteNames.get(id);
+  return id.split("-").map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" ");
+}
+export const trainerSprites = Object.freeze(trainerSpriteIds.map((id) => Object.freeze({ id, name: trainerSpriteName(id) })));
 const spriteIds = new Set(trainerSprites.map((sprite) => sprite.id));
 
 function trainerError(message, statusCode = 400) {

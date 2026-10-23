@@ -3,8 +3,9 @@ import { mkdtemp } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { encounterPokemon } from "../content.js";
 import { gameDate, gameNumber, nextRolloverAt } from "../game-clock.js";
-import { TrainerStore, validateTeam } from "../trainer-store.js";
+import { trainerSprites, TrainerStore, validateTeam } from "../trainer-store.js";
 
 const mistyTeam = `Starmie @ Leftovers
 Ability: Natural Cure
@@ -37,6 +38,25 @@ test("Showdown team imports are normalized and invalid sets are rejected", () =>
   assert.equal(parsed.team[0].species, "Starmie");
   assert.equal(parsed.team[0].level, 100);
   assert.throws(() => validateTeam("DefinitelyNotAPokemon\n- Surf"), /Unknown Pokémon/);
+});
+
+test("prep trainers support Tangela and Primeape without adding them to encounters", () => {
+  const parsed = validateTeam(`Tangela
+Ability: Chlorophyll
+- Giga Drain
+
+Primeape
+Ability: Vital Spirit
+- Close Combat`);
+  assert.deepEqual(parsed.team.map((pokemon) => pokemon.species), ["Tangela", "Primeape"]);
+  assert.equal(encounterPokemon.some((pokemon) => ["tangela", "primeape"].includes(pokemon.id)), false);
+});
+
+test("the trainer editor exposes the full Showdown sprite catalog", () => {
+  assert.ok(trainerSprites.length >= 1_400);
+  for (const id of ["brock", "misty", "cynthia", "red", "youngster-gen9"]) {
+    assert.ok(trainerSprites.some((sprite) => sprite.id === id), `missing trainer sprite ${id}`);
+  }
 });
 
 test("queued trainers can be reordered and publish one immutable snapshot per day", async () => {

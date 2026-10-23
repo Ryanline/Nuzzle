@@ -21,16 +21,21 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 375, height: 667 }
   const landingBounds = await page.locator(".home-screen").evaluate((screen) => {
     const settings = screen.querySelector('[data-route="settings"]').getBoundingClientRect();
     const account = screen.querySelector(".account-button").getBoundingClientRect();
+    const app = screen.closest(".app").getBoundingClientRect();
+    const opponentTeam = screen.querySelector(".opponent-team").getBoundingClientRect();
     return {
       viewportHeight: window.innerHeight,
       settingsBottom: settings.bottom,
       settingsHeight: settings.height,
       accountTop: account.top,
       documentScrollHeight: document.documentElement.scrollHeight,
+      appCenter: app.left + app.width / 2,
+      opponentTeamCenter: opponentTeam.left + opponentTeam.width / 2,
     };
   });
   if (landingBounds.settingsBottom > landingBounds.viewportHeight + 1 || landingBounds.settingsHeight < 34) throw new Error(`Landing controls do not fit ${viewport.width}x${viewport.height}.`);
   if (landingBounds.accountTop < -1 || landingBounds.documentScrollHeight > landingBounds.viewportHeight + 1) throw new Error(`Landing page overflows ${viewport.width}x${viewport.height}.`);
+  if (Math.abs(landingBounds.appCenter - landingBounds.opponentTeamCenter) > 1) throw new Error(`The opponent team is not centered at ${viewport.width}x${viewport.height}.`);
 }
 await page.setViewportSize({ width: 390, height: 844 });
 if (await page.locator(".menu-toggle").count()) throw new Error("The obsolete hamburger menu is still rendered.");
@@ -75,10 +80,13 @@ await page.click('[data-route="settings"]');
 if (!await page.locator('[data-route="config"]').count()) throw new Error("The ryanline account did not receive the trainer config entry point.");
 await page.click('[data-route="config"]');
 await page.waitForSelector(".config-current");
+await page.click("[data-open-trainer-form]");
+if (await page.locator("#trainer-sprite-options option").count() < 1000) throw new Error("The full trainer sprite catalog was not available.");
+await page.click("[data-close-trainer-form]");
 const addQueuedTrainer = async (name, spriteId, species) => {
   await page.click("[data-open-trainer-form]");
   await page.fill('.trainer-form input[name="name"]', name);
-  await page.selectOption('.trainer-form select[name="spriteId"]', spriteId);
+  await page.fill('.trainer-form input[name="spriteId"]', spriteId);
   await page.fill('.trainer-form textarea[name="teamText"]', `${species}\nAbility: Pressure\nLevel: 100\n- Protect`);
   const response = page.waitForResponse((candidate) => candidate.url().endsWith("/api/admin/trainers") && candidate.request().method() === "POST");
   await page.click('.trainer-form button[type="submit"]');
