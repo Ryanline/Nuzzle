@@ -739,7 +739,7 @@
     const platformRect = platform.getBoundingClientRect();
     const spriteSize = Math.min(180, arenaRect.width * .46) * .78 * .9;
     const anchorX = platformRect.left - arenaRect.left + platformRect.width / 2;
-    const anchorY = platformRect.bottom - arenaRect.top - platformRect.height * .1 + 30 - spriteSize * .05;
+    const anchorY = platformRect.bottom - arenaRect.top - platformRect.height * .1 + 30 - spriteSize * .12;
     image.style.setProperty("--foe-sprite-size", `${spriteSize}px`);
     image.style.setProperty("--foe-sprite-left", `${anchorX - spriteSize / 2}px`);
     image.style.setProperty("--foe-sprite-top", `${anchorY - spriteSize}px`);
