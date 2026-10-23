@@ -16,6 +16,23 @@ page.on("console", (message) => {
 page.on("pageerror", (error) => errors.push(error.message));
 
 await page.goto(baseUrl, { waitUntil: "networkidle" });
+for (const viewport of [{ width: 320, height: 568 }, { width: 375, height: 667 }, { width: 390, height: 844 }, { width: 430, height: 932 }]) {
+  await page.setViewportSize(viewport);
+  const landingBounds = await page.locator(".home-screen").evaluate((screen) => {
+    const settings = screen.querySelector('[data-route="settings"]').getBoundingClientRect();
+    const account = screen.querySelector(".account-button").getBoundingClientRect();
+    return {
+      viewportHeight: window.innerHeight,
+      settingsBottom: settings.bottom,
+      settingsHeight: settings.height,
+      accountTop: account.top,
+      documentScrollHeight: document.documentElement.scrollHeight,
+    };
+  });
+  if (landingBounds.settingsBottom > landingBounds.viewportHeight + 1 || landingBounds.settingsHeight < 34) throw new Error(`Landing controls do not fit ${viewport.width}x${viewport.height}.`);
+  if (landingBounds.accountTop < -1 || landingBounds.documentScrollHeight > landingBounds.viewportHeight + 1) throw new Error(`Landing page overflows ${viewport.width}x${viewport.height}.`);
+}
+await page.setViewportSize({ width: 390, height: 844 });
 if (await page.locator(".menu-toggle").count()) throw new Error("The obsolete hamburger menu is still rendered.");
 await page.click('[data-route="pc"]');
 await page.waitForSelector(".auth-card");

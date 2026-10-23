@@ -409,7 +409,7 @@
   }
 
   function home() {
-    return `<section class="screen">${header()}<div class="landing">
+    return `<section class="screen home-screen">${header()}<div class="landing">
       <div class="trainer-wrap"><img class="sprite trainer" src="${trainerSprite}" alt="Gym Leader Brock" /></div>
       <div class="opponent-team" aria-label="Brock's team">${opponent.map((id) => `<button type="button" aria-label="${id}"><img class="sprite" src="${sprite(id)}" alt="${id}" /></button>`).join("")}</div>
       ${navigation()}

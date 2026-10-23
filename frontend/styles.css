@@ -668,7 +668,9 @@ html[data-theme="dark"] .auth-error { color: #ff9297; }
   body { background: var(--page); }
   .app { width: 100%; height: 100vh; height: 100dvh; min-height: 0; box-shadow: none; }
   .screen { height: 100vh; height: 100dvh; min-height: 0; padding: 0 14px 8px; overflow: hidden; }
+  .home-screen { display: flex; padding-top: env(safe-area-inset-top); padding-right: max(14px, env(safe-area-inset-right)); padding-bottom: max(8px, env(safe-area-inset-bottom)); padding-left: max(14px, env(safe-area-inset-left)); flex-direction: column; overscroll-behavior: none; }
   .screen-header { height: 62px; }
+  .home-screen .screen-header { flex: 0 0 62px; }
   .screen-title { position: absolute; right: 112px; left: 0; max-width: none; font-size: 16px; }
   .header-tools { top: 10px; right: -2px; gap: 6px; }
   .theme-toggle { width: 60px; height: 38px; border-radius: 19px; }
@@ -676,6 +678,7 @@ html[data-theme="dark"] .auth-error { color: #ff9297; }
   .theme-toggle[aria-checked="true"] i { transform: none; }
   .account-button { width: 38px; height: 38px; }
   .landing, .encounter-stage, .pc-stage, .mart-stage, .bag-stage, .simple-stage { min-height: 0; height: calc(100% - 62px); }
+  .home-screen .landing { display: grid; height: auto; min-height: 0; flex: 1; grid-template-rows: minmax(52px, .7fr) minmax(100px, 1fr) auto; overflow: hidden; }
   .home-actions { gap: 4px; }
   .home-actions .gloss-button { min-height: 37px; padding: 2px 10px 4px; border-radius: 6px; font-size: 17px; }
   .arena { margin-right: -14px; margin-left: -14px; }
@@ -684,6 +687,12 @@ html[data-theme="dark"] .auth-error { color: #ff9297; }
   .opponent-team { gap: 4px 0; margin: 0 auto 9px; }
   .opponent-team button { min-height: 104px; }
   .opponent-team img { width: 126px; height: 104px; max-width: none; }
+  .home-screen .trainer-wrap { min-height: 0; overflow: hidden; }
+  .home-screen .trainer { width: min(124px, 32vw); height: 100%; max-height: 154px; }
+  .home-screen .opponent-team { height: 100%; min-height: 0; grid-template-rows: repeat(2, minmax(0, 1fr)); margin: 0 auto; overflow: hidden; }
+  .home-screen .opponent-team button { min-height: 0; overflow: hidden; }
+  .home-screen .opponent-team img { width: min(126px, 34vw); height: 100%; max-height: 104px; transform: scale(1.14); }
+  .home-screen .home-actions { margin-top: 0; padding-top: 4px; }
   .pc-help { font-size: 11px; line-height: 1.2; }
   .pc-section-head { height: 29px; padding: 0 8px; }
   .pc-section-head h2 { font-size: 15px; }
@@ -760,6 +769,10 @@ html[data-theme="dark"] .auth-error { color: #ff9297; }
 }
 
 @media (max-width: 520px) and (max-height: 700px) {
+  .home-screen .screen-header { flex-basis: 54px; }
+  .home-screen .header-tools { top: 8px; }
+  .home-screen .landing { grid-template-rows: minmax(42px, .62fr) minmax(86px, 1fr) auto; }
+  .home-screen .home-actions .gloss-button { min-height: 35px; font-size: 16px; }
   .lead-arena { height: 240px; }
   .lead-choice { height: 78px; }
   .lead-choice img { height: 51px; flex-basis: 51px; }
