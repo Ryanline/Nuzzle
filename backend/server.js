@@ -232,7 +232,11 @@ async function api(request, response, pathname) {
   }
   if (request.method === "GET" && pathname === "/api/game") {
     const user = requireUser(request);
-    json(response, 200, await game.get(user.id));
+    const state = await game.get(user.id);
+    json(response, 200, {
+      ...state,
+      dailyBattleAttempted: !user.isAdmin && service.hasDailyAttempt(user.id, state.date),
+    });
     return true;
   }
   const encounterMatch = pathname.match(/^\/api\/game\/encounters\/(\d+)$/);
@@ -277,7 +281,7 @@ async function api(request, response, pathname) {
       trainerSpriteId: today.trainer.spriteId,
       challengeDate: today.date,
       challengeNumber: today.number,
-    }, user.id));
+    }, user.id, { allowRepeat: user.isAdmin }));
     return true;
   }
   const match = pathname.match(/^\/api\/battles\/([0-9a-f-]+)(?:\/(choices|forfeit))?$/i);

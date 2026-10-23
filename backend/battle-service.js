@@ -400,10 +400,22 @@ export class BattleService {
     this.store = store;
     this.settle = settle;
     this.battles = new Map();
+    this.dailyAttempts = new Set();
+  }
+
+  dailyAttemptKey(userId, challengeDate) {
+    return userId && challengeDate ? `${userId}:${challengeDate}` : null;
+  }
+
+  hasDailyAttempt(userId, challengeDate) {
+    const key = this.dailyAttemptKey(userId, challengeDate);
+    return Boolean(key && this.dailyAttempts.has(key));
   }
 
   async initialize() {
     for (const record of await this.store.loadAll()) {
+      const attemptKey = this.dailyAttemptKey(record.userId, record.challengeDate);
+      if (attemptKey) this.dailyAttempts.add(attemptKey);
       try {
         const battle = new BattleController(record, (next) => this.store.save(next), this.settle);
         await battle.start();
@@ -415,7 +427,9 @@ export class BattleService {
     }
   }
 
-  async create({ partyIds, leadId, playerTeam = null, opponentTeam = null, trainerName = "Brock", trainerSpriteId = "brock", challengeDate = null, challengeNumber = null }, userId = null) {
+  async create({ partyIds, leadId, playerTeam = null, opponentTeam = null, trainerName = "Brock", trainerSpriteId = "brock", challengeDate = null, challengeNumber = null }, userId = null, { allowRepeat = false } = {}) {
+    const attemptKey = this.dailyAttemptKey(userId, challengeDate);
+    if (attemptKey && this.dailyAttempts.has(attemptKey) && !allowRepeat) choiceError("You already used today's daily battle attempt.", 409);
     const teamSnapshot = playerTeam || buildPlayerTeam(partyIds, leadId);
     if (!Array.isArray(teamSnapshot) || teamSnapshot.length < 1 || teamSnapshot.length > 6) choiceError("Choose between one and six Pokémon.");
     const record = {
@@ -437,7 +451,14 @@ export class BattleService {
       itemAcquisitions: [],
       itemsSettled: false,
     };
-    await this.store.save(record);
+    const firstAttempt = Boolean(attemptKey && !this.dailyAttempts.has(attemptKey));
+    if (attemptKey) this.dailyAttempts.add(attemptKey);
+    try {
+      await this.store.save(record);
+    } catch (error) {
+      if (firstAttempt) this.dailyAttempts.delete(attemptKey);
+      throw error;
+    }
     const battle = new BattleController(record, (next) => this.store.save(next), this.settle);
     await battle.start();
     this.battles.set(record.id, battle);

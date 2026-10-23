@@ -408,6 +408,7 @@
         method: "POST",
         body: JSON.stringify({ partyIds: [...team].slice(0, 6), leadId: selectedLeadId }),
       }));
+      if (gameState && !currentUser?.isAdmin) gameState.dailyBattleAttempted = true;
       localStorage.setItem("nuzzleBattleId", battleState.id);
       route = "battle";
     } catch (error) {
@@ -468,8 +469,9 @@
   function navigation(current = "", className = "home-actions") {
     const currentClass = (name) => current === name ? " is-current" : "";
     const currentPage = (name) => current === name ? ' aria-current="page"' : "";
+    const dailyBattleUsed = Boolean(currentUser && gameState?.dailyBattleAttempted && (!battleState || battleState.ended));
     return `<nav class="${className}" aria-label="Game sections">
-      <button class="gloss-button red${currentClass("battle")}"${currentPage("battle")} data-route="${currentUser && gameState && !gameState.battleUnlocked ? "encounters" : "lead"}">battle</button>
+      <button class="gloss-button red${currentClass("battle")}"${currentPage("battle")} data-route="${currentUser && gameState && !gameState.battleUnlocked ? "encounters" : "lead"}" ${dailyBattleUsed ? 'disabled title="Daily battle attempt already used"' : ""}>${dailyBattleUsed ? "battle used today" : "battle"}</button>
       <button class="gloss-button orange${currentClass("pc")}"${currentPage("pc")} data-route="pc">pc box</button>
       <button class="gloss-button gold${currentClass("bag")}"${currentPage("bag")} data-route="bag">bag</button>
       <button class="gloss-button green${currentClass("encounters")}"${currentPage("encounters")} data-route="encounters">encounter (${encounters.filter((item) => !item.claimed).length})</button>
