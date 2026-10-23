@@ -264,17 +264,16 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .battle-command-area { flex: 0 0 auto; }
 .give-up { position: relative; z-index: 6; width: calc(100% - 58px); margin: auto 29px 12px; }
 .battle-result-actions { display: grid; position: relative; z-index: 6; flex: 0 0 auto; gap: 7px; margin: auto 29px 12px; }
-.result-backdrop { position: fixed; z-index: 250; inset: 0; display: flex; align-items: center; justify-content: center; padding: max(14px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left)); overflow-y: auto; background: rgba(17, 24, 32, .76); backdrop-filter: blur(3px); }
-.result-modal { position: relative; width: min(680px, 100%); max-height: calc(100dvh - 28px); padding: 20px; overflow-y: auto; border: 2px solid #a7afb6; border-radius: 14px; background: #f5f4ef; box-shadow: 0 20px 60px rgba(0,0,0,.38), inset 0 0 0 1px #fff; color: #2f363c; }
-.result-modal.victory { border-color: #64a875; }
-.result-modal.defeat { border-color: #c36e6e; }
+.result-backdrop { position: fixed; z-index: 250; inset: 0; display: flex; align-items: center; justify-content: center; padding: max(14px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left)); overflow-y: auto; background: rgba(15,18,21,.52); }
+.result-modal { position: relative; width: min(680px, 100%); max-height: calc(100dvh - 28px); padding: 17px 18px 18px; overflow-y: auto; border: 1px solid #92999d; border-radius: 8px; background: #e4e9ea; box-shadow: 0 6px 16px rgba(0,0,0,.32); color: #2f363c; }
 .result-modal > header { text-align: center; }
-.result-modal > header span { color: #68737b; font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
-.result-modal h2 { margin: 1px 0 0; color: #2f6d42; font-size: clamp(30px, 6vw, 44px); line-height: 1; }
+.result-modal > header span { color: #68737b; font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
+.result-modal h2 { margin: 2px 0 0; color: #2f6d42; font-size: clamp(28px, 5vw, 38px); line-height: 1; }
 .result-modal.defeat h2 { color: #9a3f3f; }
-.result-modal header p { margin: 5px 0 12px; color: #657078; font-size: 13px; }
-.result-close { position: absolute; z-index: 2; top: 9px; right: 9px; display: grid; width: 34px; height: 34px; place-items: center; padding: 0; border: 1px solid #aeb4b9; border-radius: 50%; background: #fff; color: #44505a; cursor: pointer; font-size: 24px; line-height: 1; }
-.result-legend { display: flex; justify-content: center; gap: 18px; margin-bottom: 10px; font-size: 10px; font-weight: 700; text-align: center; }
+.result-modal header p { margin: 4px 0 9px; color: #657078; font-size: 12px; }
+.result-close { position: absolute; z-index: 2; top: 5px; right: 6px; width: 30px; height: 30px; padding: 0; border: 0; background: transparent; color: #555; cursor: pointer; font-size: 25px; line-height: 28px; }
+.result-close:hover { color: #111; }
+.result-legend { display: flex; justify-content: center; gap: 18px; margin: 0 0 9px; padding-top: 7px; border-top: 1px solid #c5cbce; color: #667078; font-size: 9px; font-weight: 700; text-align: center; }
 .result-legend .green-key { color: #31804a; }
 .result-legend .red-key { color: #a84646; }
 .result-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
@@ -858,8 +857,8 @@ html[data-theme="dark"] .auth-error { color: #ff9297; }
   .battle-command-area { flex: 0 0 auto; }
   .give-up { flex: 0 0 38px; min-height: 38px; }
   .battle-result-actions { margin-right: 0; margin-left: 0; }
-  .result-backdrop { align-items: flex-start; padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
-  .result-modal { max-height: calc(100dvh - 16px); padding: 15px 10px 12px; }
+  .result-backdrop { align-items: center; padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
+  .result-modal { max-height: calc(100dvh - 16px); padding: 13px 10px 12px; }
   .result-grid { gap: 5px; }
   .result-mon-card { grid-template-rows: 39px 91px 39px; }
   .result-opponent img { width: 64px; height: 64px; }

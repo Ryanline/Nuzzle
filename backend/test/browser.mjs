@@ -322,6 +322,11 @@ await page.waitForFunction(() => document.querySelector(".prompt")?.textContent.
 if (await page.locator("[data-forfeit-battle]").count()) throw new Error("Forfeit remained available after the battle ended.");
 await page.waitForSelector(".result-modal");
 if (!(await page.locator(".result-modal").textContent())?.includes("Defeat")) throw new Error("The result overlay did not report the loss.");
+const resultCenterOffset = await page.locator(".result-modal").evaluate((modal) => {
+  const bounds = modal.getBoundingClientRect();
+  return Math.abs(bounds.top + bounds.height / 2 - window.innerHeight / 2);
+});
+if (resultCenterOffset > 2) throw new Error(`The result overlay was not vertically centered (${resultCenterOffset}px off).`);
 if (await page.locator(".result-mon-card").count() !== 6) throw new Error("The result overlay did not show all six opposing Pokémon.");
 await page.click(".result-close");
 if (await page.locator(".result-modal").count()) throw new Error("The result overlay did not close.");
