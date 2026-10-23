@@ -110,11 +110,11 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .trainer { width: 184px; height: 220px; }
 .opponent-team { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 0; width: min(315px, 100%); margin: 4px auto 26px; }
 .opponent-team button { position: relative; display: grid; min-width: 0; min-height: 138px; place-items: center; padding: 0; border: 0; background: transparent; cursor: default; }
-.opponent-team img { width: 164px; height: 140px; max-width: 100%; transform: scale(1.2); }
+.opponent-team img { width: 164px; height: 140px; max-width: 100%; transform: translateX(-5px) scale(1.2); }
 .home-actions { display: grid; gap: 7px; margin-top: auto; }
 
 .arena { position: relative; height: clamp(370px, 56vh, 560px); margin: 0 -26px; overflow: hidden; background: linear-gradient(to bottom, #cbc5b8 0 42%, #aca598 43% 45%, #8e877d 46% 100%); }
-.lead-arena .trainer { position: absolute; z-index: 2; top: calc(-2% + 16px); right: 12%; width: 121px; height: 157px; }
+.lead-arena .trainer { position: absolute; z-index: 2; top: calc(-2% + 16px); left: calc(73.5% - 60.5px); width: 121px; height: 157px; }
 .lead-arena .trainer-misty { transform: translateY(-2px) scale(.72); }
 .lead-prompt, .battle-panel { padding-top: 14px; }
 .lead-prompt { min-height: 0; flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain; }
@@ -168,10 +168,9 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
   position: absolute;
   z-index: 0;
   height: 19%;
-  border: 2px solid rgba(71,66,59,.24);
-  border-radius: 50%;
-  background: radial-gradient(ellipse, #b7af9d 0 48%, #918879 72%, rgba(67,62,55,.38) 74%, transparent 76%);
-  box-shadow: inset 0 -7px 11px rgba(67,62,55,.2), 0 7px 12px rgba(48,45,41,.12);
+  border: 0;
+  background: none;
+  box-shadow: none;
   transform: skewX(-5deg);
 }
 .battle-platform.enemy { top: 40.8%; right: 2%; width: 49%; }
@@ -791,7 +790,7 @@ html[data-theme="dark"] .auth-error { color: #ff9297; }
   .home-screen .trainer { width: min(124px, 32vw); height: 100%; max-height: 154px; }
   .home-screen .opponent-team { height: 100%; min-height: 0; grid-template-rows: repeat(2, minmax(0, 1fr)); margin: 0 auto; overflow: visible; }
   .home-screen .opponent-team button { min-height: 0; overflow: visible; }
-  .home-screen .opponent-team img { width: min(126px, 34vw); height: 100%; max-height: 104px; transform: scale(1.14); }
+  .home-screen .opponent-team img { width: min(126px, 34vw); height: 100%; max-height: 104px; transform: translateX(-5px) scale(1.14); }
   .home-screen .home-actions { margin-top: 0; padding-top: 4px; }
   .pc-help { font-size: 11px; line-height: 1.2; }
   .pc-section-head { height: 29px; padding: 0 8px; }
@@ -870,7 +869,7 @@ html[data-theme="dark"] .auth-error { color: #ff9297; }
 }
 
 @media (max-width: 350px) {
-  .opponent-team img { transform: scale(1.1); }
+  .opponent-team img { transform: translateX(-5px) scale(1.1); }
 }
 
 @media (max-width: 520px) and (max-height: 860px) {

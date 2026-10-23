@@ -24,6 +24,7 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 375, height: 667 }
     const app = screen.closest(".app").getBoundingClientRect();
     const opponentTeam = screen.querySelector(".opponent-team").getBoundingClientRect();
     const opponentButton = screen.querySelector(".opponent-team button");
+    const opponentSpriteStyle = getComputedStyle(opponentButton.querySelector("img"));
     return {
       viewportHeight: window.innerHeight,
       settingsBottom: settings.bottom,
@@ -34,12 +35,14 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 375, height: 667 }
       opponentTeamCenter: opponentTeam.left + opponentTeam.width / 2,
       opponentTeamOverflow: getComputedStyle(screen.querySelector(".opponent-team")).overflow,
       opponentButtonOverflow: getComputedStyle(opponentButton).overflow,
+      opponentSpriteTranslation: new DOMMatrix(opponentSpriteStyle.transform).m41,
     };
   });
   if (landingBounds.settingsBottom > landingBounds.viewportHeight + 1 || landingBounds.settingsHeight < 34) throw new Error(`Landing controls do not fit ${viewport.width}x${viewport.height}.`);
   if (landingBounds.accountTop < -1 || landingBounds.documentScrollHeight > landingBounds.viewportHeight + 1) throw new Error(`Landing page overflows ${viewport.width}x${viewport.height}.`);
   if (Math.abs(landingBounds.appCenter - landingBounds.opponentTeamCenter) > 1) throw new Error(`The opponent team is not centered at ${viewport.width}x${viewport.height}.`);
   if (landingBounds.opponentTeamOverflow !== "visible" || landingBounds.opponentButtonOverflow !== "visible") throw new Error(`Wide opponent sprites can be clipped at ${viewport.width}x${viewport.height}.`);
+  if (Math.abs(landingBounds.opponentSpriteTranslation + 5) > .1) throw new Error(`Opponent team sprites were not shifted left 5px at ${viewport.width}x${viewport.height}.`);
 }
 await page.setViewportSize({ width: 390, height: 844 });
 if (await page.locator(".menu-toggle").count()) throw new Error("The obsolete hamburger menu is still rendered.");
@@ -252,6 +255,13 @@ const leadChoiceTops = await page.locator(".lead-choice").evaluateAll((choices) 
 if (new Set(leadChoiceTops).size !== 1) throw new Error("The six lead choices did not fit in one row.");
 if ((await page.locator(".lead-arena").evaluate((element) => getComputedStyle(element).backgroundImage)).includes("arena.png")) throw new Error("The lead preview still uses the legacy arena image.");
 if (await page.locator(".lead-arena .battle-platform").count() !== 2) throw new Error("The lead preview did not use the shared CSS battlefield platforms.");
+if (await page.locator(".lead-arena .battle-platform").first().evaluate((element) => getComputedStyle(element).backgroundImage) !== "none") throw new Error("The lead preview still shows an oval platform.");
+const trainerAnchorError = await page.locator(".lead-arena").evaluate((arena) => {
+  const trainer = arena.querySelector(".trainer").getBoundingClientRect();
+  const anchor = arena.querySelector(".battle-platform.enemy").getBoundingClientRect();
+  return Math.abs(trainer.left + trainer.width / 2 - (anchor.left + anchor.width / 2));
+});
+if (trainerAnchorError > 1) throw new Error(`The daily trainer was not centered on the shared opponent anchor (${trainerAnchorError}px off).`);
 await page.click("[data-start-battle]");
 await page.waitForSelector('.battle-screen [data-battle-move="1"]');
 
@@ -259,6 +269,7 @@ if (!(await page.locator(".battle-hud.player").textContent())?.includes(replacem
 if (!(await page.locator(".battle-hud.enemy").textContent())?.includes("Lv. 100")) throw new Error("Brock's Pokémon is not level 100.");
 if (await page.locator("[data-battle-move]").count() !== 4) throw new Error("The engine did not provide four moves.");
 if (await page.locator(".battle-platform").count() !== 2) throw new Error("The CSS battlefield platforms were not rendered.");
+if (await page.locator(".battle-platform").first().evaluate((element) => getComputedStyle(element).backgroundImage) !== "none") throw new Error("The battle still shows an oval platform.");
 const playerSpriteSource = await page.locator(".battler-slot.player img").getAttribute("src");
 if (!playerSpriteSource?.includes("gen5-back") && !playerSpriteSource?.includes("sprites-back")) throw new Error("The generated player Pokémon did not use a back sprite.");
 if ((await page.locator(".battle-arena").evaluate((element) => getComputedStyle(element).backgroundImage)).includes("arena.png")) throw new Error("The battle still uses the old arena image.");
