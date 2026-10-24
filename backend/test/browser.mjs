@@ -111,7 +111,7 @@ const reorderResponse = page.waitForResponse((candidate) => candidate.url().ends
 await page.locator('[data-move-trainer][data-direction="up"]').nth(1).click();
 if (!(await reorderResponse).ok()) throw new Error("Reordering the daily trainer queue failed.");
 if (!(await page.locator("[data-trainer-row]").first().textContent())?.includes("Red")) throw new Error("The daily trainer queue did not retain its reordered position.");
-if (!(await page.locator("[data-trainer-row]").first().locator("img").getAttribute("src"))?.includes("/gen5-shiny/mew.png")) throw new Error("A queued shiny trainer Pokémon did not use its shiny sprite.");
+if (!(await page.locator("[data-trainer-row]").first().locator(".trainer-queue-copy img").getAttribute("src"))?.includes("/gen5-shiny/mew.png")) throw new Error("A queued shiny trainer Pokémon did not use its shiny sprite.");
 await page.click('.config-back[data-route="settings"]');
 await page.click(".page-back");
 const emptyRunBattleButton = page.locator('button[data-route="encounters"]', { hasText: /^battle$/i });
