@@ -490,7 +490,7 @@ export class BattleService {
     return [...this.battles.values()]
       .filter((battle) => battle.record.challengeDate === challengeDate && !battle.record.dailyAttemptReset)
       .map((battle) => ({ battle, state: battle.state() }))
-      .filter(({ state }) => state.ended && state.winner === "Player")
+      .filter(({ state }) => state.ended)
       .map(({ battle, state }) => {
         const user = userById(battle.record.userId);
         if (!user) return null;
@@ -502,13 +502,14 @@ export class BattleService {
         }));
         return {
           username: user.username,
+          won: state.winner === "Player",
           completedAt: battle.record.completedAt || battle.record.createdAt,
           fainted: team.filter((pokemon) => pokemon.fainted).length,
           team,
         };
       })
       .filter(Boolean)
-      .sort((left, right) => left.fainted - right.fainted || String(left.completedAt).localeCompare(String(right.completedAt)))
+      .sort((left, right) => Number(right.won) - Number(left.won) || left.fainted - right.fainted || String(left.completedAt).localeCompare(String(right.completedAt)))
       .map((entry, index) => ({ rank: index + 1, ...entry }));
   }
 
@@ -534,7 +535,7 @@ export class BattleService {
     const entries = [];
     for (const [userId, attempts] of attemptsByUser) {
       const today = attempts.get(challengeDate);
-      if (!today?.won) continue;
+      if (!today) continue;
       const user = userById(userId);
       if (!user) continue;
       let streak = 0;

@@ -362,9 +362,10 @@ const leaderboardResponses = Promise.all([
 await page.click('[data-route="leaderboard"]');
 if ((await leaderboardResponses).some((response) => !response.ok())) throw new Error("Loading the leaderboards failed.");
 await page.waitForSelector('.leaderboard-tabs [data-leaderboard-view="daily"].selected');
-if (!(await page.locator(".leaderboard-empty").textContent())?.includes("No winners yet")) throw new Error("A loss incorrectly appeared on the daily leaderboard.");
+if (await page.locator(".leaderboard-row.leaderboard-loss").count() !== 1) throw new Error("A completed loss did not appear on the daily leaderboard.");
+if (!(await page.locator(".leaderboard-row.leaderboard-loss").textContent())?.includes(username)) throw new Error("The daily loss row did not show the account name.");
 await page.click('[data-leaderboard-view="streak"]');
-if (!(await page.locator(".leaderboard-empty").textContent())?.includes("No active streaks yet")) throw new Error("A loss incorrectly appeared on the streak leaderboard.");
+if (!(await page.locator(".streak-row").textContent())?.includes("0-day streak")) throw new Error("A completed loss did not appear as a zero-day streak.");
 await page.click('.leaderboard-stage [data-route="home"]');
 await page.click('[data-route="settings"]');
 if (await page.locator("[data-reset-daily-battle]").count() !== 1) throw new Error("The admin settings did not expose the daily battle reset.");

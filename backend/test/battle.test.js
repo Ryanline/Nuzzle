@@ -203,6 +203,7 @@ test("daily leaderboard ranks winners by survivors and then completion time", as
     { rank: 1, username: "Early", fainted: 0 },
     { rank: 2, username: "Clean", fainted: 0 },
     { rank: 3, username: "One", fainted: 1 },
+    { rank: 4, username: "Lost", fainted: 6 },
   ]);
   assert.equal(entries[0].team.length, 6);
 });
@@ -227,6 +228,7 @@ test("streak leaderboard counts consecutive wins ending today", async () => {
     { rank: 1, username: "alpha", streak: 3 },
     { rank: 2, username: "beta", streak: 2 },
     { rank: 3, username: "missed", streak: 1 },
+    { rank: 4, username: "lost", streak: 0 },
   ]);
 });
 
