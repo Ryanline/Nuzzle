@@ -16,7 +16,6 @@ function publicUser(user) {
     id: user.id,
     username: user.username,
     createdAt: user.createdAt,
-    avatarVersion: user.avatarVersion || null,
     isAdmin: user.usernameKey === ADMIN_USERNAME_KEY,
   };
 }
@@ -144,13 +143,6 @@ export class AuthStore {
     if (this.data.sessions.length !== previousLength) await this.persist();
   }
 
-  async setAvatar(userId, avatarVersion) {
-    const user = this.data.users.find((candidate) => candidate.id === userId);
-    if (!user) authError("Account not found.", 404);
-    user.avatarVersion = avatarVersion || null;
-    await this.persist();
-    return publicUser(user);
-  }
 }
 
 export { SESSION_LIFETIME_MS };

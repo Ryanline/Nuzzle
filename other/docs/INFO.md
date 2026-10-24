@@ -1,6 +1,6 @@
 # Nuzzle — Canonical Game and Implementation Information
 
-Last updated: October 20, 2026
+Last updated: October 24, 2026
 
 This document is the current source of truth for owner-approved Nuzzle behavior. The curated Pokémon and item approvals live in [`../data/nuzzle-approvals.csv`](../data/nuzzle-approvals.csv). The older [`pokemon-daily-game-spec.md`](pokemon-daily-game-spec.md) remains useful for design history and detailed proposals, but this document wins wherever the two conflict.
 
@@ -25,7 +25,7 @@ The intended experience is fast, restrained, and easy to understand:
 - An account is required for tracked game sections. The landing page remains visible while logged out.
 - Selecting a game section while logged out opens authentication and continues to the requested section after login.
 - Local development uses username/password accounts, scrypt password hashes, 30-day HttpOnly same-site cookies, and ignored data beneath `backend/data/`.
-- A profile defaults to a circular first-letter avatar. Users may upload, replace, or remove a profile picture.
+- Profiles use a circular first-letter avatar. Custom profile-picture uploads are outside the current beta.
 - The per-device theme defaults to light and is remembered independently of login.
 - Dark mode uses `#121212` as its main background.
 - The Leaderboard is currently a “Coming soon” placeholder.
@@ -269,6 +269,7 @@ Move changes associated with form changes are **Deferred** until the move system
 
 - Pokémon may hold at most one held item.
 - Players may move owned held items between Pokémon outside battle.
+- The PC item view uses **give** for available held items and **take** for the Pokémon's current item.
 - Every held item may be purchased from the shop only once per run, including items that activate once or are consumed within a battle.
 - Each owned copy may be equipped to only one Pokémon at a time.
 - Battle-consumable held items are restored for later battles; consumption is temporary battle state, not permanent inventory deletion.
@@ -348,9 +349,13 @@ Before battle, expose the opponent's Pokémon, moves, and held items. Do not exp
 ### Current trainer AI
 
 - Never switches voluntarily.
-- Uniformly chooses a random currently legal move.
+- Randomly chooses a living replacement when a pivot move or forced replacement requires one.
+- Uses damaging priority when the faster player Pokémon threatens a possible KO, with failed Sucker Punch attempts suppressed for the rest of the battle.
+- Then prefers guaranteed KOs, contextually useful moves, and the active Pokémon's first useful status move.
+- Next prefers possible KOs, followed by the highest ordinary damage; moves within 10% of the best estimate are selected randomly.
+- Later status uses rank below ordinary damage, while ineffective or immune choices rank last.
+- Damage-roll decisions ignore critical hits.
 - Cannot use bag items.
-- After a faint, sends the next living Pokémon in fixed team order.
 - Commits its choice before receiving the player's action.
 
 ### Initial Brock slice

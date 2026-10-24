@@ -60,24 +60,9 @@ await page.waitForSelector(".pc-stage");
 if (!(await page.locator(".account-button").getAttribute("aria-label"))?.includes(username)) throw new Error("The account control did not show the authenticated user.");
 if (await page.locator(".account-online").count()) throw new Error("The obsolete account status dot is still rendered.");
 await page.click("[data-open-account]");
-await page.click("[data-edit-avatar]");
-await page.locator("[data-avatar-input]").setInputFiles({
-  name: "avatar.png",
-  mimeType: "image/png",
-  buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", "base64"),
-});
-await page.waitForSelector('.avatar-editor-preview img[src^="blob:"]');
-await page.click("[data-avatar-save]");
-await page.waitForSelector(".account-profile .account-avatar img");
-if (await page.evaluate(() => fetch("/api/auth/avatar").then((response) => response.status)) !== 200) throw new Error("The uploaded avatar was not persisted by the backend.");
-if (!await page.locator(".account-button img").count()) throw new Error("The uploaded avatar did not appear in the header.");
-await page.click("[data-edit-avatar]");
-if (!await page.locator("[data-avatar-remove]").count()) throw new Error("An uploaded avatar did not offer a remove option.");
-await page.click("[data-avatar-remove]");
-await page.waitForSelector(".account-profile");
-if (await page.locator(".account-profile .account-avatar img").count()) throw new Error("Removing an avatar did not restore the initial fallback.");
+if ((await page.locator(".account-profile .account-avatar").textContent())?.trim() !== "R") throw new Error("The account did not use its initial avatar.");
+if (await page.locator("[data-edit-avatar]").count()) throw new Error("The removed custom profile-picture editor is still available.");
 await page.click(".auth-close");
-if (await page.locator(".account-button img").count()) throw new Error("The removed avatar remained in the header.");
 await page.click("[data-toggle-theme]");
 if (await page.locator("html").getAttribute("data-theme") !== "dark") throw new Error("The theme switch did not activate dark mode.");
 if (await page.evaluate(() => localStorage.getItem("nuzzleTheme")) !== "dark") throw new Error("The selected theme was not remembered on the device.");

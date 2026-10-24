@@ -330,6 +330,25 @@ export class GameStore {
     });
   }
 
+  async settleBattle(userId, battleId, { acquisitions = [], faintedPokemonIds = [] } = {}) {
+    return this.mutate(userId, (run) => {
+      run.settledBattleIds ||= [];
+      if (run.settledBattleIds.includes(battleId)) return this.publicState(run);
+      for (const acquisition of acquisitions) {
+        const pokemon = run.roster.find((candidate) => candidate.id === acquisition.pokemonId);
+        const item = itemById.get(acquisition.itemId);
+        if (!pokemon || pokemon.heldItemId || !item || item.group !== "Held Items") continue;
+        run.inventory[item.id] = (run.inventory[item.id] || 0) + 1;
+        pokemon.heldItemId = item.id;
+      }
+      const fainted = new Set(faintedPokemonIds);
+      run.roster = run.roster.filter((pokemon) => !fainted.has(pokemon.id));
+      run.teamIds = run.teamIds.filter((id) => !fainted.has(id));
+      run.settledBattleIds.push(battleId);
+      return this.publicState(run);
+    });
+  }
+
   async resetAfterWipe(userId, battleId) {
     return this.mutate(userId, (run) => {
       if (run.resetFromBattleId === battleId) return this.publicState(run);

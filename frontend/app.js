@@ -58,10 +58,6 @@
   let authLoading = false;
   let authError = "";
   let pendingRoute = null;
-  let avatarEditorOpen = false;
-  let avatarUploadBlob = null;
-  let avatarPreviewUrl = "";
-  let avatarBusy = false;
   let theme = savedTheme === "dark" ? "dark" : "light";
   let gameState = null;
   let contentLoaded = false;
@@ -222,95 +218,12 @@
     return String(value ?? "").replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
   }
 
-  function avatarContent(user, previewUrl = "") {
-    if (previewUrl) return `<img src="${previewUrl}" alt="">`;
-    if (user?.avatarVersion) return `<img src="/api/auth/avatar?v=${encodeURIComponent(user.avatarVersion)}" alt="">`;
+  function avatarContent(user) {
     return `<span>${escapeHtml(user?.username?.slice(0, 1).toUpperCase() || "?")}</span>`;
   }
 
-  function resetAvatarEditor() {
-    if (avatarPreviewUrl) URL.revokeObjectURL(avatarPreviewUrl);
-    avatarEditorOpen = false;
-    avatarUploadBlob = null;
-    avatarPreviewUrl = "";
-    avatarBusy = false;
+  function resetAuthDialog() {
     authError = "";
-  }
-
-  async function normalizeAvatar(file) {
-    if (!file || !["image/jpeg", "image/png", "image/webp"].includes(file.type)) throw new Error("Choose a JPEG, PNG, or WebP image.");
-    if (file.size > 5 * 1024 * 1024) throw new Error("Choose an image smaller than 5 MB.");
-    const sourceUrl = URL.createObjectURL(file);
-    try {
-      const image = new Image();
-      image.src = sourceUrl;
-      await image.decode();
-      if (!image.naturalWidth || !image.naturalHeight) throw new Error("That image could not be opened.");
-      const side = Math.min(image.naturalWidth, image.naturalHeight);
-      const sourceX = (image.naturalWidth - side) / 2;
-      const sourceY = (image.naturalHeight - side) / 2;
-      const canvas = document.createElement("canvas");
-      canvas.width = 256;
-      canvas.height = 256;
-      canvas.getContext("2d").drawImage(image, sourceX, sourceY, side, side, 0, 0, 256, 256);
-      const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/webp", .86));
-      if (!blob || blob.type !== "image/webp") throw new Error("This browser could not prepare the image.");
-      return blob;
-    } finally {
-      URL.revokeObjectURL(sourceUrl);
-    }
-  }
-
-  async function prepareAvatar(file) {
-    avatarBusy = true;
-    authError = "";
-    try {
-      const blob = await normalizeAvatar(file);
-      if (avatarPreviewUrl) URL.revokeObjectURL(avatarPreviewUrl);
-      avatarUploadBlob = blob;
-      avatarPreviewUrl = URL.createObjectURL(blob);
-    } catch (error) {
-      authError = error.message;
-    } finally {
-      avatarBusy = false;
-      render();
-    }
-  }
-
-  async function saveAvatar() {
-    if (!avatarUploadBlob || avatarBusy) return;
-    avatarBusy = true;
-    authError = "";
-    render();
-    try {
-      const result = await apiRequest("/api/auth/avatar", {
-        method: "PUT",
-        headers: { "Content-Type": "image/webp" },
-        body: avatarUploadBlob,
-      });
-      currentUser = result.user;
-      resetAvatarEditor();
-    } catch (error) {
-      avatarBusy = false;
-      authError = error.message;
-    }
-    render();
-  }
-
-  async function removeAvatar() {
-    if (avatarBusy) return;
-    avatarBusy = true;
-    authError = "";
-    render();
-    try {
-      const result = await apiRequest("/api/auth/avatar", { method: "DELETE" });
-      currentUser = result.user;
-      resetAvatarEditor();
-    } catch (error) {
-      avatarBusy = false;
-      authError = error.message;
-    }
-    render();
   }
 
   async function apiRequest(path, options = {}) {
@@ -339,7 +252,7 @@
   }
 
   function openAuth(destination = null) {
-    resetAvatarEditor();
+    resetAuthDialog();
     authOpen = true;
     authMode = "login";
     authError = "";
@@ -396,7 +309,7 @@
       currentUser = null;
       trainerDraft = emptyTrainerDraft();
       trainerFormOpen = false;
-      resetAvatarEditor();
+      resetAuthDialog();
       battleState = null;
       resultOverlayOpen = false;
       gameState = null;
@@ -522,11 +435,7 @@
   }
 
   function authCard() {
-    if (currentUser && avatarEditorOpen) {
-      const preview = avatarContent(currentUser, avatarPreviewUrl);
-      return `<div class="auth-backdrop" data-close-auth><section class="auth-card account-card avatar-editor" role="dialog" aria-modal="true" aria-labelledby="avatar-title"><button class="auth-close" type="button" aria-label="Close account" data-close-auth>×</button><h2 id="avatar-title">Profile picture</h2><div class="avatar-editor-preview">${preview}</div>${authError ? `<p class="auth-error" role="alert">${escapeHtml(authError)}</p>` : ""}<input class="avatar-file-input" type="file" accept="image/jpeg,image/png,image/webp" data-avatar-input>${avatarUploadBlob ? `<div class="avatar-actions"><button class="profile-button primary" type="button" data-avatar-save ${avatarBusy ? "disabled" : ""}>${avatarBusy ? "saving…" : "save"}</button><button class="profile-button" type="button" data-avatar-choose ${avatarBusy ? "disabled" : ""}>choose another</button><button class="profile-link" type="button" data-avatar-cancel>cancel</button></div>` : `<div class="avatar-actions"><button class="profile-button primary" type="button" data-avatar-choose ${avatarBusy ? "disabled" : ""}>${avatarBusy ? "preparing…" : "upload a picture"}</button>${currentUser.avatarVersion ? `<button class="profile-button remove" type="button" data-avatar-remove ${avatarBusy ? "disabled" : ""}>remove picture</button>` : ""}<button class="profile-link" type="button" data-avatar-cancel>cancel</button></div>`}</section></div>`;
-    }
-    if (currentUser) return `<div class="auth-backdrop" data-close-auth><section class="auth-card account-card" role="dialog" aria-modal="true" aria-labelledby="account-title"><button class="auth-close" type="button" aria-label="Close account" data-close-auth>×</button><h2 id="account-title">Account</h2><div class="account-profile"><button class="account-avatar-button" type="button" aria-label="Edit profile picture" data-edit-avatar><span class="account-avatar">${avatarContent(currentUser)}</span><span class="avatar-edit-badge" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="m5 14 1-4 7-7 3 3-7 7-4 1Zm7-10 3 3"></path></svg></span></button><strong class="account-name">${escapeHtml(currentUser.username)}</strong></div><button class="auth-primary logout-button" type="button" data-logout ${authLoading ? "disabled" : ""}>${authLoading ? "logging out…" : "log out"}</button></section></div>`;
+    if (currentUser) return `<div class="auth-backdrop" data-close-auth><section class="auth-card account-card" role="dialog" aria-modal="true" aria-labelledby="account-title"><button class="auth-close" type="button" aria-label="Close account" data-close-auth>×</button><h2 id="account-title">Account</h2><div class="account-profile"><span class="account-avatar">${avatarContent(currentUser)}</span><strong class="account-name">${escapeHtml(currentUser.username)}</strong></div><button class="auth-primary logout-button" type="button" data-logout ${authLoading ? "disabled" : ""}>${authLoading ? "logging out…" : "log out"}</button></section></div>`;
     const registering = authMode === "register";
     return `<div class="auth-backdrop" data-close-auth><section class="auth-card" role="dialog" aria-modal="true" aria-labelledby="auth-title"><button class="auth-close" type="button" aria-label="Close login" data-close-auth>×</button><h2 id="auth-title">${registering ? "Create account" : "Log in"}</h2><form data-auth-form><label for="auth-username">Username</label><input id="auth-username" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" minlength="3" maxlength="20" pattern="[A-Za-z0-9_]+" required><label for="auth-password">Password</label><input id="auth-password" name="password" type="password" autocomplete="${registering ? "new-password" : "current-password"}" minlength="15" maxlength="128" required>${registering ? '<label for="auth-password-confirmation">Confirm password</label><input id="auth-password-confirmation" name="passwordConfirmation" type="password" autocomplete="new-password" minlength="15" maxlength="128" required><small class="password-help">Use at least 15 characters.</small>' : ""}${authError ? `<p class="auth-error" role="alert">${escapeHtml(authError)}</p>` : ""}<button class="auth-primary" type="submit" ${authLoading ? "disabled" : ""}>${authLoading ? "please wait…" : registering ? "register" : "log in"}</button></form><button class="auth-mode-link" type="button" data-auth-mode="${registering ? "login" : "register"}">${registering ? "Already have an account? Log in" : "Don't have an account? Register"}</button></section></div>`;
   }
@@ -756,11 +665,11 @@
       else if (alreadyKnowsTm) controls = `<p class="sheet-feedback">${escapeHtml(mon.name)} already knows ${escapeHtml(item.name)}.</p>`;
       return `<section class="pc-item-chooser training-config" aria-labelledby="pc-item-heading"><h3 id="pc-item-heading">Use ${escapeHtml(item.name)}</h3><p>${escapeHtml(item.detail)}</p><form data-train-form data-item-id="${item.id}">${controls}<button class="gloss-button blue pc-item-confirm" type="submit" ${unusable ? "disabled" : ""}>confirm</button></form></section>`;
     }
-    const ownedItems = shopItems.filter((item) => item.group === activePcItemGroup && inventory[item.id]);
+    const ownedItems = shopItems.filter((item) => item.group === activePcItemGroup && inventory[item.id] && item.id !== mon.heldItemId);
     const activeGroupIndex = itemGroupOrder.indexOf(activePcItemGroup);
     const activeTabId = `pc-item-tab-${activePcItemGroup.toLowerCase().replaceAll(" ", "-")}`;
     const heldItem = mon.heldItemId ? shopItems.find((item) => item.id === mon.heldItemId) : null;
-    const heldItemControl = heldItem ? `<div class="pc-held-item"><span><small>Currently holding</small><strong>${escapeHtml(heldItem.name)}</strong></span><button class="item-action remove" type="button" data-pc-unequip>remove</button></div>` : "";
+    const heldItemControl = heldItem ? `<div class="pc-held-item"><span><small>Currently holding</small><strong>${escapeHtml(heldItem.name)}</strong></span><button class="item-action take" type="button" data-pc-unequip>take</button></div>` : "";
     const rows = ownedItems.length ? ownedItems.map((item) => {
       const action = item.group === "Held Items" ? "give" : "use";
       const incompatible = item.group === "TMs" && !mon.learnableMoveIds?.includes(item.moveId);
@@ -1248,7 +1157,7 @@
       applyTheme();
     });
     document.querySelector("[data-open-account]")?.addEventListener("click", () => {
-      resetAvatarEditor();
+      resetAuthDialog();
       authOpen = true;
       authMode = "login";
       authError = "";
@@ -1259,7 +1168,7 @@
     document.querySelectorAll("[data-close-auth]").forEach((element) => element.addEventListener("click", (event) => {
       if (element.classList.contains("auth-backdrop") && event.target !== element) return;
       authOpen = false;
-      resetAvatarEditor();
+      resetAuthDialog();
       pendingRoute = null;
       render();
     }));
@@ -1274,24 +1183,6 @@
       void submitAuth(event.currentTarget);
     });
     document.querySelector("[data-logout]")?.addEventListener("click", () => void logout());
-    document.querySelectorAll("[data-edit-avatar]").forEach((button) => button.addEventListener("click", () => {
-      avatarEditorOpen = true;
-      authError = "";
-      render();
-      requestAnimationFrame(() => document.querySelector("[data-avatar-choose]")?.focus({ preventScroll: true }));
-    }));
-    document.querySelector("[data-avatar-choose]")?.addEventListener("click", () => document.querySelector("[data-avatar-input]")?.click());
-    document.querySelector("[data-avatar-input]")?.addEventListener("change", (event) => {
-      const [file] = event.currentTarget.files;
-      if (file) void prepareAvatar(file);
-    });
-    document.querySelector("[data-avatar-save]")?.addEventListener("click", () => void saveAvatar());
-    document.querySelector("[data-avatar-remove]")?.addEventListener("click", () => void removeAvatar());
-    document.querySelector("[data-avatar-cancel]")?.addEventListener("click", () => {
-      resetAvatarEditor();
-      render();
-      requestAnimationFrame(() => document.querySelector("[data-edit-avatar]")?.focus({ preventScroll: true }));
-    });
     document.querySelectorAll("[data-route]").forEach((button) => button.addEventListener("click", () => {
       const requestedRoute = button.dataset.route;
       if (!currentUser && requestedRoute !== "home") {
@@ -1629,7 +1520,7 @@
     document.onkeydown = (event) => {
       if (event.key === "Escape" && authOpen) {
         authOpen = false;
-        resetAvatarEditor();
+        resetAuthDialog();
         pendingRoute = null;
         render();
         requestAnimationFrame(() => document.querySelector("[data-open-account]")?.focus());

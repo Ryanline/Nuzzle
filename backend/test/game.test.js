@@ -235,3 +235,20 @@ test("stolen battle items persist once and equip only to an empty-handed owner",
   assert.equal(state.inventory.choiceband, undefined);
   assert.equal(state.roster.find((candidate) => candidate.id === pokemon.id).heldItemId, "leftovers");
 });
+
+test("battle settlement permanently removes fainted Pokémon but retains their held items", async () => {
+  const { store } = await fixture();
+  let state = await store.claimEncounter("faint-user", 0);
+  state = await store.claimEncounter("faint-user", 1);
+  const [fainted, survivor] = state.roster;
+  state = await store.buy("faint-user", "leftovers", 1);
+  state = await store.equip("faint-user", fainted.id, "leftovers");
+
+  state = await store.settleBattle("faint-user", "partial-loss", { faintedPokemonIds: [fainted.id] });
+  assert.deepEqual(state.roster.map((pokemon) => pokemon.id), [survivor.id]);
+  assert.equal(state.teamIds.includes(fainted.id), false);
+  assert.equal(state.inventory.leftovers, 1);
+
+  const repeated = await store.settleBattle("faint-user", "partial-loss", { faintedPokemonIds: [survivor.id] });
+  assert.deepEqual(repeated.roster.map((pokemon) => pokemon.id), [survivor.id]);
+});

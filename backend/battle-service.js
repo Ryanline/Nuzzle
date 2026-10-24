@@ -6,6 +6,11 @@ const require = createRequire(import.meta.url);
 const { BattleStream, Dex, Teams, getPlayerStreams, toID } = require("pokemon-showdown");
 
 const FORMAT = "gen9customgame";
+const screenConditions = ["reflect", "lightscreen", "auroraveil"];
+const hazardConditions = ["spikes", "toxicspikes", "stealthrock", "stickyweb"];
+const situationalScreenMoves = new Set(["brickbreak", "psychicfangs", "ragingbull", "defog", "courtchange"]);
+const situationalBoostMoves = new Set(["haze", "clearsmog", "topsyturvy", "spectralthief"]);
+const situationalHazardMoves = new Set(["rapidspin", "mortalspin", "defog", "tidyup", "courtchange"]);
 
 function seed() {
   return Array.from({ length: 4 }, () => crypto.randomInt(0x10000));
@@ -17,6 +22,92 @@ function isFainted(condition = "") {
 
 function choiceError(message, statusCode = 400) {
   throw Object.assign(new Error(message), { statusCode });
+}
+
+function randomEntry(values) {
+  return values[crypto.randomInt(values.length)];
+}
+
+function moveHitCount(move) {
+  if (!move.multihit) return 1;
+  if (typeof move.multihit === "number") return move.multihit;
+  return (move.multihit[0] + move.multihit[1]) / 2;
+}
+
+function abilityBlocksMove(target, move) {
+  const ability = target.getAbility().id;
+  if (move.flags?.sound && ability === "soundproof") return true;
+  if (move.flags?.bullet && ability === "bulletproof") return true;
+  if (move.flags?.wind && ability === "windrider") return true;
+  if (move.type === "Ground" && ["levitate", "eartheater"].includes(ability)) return true;
+  if (move.type === "Fire" && ["flashfire", "wellbakedbody"].includes(ability)) return true;
+  if (move.type === "Water" && ["dryskin", "stormdrain", "waterabsorb"].includes(ability)) return true;
+  if (move.type === "Electric" && ["lightningrod", "motordrive", "voltabsorb"].includes(ability)) return true;
+  if (move.type === "Grass" && ability === "sapsipper") return true;
+  return false;
+}
+
+function estimatedBasePower(source, target, move) {
+  let power = Number(move.basePower) || 0;
+  if (["nightshade", "seismictoss"].includes(move.id)) return source.level;
+  if (move.id === "superfang") return Math.max(1, Math.floor(target.hp / 2));
+  if (["return", "frustration"].includes(move.id)) return 102;
+  if (["electroball", "gyroball", "grassknot", "heavyslam", "heatcrash", "lowkick"].includes(move.id)) power = 80;
+  if (["storedpower", "powertrip"].includes(move.id)) power = 20 + 20 * Object.values(source.boosts).reduce((sum, boost) => sum + Math.max(0, boost), 0);
+  if (["eruption", "waterspout", "dragonenergy"].includes(move.id)) power = Math.max(1, Math.floor(150 * source.hp / source.maxhp));
+  if (["flail", "reversal"].includes(move.id)) power = source.hp * 4 <= source.maxhp ? 100 : 40;
+  if (move.id === "brine" && target.hp * 2 <= target.maxhp) power *= 2;
+  if (move.id === "facade" && source.status) power *= 2;
+  if (move.id === "hex" && target.status) power *= 2;
+  if (move.id === "venoshock" && ["psn", "tox"].includes(target.status)) power *= 2;
+  if (move.id === "wakeupslap" && target.status === "slp") power *= 2;
+  if (move.id === "acrobatics" && !source.item) power *= 2;
+  if (move.id === "knockoff" && target.item) power *= 1.5;
+  if (move.id === "weatherball" && source.effectiveWeather()) power *= 2;
+  return power;
+}
+
+function estimatedDamage(battle, source, target, move) {
+  if (!source || !target || move.category === "Status") return null;
+  const ignoresImmunity = move.ignoreImmunity === true || move.ignoreImmunity?.[move.type];
+  if ((!ignoresImmunity && !battle.dex.getImmunity(move.type, target)) || abilityBlocksMove(target, move)) return { min: 0, max: 0, average: 0 };
+  if (move.ohko) {
+    const accuracy = Math.max(0, Number(move.accuracy) || 0) / 100;
+    return { min: 0, max: target.hp, average: target.hp * accuracy };
+  }
+  if (move.damage === "level" || ["nightshade", "seismictoss"].includes(move.id)) return { min: source.level, max: source.level, average: source.level };
+  if (Number.isFinite(move.damage)) return { min: move.damage, max: move.damage, average: move.damage };
+  let power = estimatedBasePower(source, target, move);
+  if (!power) return { min: 0, max: 0, average: 0 };
+  power *= moveHitCount(move);
+  const offensiveStat = move.id === "bodypress" ? "def" : move.category === "Physical" ? "atk" : "spa";
+  const defensiveStat = ["psyshock", "psystrike", "secretsword"].includes(move.id) ? "def" : move.category === "Physical" ? "def" : "spd";
+  const attackSource = move.id === "foulplay" ? target : source;
+  const attack = Math.max(1, attackSource.getStat(offensiveStat));
+  const defense = Math.max(1, target.getStat(defensiveStat));
+  let maximum = Math.floor(Math.floor(Math.floor((2 * source.level) / 5 + 2) * power * attack / defense) / 50) + 2;
+  if (source.hasType(move.type)) maximum = Math.floor(maximum * 1.5);
+  const effectiveness = target.runEffectiveness(move);
+  if (target.hasAbility("wonderguard") && effectiveness <= 0) return { min: 0, max: 0, average: 0 };
+  if (effectiveness > 0) maximum *= 2 ** effectiveness;
+  else if (effectiveness < 0) maximum = Math.floor(maximum / (2 ** -effectiveness));
+  maximum = Math.max(1, maximum);
+  if ((move.category === "Physical" && target.side.sideConditions.reflect) || (move.category === "Special" && target.side.sideConditions.lightscreen) || target.side.sideConditions.auroraveil) maximum = Math.max(1, Math.floor(maximum / 2));
+  const weather = battle.field.weather;
+  if (["raindance", "primordialsea"].includes(weather)) maximum = Math.floor(maximum * (move.type === "Water" ? 1.5 : move.type === "Fire" ? 0.5 : 1));
+  if (["sunnyday", "desolateland"].includes(weather)) maximum = Math.floor(maximum * (move.type === "Fire" ? 1.5 : move.type === "Water" ? 0.5 : 1));
+  if (source.status === "brn" && move.category === "Physical" && !source.hasAbility("guts") && move.id !== "facade") maximum = Math.max(1, Math.floor(maximum / 2));
+  const minimum = Math.max(1, Math.floor(maximum * 0.85));
+  const accuracy = move.accuracy === true ? 1 : Math.max(0, Number(move.accuracy) || 0) / 100;
+  return { min: minimum, max: maximum, average: ((minimum + maximum) / 2) * accuracy };
+}
+
+function moveLikelyUsable(battle, source, target, move) {
+  if (["fakeout", "firstimpression", "matblock"].includes(move.id) && source.activeMoveActions > 0) return false;
+  if (["dreameater", "nightmare"].includes(move.id) && target.status !== "slp") return false;
+  if (move.id === "poltergeist" && !target.item) return false;
+  if (move.id === "steelroller" && !battle.field.terrain) return false;
+  return true;
 }
 
 function splitProtocol(line) {
@@ -266,9 +357,18 @@ export class BattleController {
       this.lastMove = {
         turn: this.logTurn,
         attacker: this.profileFor(subject),
+        moveId: toID(detail),
         target: annotations[0] ? this.profileFor(annotations[0]) : null,
         targetReference: annotations[0] || "",
       };
+      return;
+    }
+    if (type === "-fail" && this.lastMove?.attacker?.side === "opponent" && this.lastMove.moveId === "suckerpunch") {
+      const active = this.stream.battle?.p2?.active?.[0];
+      const pokemonKey = String(this.stream.battle?.p2?.pokemon?.indexOf(active));
+      this.record.aiState ||= { statusUsed: [], suckerPunchFailed: [] };
+      this.record.aiState.suckerPunchFailed ||= [];
+      if (!this.record.aiState.suckerPunchFailed.includes(pokemonKey)) this.record.aiState.suckerPunchFailed.push(pokemonKey);
       return;
     }
     if (type === "-damage" && isFainted(detail)) {
@@ -316,15 +416,108 @@ export class BattleController {
 
   chooseBrockAction(request) {
     if (request.forceSwitch) {
-      const slot = request.side.pokemon.findIndex((pokemon) => !pokemon.active && !isFainted(pokemon.condition));
-      if (slot < 0) return "pass";
-      return `switch ${slot + 1}`;
+      const slots = request.side.pokemon
+        .map((pokemon, index) => ({ pokemon, slot: index + 1 }))
+        .filter(({ pokemon }) => !pokemon.active && !isFainted(pokemon.condition));
+      return slots.length ? `switch ${randomEntry(slots).slot}` : "pass";
     }
     const legalMoves = request.active?.[0]?.moves
-      .map((move, index) => ({ move, slot: index + 1 }))
-      .filter(({ move }) => !move.disabled) || [];
+      .map((choice, index) => ({ choice, move: Dex.moves.get(choice.id), slot: index + 1 }))
+      .filter(({ choice, move }) => !choice.disabled && move.exists) || [];
     if (!legalMoves.length) return "move 1";
-    return `move ${legalMoves[crypto.randomInt(legalMoves.length)].slot}`;
+    const battle = this.stream.battle;
+    const source = battle?.p2?.active?.[0];
+    const target = battle?.p1?.active?.[0];
+    if (!source || !target) return `move ${randomEntry(legalMoves).slot}`;
+    this.record.aiState ||= { statusUsed: [], suckerPunchFailed: [] };
+    this.record.aiState.statusUsed ||= [];
+    this.record.aiState.suckerPunchFailed ||= [];
+    const pokemonKey = String(battle.p2.pokemon.indexOf(source));
+    const evaluated = legalMoves.map((candidate) => ({
+      ...candidate,
+      damage: estimatedDamage(battle, source, target, candidate.move),
+    }));
+    const functional = evaluated.filter(({ move, damage }) => moveLikelyUsable(battle, source, target, move) && (
+      !this.record.aiState.suckerPunchFailed.includes(pokemonKey) || move.id !== "suckerpunch"
+    ) && (move.category === "Status" ? this.statusMoveUseful(move, source, target) : damage?.max > 0));
+    const pool = functional.length ? functional : evaluated;
+
+    if (this.playerThreatensFasterKo(battle, source, target)) {
+      const priority = pool.filter(({ move, damage }) => move.category !== "Status" && move.priority > 0 && damage?.max > 0);
+      if (priority.length) return `move ${randomEntry(priority).slot}`;
+    }
+    const guaranteedKo = pool.filter(({ move, damage }) => damage?.min >= target.hp && (move.accuracy === true || move.accuracy >= 100));
+    if (guaranteedKo.length) return `move ${this.bestDamagingMoves(guaranteedKo).slot}`;
+    const situational = pool.filter(({ move }) => this.situationalMoveUseful(move, source, target));
+    if (situational.length) return this.aiMoveChoice(randomEntry(situational), pokemonKey);
+    const statusMoves = pool.filter(({ move }) => move.category === "Status");
+    if (!this.record.aiState.statusUsed.includes(pokemonKey) && statusMoves.length) {
+      return this.aiMoveChoice(randomEntry(statusMoves), pokemonKey);
+    }
+    const possibleKo = pool.filter(({ damage }) => damage?.max >= target.hp);
+    if (possibleKo.length) return `move ${this.bestDamagingMoves(possibleKo).slot}`;
+    const damaging = pool.filter(({ damage }) => damage?.max > 0);
+    if (damaging.length) return `move ${this.bestDamagingMoves(damaging).slot}`;
+    if (statusMoves.length) return this.aiMoveChoice(randomEntry(statusMoves), pokemonKey);
+    return `move ${randomEntry(pool).slot}`;
+  }
+
+  aiMoveChoice(candidate, pokemonKey) {
+    if (candidate.move.category === "Status" && !this.record.aiState.statusUsed.includes(pokemonKey)) this.record.aiState.statusUsed.push(pokemonKey);
+    return `move ${candidate.slot}`;
+  }
+
+  bestDamagingMoves(candidates) {
+    const highest = Math.max(...candidates.map(({ damage }) => damage?.average || 0));
+    const close = candidates.filter(({ damage }) => (damage?.average || 0) >= highest * 0.9);
+    return randomEntry(close);
+  }
+
+  playerThreatensFasterKo(battle, source, target) {
+    if (target.getStat("spe") <= source.getStat("spe")) return false;
+    return target.moveSlots.some((slot) => {
+      if (slot.pp <= 0 || slot.disabled) return false;
+      const move = Dex.moves.get(slot.id);
+      const damage = estimatedDamage(battle, target, source, move);
+      return damage?.max >= source.hp;
+    });
+  }
+
+  situationalMoveUseful(move, source, target) {
+    const targetScreens = screenConditions.some((condition) => target.side.sideConditions[condition]);
+    const positiveTargetBoost = Object.values(target.boosts).some((boost) => boost > 0);
+    const ownHazards = hazardConditions.some((condition) => source.side.sideConditions[condition]);
+    if (situationalScreenMoves.has(move.id) && targetScreens) return true;
+    if (situationalBoostMoves.has(move.id) && positiveTargetBoost) return true;
+    if (situationalHazardMoves.has(move.id) && ownHazards) return true;
+    if (["knockoff", "poltergeist"].includes(move.id) && target.item) return true;
+    if (["refresh", "junglehealing", "aromatherapy", "healbell"].includes(move.id) && (source.status || source.side.pokemon.some((pokemon) => pokemon.status))) return true;
+    return false;
+  }
+
+  statusMoveUseful(move, source, target) {
+    if (move.status && target.status) return false;
+    if (move.status === "par" && (!this.stream.battle.dex.getImmunity("Electric", target) || target.hasType("Electric"))) return false;
+    if (move.status === "psn" && (target.hasType("Poison") || target.hasType("Steel"))) return false;
+    if (move.status === "tox" && (target.hasType("Poison") || target.hasType("Steel"))) return false;
+    if (move.weather && this.stream.battle.field.weather === toID(move.weather)) return false;
+    if (move.terrain && this.stream.battle.field.terrain === toID(move.terrain)) return false;
+    if (move.heal && source.hp >= source.maxhp) return false;
+    const affectedSide = ["allySide", "allyTeam", "self"].includes(move.target) ? source.side : target.side;
+    if (move.sideCondition && affectedSide.sideConditions[toID(move.sideCondition)]) return false;
+    if (move.self?.sideCondition && source.side.sideConditions[toID(move.self.sideCondition)]) return false;
+    if (move.volatileStatus && target.volatiles[toID(move.volatileStatus)]) return false;
+    if (move.self?.volatileStatus && source.volatiles[toID(move.self.volatileStatus)]) return false;
+    if (["fakeout", "firstimpression", "matblock"].includes(move.id) && source.activeMoveActions > 0) return false;
+    const boosts = move.boosts || move.self?.boosts;
+    if (boosts) {
+      const recipient = move.self?.boosts ? source : target;
+      const useful = Object.entries(boosts).some(([stat, amount]) => amount > 0 ? recipient.boosts[stat] < 6 : recipient.boosts[stat] > -6);
+      if (!useful) return false;
+    }
+    if (["haze", "topsyturvy"].includes(move.id) && !Object.values(target.boosts).some((boost) => boost > 0)) return false;
+    if (move.id === "courtchange" && ![source.side, target.side].some((side) => [...screenConditions, ...hazardConditions].some((condition) => side.sideConditions[condition]))) return false;
+    return true;
   }
 
   signalState() {
@@ -404,9 +597,13 @@ export class BattleController {
     }
     if (!this.settlement) this.settlement = (async () => {
       const finalState = this.state();
+      const faintedPokemonIds = this.stream.battle.p1.pokemon
+        .map((pokemon, index) => pokemon.fainted ? this.record.partyIds[index] : null)
+        .filter(Boolean);
       this.record.result = {
         winner: finalState.winner,
         playerWiped: Boolean(this.record.forfeited) || (finalState.player.team.length > 0 && finalState.player.team.every((pokemon) => pokemon.fainted)),
+        faintedPokemonIds,
       };
       await this.settle(this.record);
       this.record.itemsSettled = true;

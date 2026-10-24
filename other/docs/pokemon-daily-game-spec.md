@@ -328,7 +328,7 @@ Information should be accessible without overcrowding the home screen. Because o
 
 ### AI
 
-The current trainer AI never switches voluntarily and uniformly selects one of its currently legal moves. Disabled or exhausted moves are excluded. After a faint, it sends the next living Pokémon in fixed team order. The AI selects and commits its action before the player submits an action, so it cannot react to hidden player intent.
+The trainer AI never switches voluntarily. It prioritizes defensive priority against a faster KO threat, guaranteed KOs, situational utility, one elevated status use per active Pokémon, possible KOs, and then the strongest ordinary damage. Damaging moves within 10% of the best estimate are selected randomly. Later useful status moves rank below damage, while ineffective choices rank last. Critical hits are excluded from AI damage forecasts. Pivot and forced replacements are random. The AI selects and commits its action before the player submits an action, so it cannot react to hidden player intent.
 
 Trainers cannot use bag items in battle. The initial Brock team also has no held items.
 
@@ -644,7 +644,7 @@ Resolve these incrementally. Do not interpret open questions as permission to ex
 - Gameplay sections require an account; the public landing screen acts as the login boundary.
 - The header hamburger is replaced by a per-device light/dark control and an account control whose signed-in state is visible at a glance.
 - Local development uses username/password registration with persistent server sessions. Authentication cookies are HttpOnly and battle records are owned by their creating user.
-- Profiles default to a circular first-letter avatar. A user may upload, replace, or remove a profile picture from the account panel; local development stores the normalized image alongside other ignored backend data.
+- Profiles currently use a circular first-letter avatar. Custom profile-picture uploads are excluded from the beta.
 - Email, account recovery, and third-party login are deferred until production infrastructure is selected.
 
 ### October 15, 2026 — Initial consolidated specification

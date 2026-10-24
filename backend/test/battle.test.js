@@ -180,7 +180,40 @@ test("forfeit produces a Brock win", async () => {
   assert.equal(result.ended, true);
   assert.equal(result.winner, "Brock");
   assert.equal(result.forfeited, true);
-  assert.deepEqual(service.get(initial.id).record.result, { winner: "Brock", playerWiped: true });
+  assert.deepEqual(service.get(initial.id).record.result, { winner: "Brock", playerWiped: true, faintedPokemonIds: [] });
+});
+
+test("trainer AI prefers a guaranteed KO over a status move", async () => {
+  const { service } = await serviceFixture();
+  const state = await service.create({
+    partyIds: ["magikarp"],
+    leadId: "magikarp",
+    playerTeam: [{ name: "Magikarp", species: "Magikarp", level: 1, moves: ["Splash"] }],
+    opponentTeam: [{ name: "Mewtwo", species: "Mewtwo", level: 100, moves: ["Calm Mind", "Psychic"] }],
+  });
+  assert.equal(service.get(state.id).record.choices.p2[0], "move 2");
+});
+
+test("trainer AI uses its first useful status move before ordinary damage", async () => {
+  const { service } = await serviceFixture();
+  const state = await service.create({
+    partyIds: ["blissey"],
+    leadId: "blissey",
+    playerTeam: [{ name: "Blissey", species: "Blissey", level: 100, moves: ["Splash"] }],
+    opponentTeam: [{ name: "Shuckle", species: "Shuckle", level: 100, moves: ["Toxic", "Tackle"] }],
+  });
+  assert.equal(service.get(state.id).record.choices.p2[0], "move 1");
+});
+
+test("trainer AI prefers materially higher ordinary damage", async () => {
+  const { service } = await serviceFixture();
+  const state = await service.create({
+    partyIds: ["blissey"],
+    leadId: "blissey",
+    playerTeam: [{ name: "Blissey", species: "Blissey", level: 100, moves: ["Splash"] }],
+    opponentTeam: [{ name: "Snorlax", species: "Snorlax", level: 100, moves: ["Tackle", "Body Slam"] }],
+  });
+  assert.equal(service.get(state.id).record.choices.p2[0], "move 2");
 });
 
 test("daily leaderboard ranks winners by survivors and then completion time", async () => {
@@ -257,6 +290,7 @@ test("a six-on-six battle can be played through to a real result", async () => {
   assert.ok(state.knockouts.some((knockout) => knockout.credited), "No knockout was attributed to the Pokémon that caused it.");
   assert.ok(state.knockouts.every((knockout) => ["player", "opponent"].includes(knockout.defeated.side)));
   assert.ok(battle.record.choices.p2.every((choice) => choice.startsWith("move ") || choice.startsWith("switch ")));
+  assert.equal(battle.record.result.faintedPokemonIds.length, state.player.team.filter((pokemon) => pokemon.fainted).length);
 
   const restoredService = new BattleService(new BattleStore(directory));
   await restoredService.initialize();

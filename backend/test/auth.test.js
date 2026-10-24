@@ -62,16 +62,6 @@ test("logout invalidates only the supplied session", async () => {
   assert.equal(auth.userForToken(second.token)?.username, "MistyFan");
 });
 
-test("an account can add and remove its avatar marker", async () => {
-  const { auth } = await authFixture();
-  const registration = await auth.register("AvatarFan", "this is a long password");
-  const withAvatar = await auth.setAvatar(registration.user.id, "version-one");
-  assert.equal(withAvatar.avatarVersion, "version-one");
-  assert.equal(auth.userForToken(registration.token)?.avatarVersion, "version-one");
-  const withoutAvatar = await auth.setAvatar(registration.user.id, null);
-  assert.equal(withoutAvatar.avatarVersion, null);
-});
-
 test("registration enforces simple usernames and long passwords", async () => {
   const { auth } = await authFixture();
   await assert.rejects(auth.register("no spaces", "this is a long password"), /Username/);

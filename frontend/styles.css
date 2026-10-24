@@ -70,21 +70,12 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .auth-mode-link { display: block; margin: 9px auto 0; padding: 4px; border: 0; background: transparent; color: #245e86; cursor: pointer; font-size: 13px; text-decoration: underline; }
 .account-card { text-align: left; }
 .account-profile { display: flex; align-items: center; flex-direction: column; gap: 6px; text-align: center; }
-.account-avatar-button { position: relative; flex: 0 0 auto; padding: 0; border: 0; border-radius: 50%; background: transparent; cursor: pointer; }
 .account-avatar { display: grid; width: 66px; height: 66px; overflow: hidden; place-items: center; border: 1px solid #626b71; border-radius: 50%; background: #65727a; color: #fff; box-shadow: inset 0 1px rgba(255,255,255,.28), 0 1px 2px rgba(0,0,0,.2); font-size: 29px; font-weight: 700; }
-.account-avatar img, .avatar-editor-preview img { width: 100%; height: 100%; object-fit: cover; }
-.avatar-edit-badge { position: absolute; right: -3px; bottom: -1px; display: grid; width: 21px; height: 21px; place-items: center; border: 1px solid #737b80; border-radius: 50%; background: #e2e5e7; color: #303438; }
-.avatar-edit-badge svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .account-name { display: block; max-width: 100%; overflow: hidden; font-size: 20px; text-overflow: ellipsis; white-space: nowrap; }
 .profile-link { padding: 2px 0; border: 0; background: transparent; color: #245e86; cursor: pointer; font-size: 13px; text-decoration: underline; }
 .account-card .auth-kicker, .account-card h2 { margin-right: 36px; }
 .account-card h2 { overflow-wrap: anywhere; }
 .logout-button { display: block; margin: 14px auto 0; border-color: #a48c8d; background: linear-gradient(#fff, #d5d9dc); color: #7c3033; }
-.avatar-editor { text-align: center; }
-.avatar-editor h2 { text-align: left; }
-.avatar-editor-preview { display: grid; width: 112px; height: 112px; margin: 5px auto 13px; overflow: hidden; place-items: center; border: 1px solid #52636f; border-radius: 50%; background: #506776; color: #fff; font-size: 46px; font-weight: 700; }
-.avatar-file-input { display: none; }
-.avatar-actions { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 7px; }
 .profile-button { min-height: 35px; padding: 4px 11px; border: 1px solid #8b9297; border-radius: 4px; background: linear-gradient(#fff, #d5d9dc); color: #222; box-shadow: inset 0 1px rgba(255,255,255,.8), 0 1px 2px rgba(0,0,0,.16); cursor: pointer; font-size: 13px; font-weight: 700; }
 .profile-button.primary { border-color: #6689a2; background: linear-gradient(#f8fcff, #c9dce9); color: #174c70; }
 .profile-button.remove { color: #852f32; }
@@ -413,7 +404,7 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .pc-held-item span { display: grid; gap: 1px; }
 .pc-held-item small { color: var(--muted); font-size: 11px; }
 .pc-held-item strong { font-size: 14px; font-weight: 600; }
-.pc-held-item .remove { border-color: #9a5555; color: #8a3333; }
+.pc-held-item .take { border-color: #9a5555; color: #8a3333; }
 .pc-item-segments { flex: 0 0 auto; }
 .pc-item-list { min-height: 0; flex: 1; overflow-y: auto; overscroll-behavior: contain; }
 .pc-item-row { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto auto; min-height: 54px; align-items: center; gap: 6px; border-bottom: 1px solid #d4d8dd; font-size: 13px; }
@@ -786,7 +777,6 @@ html[data-theme="dark"] .auth-card input { border-color: #697177; background: #1
 html[data-theme="dark"] .auth-primary { border-color: #676e73; background: linear-gradient(#454a4e, #303438); color: #f1f3f4; box-shadow: inset 0 1px rgba(255,255,255,.12), 0 1px 2px rgba(0,0,0,.5); }
 html[data-theme="dark"] .auth-primary:hover { background: linear-gradient(#51575c, #393e42); }
 html[data-theme="dark"] .logout-button { border-color: #7f5557; color: #ffc5c7; }
-html[data-theme="dark"] .avatar-edit-badge { border-color: #737b80; background: #d8dcdf; color: #202326; }
 html[data-theme="dark"] .profile-button { border-color: #676e73; background: linear-gradient(#454a4e, #303438); color: #f1f3f4; box-shadow: inset 0 1px rgba(255,255,255,.12), 0 1px 2px rgba(0,0,0,.5); }
 html[data-theme="dark"] .profile-button.primary { border-color: #6689a2; background: linear-gradient(#42596a, #2f4657); color: #d8efff; }
 html[data-theme="dark"] .profile-button.remove { color: #ffc5c7; }

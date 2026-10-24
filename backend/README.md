@@ -21,15 +21,14 @@ This JSON-backed account store is suitable for local development and can be
 replaced by a hosted database before deployment; it is not the final production
 account system and currently has no email recovery flow.
 
-Users may optionally upload a profile picture. The browser center-crops and
-resizes it to a 256-pixel WebP before upload; local avatar files live in
-`backend/data/avatars/`. Uploaded images are private to the signed-in account
-endpoint and should move to managed object storage for production deployment.
+Profiles use a circular avatar containing the first letter of the username.
 
 The current battle slice uses Generation 9 Custom Game mechanics. Generated
 player Pokémon are level 100 with random IVs, zero EVs, a random nature, and a
 random ordinary ability. Brock retains the temporary fixed 15-IV/85-EV spread,
-has no held items, never switches voluntarily, and chooses a random legal move.
+has no held items and never switches voluntarily. Its move selection prioritizes
+immediate threats, knockouts, useful situational and status moves, and then the
+strongest available damage.
 
 Battle creation and commands require a login, and saved battles are scoped to
 the account that created them. The server also owns daily encounter generation,

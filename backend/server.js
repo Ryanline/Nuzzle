@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { mkdir, readFile, rename, stat, unlink, writeFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { BattleService } from "./battle-service.js";
@@ -25,10 +25,12 @@ const service = new BattleService(new BattleStore(path.join(dataDirectory, "batt
       await game.resetAfterWipe(record.userId, record.id);
       return;
     }
-    await game.applyBattleItemAcquisitions(record.userId, record.id, record.itemAcquisitions);
+    await game.settleBattle(record.userId, record.id, {
+      acquisitions: record.itemAcquisitions,
+      faintedPokemonIds: record.result?.faintedPokemonIds,
+    });
   },
 });
-const avatarDirectory = path.join(dataDirectory, "avatars");
 await auth.initialize();
 await game.initialize();
 await trainers.initialize();
@@ -120,14 +122,6 @@ async function requestBody(request) {
   }
 }
 
-function avatarFilename(userId) {
-  return path.join(avatarDirectory, `${userId}.webp`);
-}
-
-function isWebp(bytes) {
-  return bytes.length >= 12 && bytes.subarray(0, 4).toString("ascii") === "RIFF" && bytes.subarray(8, 12).toString("ascii") === "WEBP";
-}
-
 async function api(request, response, pathname) {
   if (request.method === "GET" && pathname === "/api/health") {
     json(response, 200, { ok: true, engine: "pokemon-showdown", format: "gen9customgame" });
@@ -155,45 +149,6 @@ async function api(request, response, pathname) {
     await auth.logout(sessionToken(request));
     json(response, 200, { ok: true }, { "Set-Cookie": sessionHeader("", 0) });
     return true;
-  }
-  if (pathname === "/api/auth/avatar") {
-    const user = requireUser(request);
-    const filename = avatarFilename(user.id);
-    if (request.method === "GET") {
-      if (!user.avatarVersion) throw Object.assign(new Error("Profile picture not found."), { statusCode: 404 });
-      const avatar = await readFile(filename).catch((error) => {
-        if (error.code === "ENOENT") throw Object.assign(new Error("Profile picture not found."), { statusCode: 404 });
-        throw error;
-      });
-      response.writeHead(200, {
-        "Content-Type": "image/webp",
-        "Cache-Control": "private, no-cache",
-        "X-Content-Type-Options": "nosniff",
-      });
-      response.end(avatar);
-      return true;
-    }
-    if (request.method === "PUT") {
-      if (!String(request.headers["content-type"] || "").toLowerCase().startsWith("image/webp")) {
-        throw Object.assign(new Error("Profile pictures must be WebP images."), { statusCode: 415 });
-      }
-      const avatar = await requestBytes(request, 512 * 1024);
-      if (!isWebp(avatar)) throw Object.assign(new Error("The uploaded profile picture is invalid."), { statusCode: 400 });
-      await mkdir(avatarDirectory, { recursive: true });
-      const temporary = `${filename}.${process.pid}.tmp`;
-      await writeFile(temporary, avatar, { mode: 0o600 });
-      await rename(temporary, filename);
-      json(response, 200, { user: await auth.setAvatar(user.id, String(Date.now())) });
-      return true;
-    }
-    if (request.method === "DELETE") {
-      await unlink(filename).catch((error) => {
-        if (error.code !== "ENOENT") throw error;
-      });
-      json(response, 200, { user: await auth.setAvatar(user.id, null) });
-      return true;
-    }
-    throw Object.assign(new Error("Method not allowed."), { statusCode: 405 });
   }
   if (request.method === "GET" && pathname === "/api/roster") {
     json(response, 200, { roster: publicContent().pokemon });
