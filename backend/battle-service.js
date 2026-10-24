@@ -403,6 +403,11 @@ export class BattleController {
       await new Promise((resolve) => setImmediate(resolve));
     }
     if (!this.settlement) this.settlement = (async () => {
+      const finalState = this.state();
+      this.record.result = {
+        winner: finalState.winner,
+        playerWiped: finalState.player.team.length > 0 && finalState.player.team.every((pokemon) => pokemon.fainted),
+      };
       await this.settle(this.record);
       this.record.itemsSettled = true;
       await this.persist(this.record);

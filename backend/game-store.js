@@ -320,6 +320,17 @@ export class GameStore {
     });
   }
 
+  async resetAfterWipe(userId, battleId) {
+    return this.mutate(userId, (run) => {
+      if (run.resetFromBattleId === battleId) return this.publicState(run);
+      const replacement = newRun(userId, run.month);
+      replacement.resetFromBattleId = battleId;
+      ensureDaily(replacement, run.daily.date);
+      this.data.runs[userId] = replacement;
+      return this.publicState(replacement);
+    });
+  }
+
   async useTrainingItem(userId, pokemonId, itemId, options = {}) {
     return this.mutate(userId, (run) => {
       let pokemon = run.roster.find((candidate) => candidate.id === pokemonId);

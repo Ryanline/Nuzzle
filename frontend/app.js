@@ -468,6 +468,7 @@
         method: "POST",
         body: JSON.stringify({ rqid: battleState.rqid, action }),
       }));
+      if (battleState.ended) await loadGame();
     } catch (error) {
       battleError = error.message;
     } finally {
@@ -483,6 +484,7 @@
     render();
     try {
       acceptBattleState(await apiRequest(`/api/battles/${battleState.id}/forfeit`, { method: "POST" }));
+      if (battleState.ended) await loadGame();
     } catch (error) {
       battleError = error.message;
     } finally {

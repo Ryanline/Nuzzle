@@ -19,9 +19,14 @@ const auth = new AuthStore(path.join(dataDirectory, "auth.json"));
 const game = new GameStore(path.join(dataDirectory, "game.json"));
 const trainers = new TrainerStore(path.join(dataDirectory, "trainers.json"));
 const service = new BattleService(new BattleStore(path.join(dataDirectory, "battles")), {
-  settle: (record) => record.userId
-    ? game.applyBattleItemAcquisitions(record.userId, record.id, record.itemAcquisitions)
-    : Promise.resolve(),
+  settle: async (record) => {
+    if (!record.userId) return;
+    if (record.result?.playerWiped) {
+      await game.resetAfterWipe(record.userId, record.id);
+      return;
+    }
+    await game.applyBattleItemAcquisitions(record.userId, record.id, record.itemAcquisitions);
+  },
 });
 const avatarDirectory = path.join(dataDirectory, "avatars");
 await auth.initialize();

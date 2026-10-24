@@ -180,6 +180,7 @@ test("forfeit produces a Brock win", async () => {
   assert.equal(result.ended, true);
   assert.equal(result.winner, "Brock");
   assert.equal(result.forfeited, true);
+  assert.deepEqual(service.get(initial.id).record.result, { winner: "Brock", playerWiped: false });
 });
 
 test("daily leaderboard ranks winners by survivors and then completion time", async () => {
