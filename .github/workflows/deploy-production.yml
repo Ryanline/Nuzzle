@@ -66,3 +66,13 @@ jobs:
           "
       - name: Verify public health
         run: curl --fail --show-error --silent --retry 5 --retry-delay 2 https://nuzzle-game.duckdns.org/api/health
+      - name: Retain recent releases
+        run: |
+          ssh -i ~/.ssh/nuzzle_deploy -o IdentitiesOnly=yes nuzzle-ci@45.55.85.139 '
+            set -eu
+            find /opt/nuzzle/releases -mindepth 1 -maxdepth 1 -type d -printf "%T@ %p\n" \
+              | sort -nr \
+              | tail -n +4 \
+              | cut -d" " -f2- \
+              | xargs -r rm -rf --
+          '
