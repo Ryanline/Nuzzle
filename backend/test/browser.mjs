@@ -377,7 +377,7 @@ await page.click('.settings-stage [data-route="home"]');
 const freshBattleButton = page.locator('.home-actions .red[data-route="encounters"]');
 if ((await freshBattleButton.textContent())?.trim() !== "battle") throw new Error("A forfeit did not route the fresh run through opening encounters.");
 await freshBattleButton.click();
-if (await page.locator("[data-encounter-slot]").count() !== 12) throw new Error("A forfeit did not create twelve fresh-run encounters.");
+if (await page.locator("[data-encounter]").count() !== 12) throw new Error("A forfeit did not create twelve fresh-run encounters.");
 
 const imageFailures = await page.locator("img").evaluateAll((images) => images.filter((image) => !image.complete || image.naturalWidth === 0).map((image) => image.src));
 await browser.close();
