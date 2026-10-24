@@ -33,10 +33,11 @@ test("the Nuzzle day rolls over at 11:00 AM America/New_York", () => {
 });
 
 test("Showdown team imports are normalized and invalid sets are rejected", () => {
-  const parsed = validateTeam(mistyTeam);
+  const parsed = validateTeam(mistyTeam.replace("Level: 100", "Shiny: Yes\nLevel: 100"));
   assert.equal(parsed.team.length, 1);
   assert.equal(parsed.team[0].species, "Starmie");
   assert.equal(parsed.team[0].level, 100);
+  assert.equal(parsed.team[0].shiny, true);
   assert.throws(() => validateTeam("DefinitelyNotAPokemon\n- Surf"), /Unknown Pokémon/);
 });
 
@@ -71,7 +72,7 @@ test("queued trainers can be reordered and publish one immutable snapshot per da
   assert.equal(first.trainer.name, "Brock");
 
   await store.add({ name: "Misty", spriteId: "misty", teamText: mistyTeam });
-  await store.add({ name: "Erika", spriteId: "erika", teamText: erikaTeam });
+  await store.add({ name: "Erika", spriteId: "erika", teamText: erikaTeam.replace("Ability: Chlorophyll", "Ability: Chlorophyll\nShiny: Yes") });
   let admin = await store.adminState();
   assert.deepEqual(admin.queue.map((trainer) => trainer.name), ["Misty", "Erika"]);
   assert.deepEqual(admin.queue.map((trainer) => trainer.scheduledDate), ["2026-10-24", "2026-10-25"]);
@@ -83,7 +84,9 @@ test("queued trainers can be reordered and publish one immutable snapshot per da
   now = new Date("2026-10-24T15:01:00Z");
   const second = await store.current();
   assert.equal(second.trainer.name, "Erika");
+  assert.equal(second.trainer.pokemon[0].shiny, true);
   assert.equal(second.opponentTeam[0].species, "Vileplume");
+  assert.equal(second.opponentTeam[0].shiny, true);
 
   await store.add({ name: "Changed Erika", spriteId: "erika", teamText: mistyTeam });
   assert.equal((await store.current()).trainer.name, "Erika", "today's published trainer must remain immutable");

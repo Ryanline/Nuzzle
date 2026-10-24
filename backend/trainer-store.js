@@ -29,6 +29,7 @@ function pokemonSummary(set) {
     id: species.id || toID(set.species || set.name),
     name: species.name || set.species || set.name,
     spriteId: species.spriteid || species.id || toID(set.species || set.name),
+    shiny: Boolean(set.shiny),
   };
 }
 

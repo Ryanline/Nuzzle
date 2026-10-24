@@ -95,22 +95,23 @@ await page.click('[data-route="config"]');
 await page.waitForSelector(".config-current");
 await page.click("[data-open-trainer-form]");
 if (await page.locator('.trainer-form input[name="name"]').inputValue() !== "Persistent draft") throw new Error("The trainer draft did not persist across a page reload.");
-const addQueuedTrainer = async (name, spriteId, species) => {
+const addQueuedTrainer = async (name, spriteId, species, shiny = false) => {
   await page.click("[data-open-trainer-form]");
   await page.fill('.trainer-form input[name="name"]', name);
   await page.fill('.trainer-form input[name="spriteId"]', spriteId);
-  await page.fill('.trainer-form textarea[name="teamText"]', `${species}\nAbility: Pressure\nLevel: 100\n- Protect`);
+  await page.fill('.trainer-form textarea[name="teamText"]', `${species}\nAbility: Pressure\n${shiny ? "Shiny: Yes\n" : ""}Level: 100\n- Protect`);
   const response = page.waitForResponse((candidate) => candidate.url().endsWith("/api/admin/trainers") && candidate.request().method() === "POST");
   await page.click('.trainer-form button[type="submit"]');
   if (!(await response).ok()) throw new Error(`Adding ${name} to the daily trainer queue failed.`);
 };
 await addQueuedTrainer("Blue", "blue", "Mewtwo");
-await addQueuedTrainer("Red", "red", "Mew");
+await addQueuedTrainer("Red", "red", "Mew", true);
 if (await page.locator("[data-trainer-row]").count() !== 2) throw new Error("The admin queue did not render both added trainers.");
 const reorderResponse = page.waitForResponse((candidate) => candidate.url().endsWith("/api/admin/trainers/order") && candidate.request().method() === "PUT");
 await page.locator('[data-move-trainer][data-direction="up"]').nth(1).click();
 if (!(await reorderResponse).ok()) throw new Error("Reordering the daily trainer queue failed.");
 if (!(await page.locator("[data-trainer-row]").first().textContent())?.includes("Red")) throw new Error("The daily trainer queue did not retain its reordered position.");
+if (!(await page.locator("[data-trainer-row]").first().locator("img").getAttribute("src"))?.includes("/gen5-shiny/mew.png")) throw new Error("A queued shiny trainer Pokémon did not use its shiny sprite.");
 await page.click('.config-back[data-route="settings"]');
 await page.click(".page-back");
 const emptyRunBattleButton = page.locator('button[data-route="encounters"]', { hasText: /^battle$/i });

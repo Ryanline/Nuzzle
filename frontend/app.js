@@ -3,11 +3,13 @@
 
   const localSpriteIds = new Set(["aerodactyl", "alakazam", "arcanine", "exeggutor", "flareon", "gengar", "golem", "lapras", "machamp", "magcargo", "nidoking", "onix", "pidgeot", "raichu", "rhydon", "rhyperior", "steelix", "sudowoodo", "vaporeon", "venusaur"]);
   const backSpriteIds = new Set(["flareon", "raichu", "vaporeon", "gengar", "venusaur", "pidgeot", "arcanine", "lapras", "alakazam", "machamp", "nidoking", "exeggutor"]);
-  const sprite = (id, back = false, currentSpriteId = null) => {
+  const sprite = (id, back = false, currentSpriteId = null, shiny = null) => {
     const speciesId = mons[id]?.speciesId || id;
-    if (localSpriteIds.has(speciesId) && (!back || backSpriteIds.has(speciesId))) return `assets/${back ? "sprites-back" : "sprites"}/${speciesId}.png`;
+    const isShiny = shiny ?? Boolean(mons[id]?.shiny);
+    if (!isShiny && localSpriteIds.has(speciesId) && (!back || backSpriteIds.has(speciesId))) return `assets/${back ? "sprites-back" : "sprites"}/${speciesId}.png`;
     const spriteId = currentSpriteId || mons[id]?.spriteId || pokemonContent.get(speciesId)?.spriteId || speciesId;
-    return `https://play.pokemonshowdown.com/sprites/${back ? "gen5-back" : "gen5"}/${encodeURIComponent(spriteId)}.png`;
+    const directory = isShiny ? (back ? "gen5-back-shiny" : "gen5-shiny") : (back ? "gen5-back" : "gen5");
+    return `https://play.pokemonshowdown.com/sprites/${directory}/${encodeURIComponent(spriteId)}.png`;
   };
   const healthTone = (percent) => percent <= 20 ? "critical" : percent <= 50 ? "warning" : "healthy";
   const trainerSprite = (id = "brock") => id === "brock"
@@ -444,7 +446,7 @@
     const trainer = todayState.trainer;
     return `<section class="screen home-screen">${header()}<div class="landing">
       <div class="trainer-wrap"><img class="sprite trainer" src="${trainerSprite(trainer.spriteId)}" alt="${escapeHtml(trainer.name)}" /></div>
-      <div class="opponent-team" aria-label="${escapeHtml(trainer.name)}'s team">${trainer.pokemon.map((pokemon) => `<button type="button" aria-label="${escapeHtml(pokemon.name)}"><img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId)}" alt="${escapeHtml(pokemon.name)}" /></button>`).join("")}</div>
+      <div class="opponent-team" aria-label="${escapeHtml(trainer.name)}'s team">${trainer.pokemon.map((pokemon) => `<button type="button" aria-label="${escapeHtml(pokemon.name)}${pokemon.shiny ? ", shiny" : ""}"><img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId, pokemon.shiny)}" alt="${escapeHtml(pokemon.name)}" /></button>`).join("")}</div>
       ${navigation()}
     </div></section>`;
   }
@@ -506,7 +508,7 @@
     }).join("");
     battleLogInitialized = true;
     const movesHtml = battleState.moves.map((move) => `<button class="move-button type-${move.type.toLowerCase()}" type="button" data-battle-move="${move.slot}" data-battle-move-tip="${move.slot}" ${move.disabled || battleLoading || battleState.ended ? "disabled" : ""}><strong>${escapeHtml(move.name)}</strong><span>${escapeHtml(move.type)}</span><small>${move.pp}/${move.maxPp}</small></button>`).join("");
-    const switchesHtml = battleState.player.team.map((pokemon) => `<button class="switch-choice ${pokemon.active ? "selected" : ""} ${pokemon.fainted ? "fainted" : ""}" type="button" data-battle-switch="${pokemon.slot}" data-mon-tip="${pokemon.id}" ${!pokemon.canSwitch || battleLoading || battleState.ended ? "disabled" : ""}><img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId)}" alt=""/><span>${escapeHtml(pokemon.name)}</span><small>${pokemon.fainted ? "fainted" : `${pokemon.percent}%`}</small></button>`).join("");
+    const switchesHtml = battleState.player.team.map((pokemon) => `<button class="switch-choice ${pokemon.active ? "selected" : ""} ${pokemon.fainted ? "fainted" : ""}" type="button" data-battle-switch="${pokemon.slot}" data-mon-tip="${pokemon.id}" ${!pokemon.canSwitch || battleLoading || battleState.ended ? "disabled" : ""}><img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId, pokemon.shiny)}" alt=""/><span>${escapeHtml(pokemon.name)}</span><small>${pokemon.fainted ? "fainted" : `${pokemon.percent}%`}</small></button>`).join("");
     const prompt = battleState.ended
       ? `<strong>${battleState.winner === "Player" ? "You won!" : battleState.winner ? `${escapeHtml(battleState.winner)} won.` : "Battle over."}</strong>`
       : battleState.forcedSwitch
@@ -516,8 +518,8 @@
           : `What will <strong>${escapeHtml(player?.name)}</strong> do?`;
     return `<section class="screen battle-screen">${header()}<div class="arena battle-arena" aria-label="Grassy battlefield">
       <div class="battle-platform enemy" aria-hidden="true"></div><div class="battle-platform player" aria-hidden="true"></div>
-      ${enemy ? `<div class="battler-slot enemy" data-pokemon="${escapeHtml(enemy.id)}"><img class="sprite active-sprite" src="${sprite(enemy.id, false, enemy.spriteId)}" alt="${escapeHtml(enemy.name)}" /></div><section class="battle-hud enemy" aria-label="Opponent ${escapeHtml(enemy.name)}"><div class="battle-hud-title"><strong>${escapeHtml(enemy.name)}</strong><span>Lv. ${enemy.level}</span></div><div class="hp-bar ${healthTone(enemy.percent)}"><i style="width:${enemy.percent}%"></i></div><div class="battle-hud-detail"><span>HP</span><small>${enemy.percent}%</small>${enemy.status ? `<b>${escapeHtml(enemy.status.toUpperCase())}</b>` : ""}</div></section>` : ""}
-      ${player ? `<div class="battler-slot player" data-pokemon="${escapeHtml(player.id)}"><img class="sprite active-sprite" src="${sprite(player.id, true, player.spriteId)}" alt="${escapeHtml(player.name)}" /></div><section class="battle-hud player" aria-label="Your ${escapeHtml(player.name)}"><div class="battle-hud-title"><strong>${escapeHtml(player.name)}</strong><span>Lv. ${player.level}</span></div><div class="hp-bar ${healthTone(player.percent)}"><i style="width:${player.percent}%"></i></div><div class="battle-hud-detail"><span>HP</span><small>${player.hp}/${player.maxHp}</small>${player.status ? `<b>${escapeHtml(player.status.toUpperCase())}</b>` : ""}</div></section>` : ""}
+      ${enemy ? `<div class="battler-slot enemy" data-pokemon="${escapeHtml(enemy.id)}"><img class="sprite active-sprite" src="${sprite(enemy.id, false, enemy.spriteId, enemy.shiny)}" alt="${escapeHtml(enemy.name)}" /></div><section class="battle-hud enemy" aria-label="Opponent ${escapeHtml(enemy.name)}"><div class="battle-hud-title"><strong>${escapeHtml(enemy.name)}</strong><span>Lv. ${enemy.level}</span></div><div class="hp-bar ${healthTone(enemy.percent)}"><i style="width:${enemy.percent}%"></i></div><div class="battle-hud-detail"><span>HP</span><small>${enemy.percent}%</small>${enemy.status ? `<b>${escapeHtml(enemy.status.toUpperCase())}</b>` : ""}</div></section>` : ""}
+      ${player ? `<div class="battler-slot player" data-pokemon="${escapeHtml(player.id)}"><img class="sprite active-sprite" src="${sprite(player.id, true, player.spriteId, player.shiny)}" alt="${escapeHtml(player.name)}" /></div><section class="battle-hud player" aria-label="Your ${escapeHtml(player.name)}"><div class="battle-hud-title"><strong>${escapeHtml(player.name)}</strong><span>Lv. ${player.level}</span></div><div class="hp-bar ${healthTone(player.percent)}"><i style="width:${player.percent}%"></i></div><div class="battle-hud-detail"><span>HP</span><small>${player.hp}/${player.maxHp}</small>${player.status ? `<b>${escapeHtml(player.status.toUpperCase())}</b>` : ""}</div></section>` : ""}
     </div><div class="battle-panel${battleLogExpanded ? " log-expanded" : ""}"><section class="battle-log-card${battleLogExpanded ? " expanded" : ""}" aria-labelledby="battle-log-title"><header><h2 id="battle-log-title">Battle log</h2><div>${battleLogHasNew ? '<button type="button" data-battle-log-new>new events</button>' : ""}<button type="button" data-toggle-battle-log aria-expanded="${battleLogExpanded}">${battleLogExpanded ? "collapse" : "expand"}</button></div></header><div class="battle-log-body" data-battle-log role="log" aria-label="Battle events" tabindex="0"><div class="battle-log-stack">${logHtml || '<p class="battle-log-empty">The battle is starting…</p>'}</div></div></section><span class="visually-hidden" role="status" aria-live="polite">${escapeHtml(latestAnnouncement)}</span>
       <div class="battle-command-area" ${battleLogExpanded ? 'inert aria-hidden="true"' : ""}><p class="prompt">${prompt} <small>Turn ${battleState.turn}</small></p>${battleState.forcedSwitch || battleState.ended ? "" : `<h2 class="section-label attack">Attack</h2><div class="move-grid">${movesHtml}</div>`}
       <h2 class="section-label">Switch</h2><div class="switch-grid">${switchesHtml}</div>${battleError ? `<p class="battle-error" role="alert">${escapeHtml(battleError)}</p>` : ""}</div>
@@ -535,7 +537,7 @@
 
   function resultPokemon(profile, tone) {
     if (!profile) return `<span class="result-credit ${tone} text-only">indirect</span>`;
-    return `<span class="result-credit ${tone}"><img class="sprite" src="${sprite(profile.id, false, profile.spriteId)}" alt=""><b>${escapeHtml(profile.nickname || profile.name)}</b></span>`;
+    return `<span class="result-credit ${tone}"><img class="sprite" src="${sprite(profile.id, false, profile.spriteId, profile.shiny)}" alt=""><b>${escapeHtml(profile.nickname || profile.name)}</b></span>`;
   }
 
   function battleResultOverlay() {
@@ -549,7 +551,7 @@
       const redCredits = defeatedPlayer.length
         ? defeatedPlayer.map((entry) => resultPokemon(entry.defeated, "ko-earned")).join("")
         : '<span class="result-credit empty">no KOs</span>';
-      return `<article class="result-mon-card"><div class="result-credit-row above" aria-label="Knocked out by">${greenCredits}</div><div class="result-opponent"><img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId)}" alt="${escapeHtml(pokemon.name)}"><strong>${escapeHtml(pokemon.name)}</strong></div><div class="result-credit-row below" aria-label="Pokémon knocked out">${redCredits}</div></article>`;
+      return `<article class="result-mon-card"><div class="result-credit-row above" aria-label="Knocked out by">${greenCredits}</div><div class="result-opponent"><img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId, pokemon.shiny)}" alt="${escapeHtml(pokemon.name)}"><strong>${escapeHtml(pokemon.name)}</strong></div><div class="result-credit-row below" aria-label="Pokémon knocked out">${redCredits}</div></article>`;
     }).join("");
     const victory = battleState.winner === "Player";
     const heading = victory ? "Victory!" : battleState.winner ? "Defeat" : "Battle complete";
@@ -559,7 +561,7 @@
 
   function pc() {
     const trainer = todayState.trainer;
-    const trainerSlots = trainer.pokemon.map((pokemon) => `<div class="party-slot trainer-party-slot" aria-label="${escapeHtml(pokemon.name)}"><img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId)}" alt=""/><span>${escapeHtml(pokemon.name)}</span></div>`).join("");
+    const trainerSlots = trainer.pokemon.map((pokemon) => `<div class="party-slot trainer-party-slot" aria-label="${escapeHtml(pokemon.name)}${pokemon.shiny ? ", shiny" : ""}"><img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId, pokemon.shiny)}" alt=""/><span>${escapeHtml(pokemon.name)}</span></div>`).join("");
     const party = [...team].slice(0, 6);
     const partySlots = Array.from({ length: 6 }, (_, index) => {
       const id = party[index];
@@ -759,7 +761,7 @@
       : leaderboardError
         ? `<div class="leaderboard-empty"><strong>Could not load leaderboard</strong><span>${escapeHtml(leaderboardError)}</span></div>`
         : entries.length
-          ? `<ol class="leaderboard-list">${entries.map((entry) => `<li class="leaderboard-row${entry.won ? "" : " leaderboard-loss"}"><span class="leaderboard-rank" aria-label="Rank ${entry.rank}">${entry.rank}</span><div class="leaderboard-entry"><strong>${escapeHtml(entry.username)}${entry.won ? "" : '<small>loss</small>'}</strong><div class="leaderboard-team" aria-label="${entry.team.length - entry.fainted} surviving Pokémon and ${entry.fainted} fainted Pokémon">${entry.team.map((pokemon) => `<span class="leaderboard-mon ${pokemon.fainted ? "fainted" : "survived"}" title="${escapeHtml(pokemon.name)} — ${pokemon.fainted ? "fainted" : "survived"}"><img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId)}" alt="${escapeHtml(pokemon.name)}"></span>`).join("")}</div></div></li>`).join("")}</ol>`
+          ? `<ol class="leaderboard-list">${entries.map((entry) => `<li class="leaderboard-row${entry.won ? "" : " leaderboard-loss"}"><span class="leaderboard-rank" aria-label="Rank ${entry.rank}">${entry.rank}</span><div class="leaderboard-entry"><strong>${escapeHtml(entry.username)}${entry.won ? "" : '<small>loss</small>'}</strong><div class="leaderboard-team" aria-label="${entry.team.length - entry.fainted} surviving Pokémon and ${entry.fainted} fainted Pokémon">${entry.team.map((pokemon) => `<span class="leaderboard-mon ${pokemon.fainted ? "fainted" : "survived"}" title="${escapeHtml(pokemon.name)} — ${pokemon.fainted ? "fainted" : "survived"}"><img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId, pokemon.shiny)}" alt="${escapeHtml(pokemon.name)}"></span>`).join("")}</div></div></li>`).join("")}</ol>`
           : '<div class="leaderboard-empty"><strong>No results yet</strong><span>Today’s first completed battle will appear here.</span></div>';
     const streakContent = leaderboardLoading
       ? '<div class="leaderboard-empty"><strong>Loading leaderboard…</strong></div>'
@@ -830,10 +832,10 @@
     const queue = adminConfig?.queue || [];
     const sprites = adminConfig?.sprites || [];
     const validSprite = sprites.some((trainer) => trainer.id === trainerDraft.spriteId);
-    const currentCard = current ? `<section class="config-current"><span>live now · Nuzzle #${current.number}</span><strong>${escapeHtml(current.trainer.name)}</strong><small>${formatGameDate(current.date)}</small><div>${current.trainer.pokemon.map((pokemon) => `<img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId)}" alt="${escapeHtml(pokemon.name)}">`).join("")}</div></section>` : "";
+    const currentCard = current ? `<section class="config-current"><span>live now · Nuzzle #${current.number}</span><strong>${escapeHtml(current.trainer.name)}</strong><small>${formatGameDate(current.date)}</small><div>${current.trainer.pokemon.map((pokemon) => `<img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId, pokemon.shiny)}" alt="${escapeHtml(pokemon.name)}">`).join("")}</div></section>` : "";
     const rows = queue.map((trainer, index) => `<article class="trainer-queue-row" data-trainer-row="${trainer.id}">
       <div class="trainer-order-controls"><button type="button" aria-label="Move ${escapeHtml(trainer.name)} up" data-move-trainer="${trainer.id}" data-direction="up" ${index === 0 ? "disabled" : ""}>↑</button><button type="button" aria-label="Move ${escapeHtml(trainer.name)} down" data-move-trainer="${trainer.id}" data-direction="down" ${index === queue.length - 1 ? "disabled" : ""}>↓</button></div>
-      <div class="trainer-queue-copy"><span>${formatGameDate(trainer.scheduledDate)} · Nuzzle #${current ? current.number + index + 1 : index + 1}</span><strong>${escapeHtml(trainer.name)}</strong><div>${trainer.pokemon.map((pokemon) => `<img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId)}" alt="${escapeHtml(pokemon.name)}">`).join("")}</div></div>
+      <div class="trainer-queue-copy"><span>${formatGameDate(trainer.scheduledDate)} · Nuzzle #${current ? current.number + index + 1 : index + 1}</span><strong>${escapeHtml(trainer.name)}</strong><div>${trainer.pokemon.map((pokemon) => `<img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId, pokemon.shiny)}" alt="${escapeHtml(pokemon.name)}">`).join("")}</div></div>
       <img class="sprite trainer-queue-avatar" src="${trainerSprite(trainer.spriteId)}" alt="">
       <button class="trainer-remove" type="button" aria-label="Remove ${escapeHtml(trainer.name)}" data-remove-trainer="${trainer.id}">×</button>
     </article>`).join("");

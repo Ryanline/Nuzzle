@@ -233,6 +233,7 @@ function pokemonView(pokemon, ownSide) {
     id: species?.id || toID(species?.name || pokemon.name),
     name: species?.name || pokemon.name,
     spriteId: species?.spriteid || species?.id || toID(species?.name || pokemon.name),
+    shiny: Boolean(pokemon.shiny),
     level: pokemon.level,
     hp: ownSide ? pokemon.hp : null,
     maxHp: ownSide ? pokemon.maxhp : null,
@@ -340,6 +341,7 @@ export class BattleController {
       name: species.name || set?.species || nickname,
       id: species.id || toID(set?.species || nickname),
       spriteId: species.spriteid || species.id || toID(set?.species || nickname),
+      shiny: Boolean(set?.shiny || details.toLowerCase().includes(", shiny")),
     };
   }
 
@@ -702,6 +704,7 @@ export class BattleService {
           id: pokemon.id,
           name: pokemon.name,
           spriteId: pokemon.spriteId,
+          shiny: pokemon.shiny,
           fainted: pokemon.fainted,
         }));
         return {
