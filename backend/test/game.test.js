@@ -244,11 +244,14 @@ test("battle settlement permanently removes fainted Pokémon but retains their h
   state = await store.buy("faint-user", "leftovers", 1);
   state = await store.equip("faint-user", fainted.id, "leftovers");
 
-  state = await store.settleBattle("faint-user", "partial-loss", { faintedPokemonIds: [fainted.id] });
+  const moneyBeforeVictory = state.money;
+  state = await store.settleBattle("faint-user", "partial-loss", { faintedPokemonIds: [fainted.id], won: true });
   assert.deepEqual(state.roster.map((pokemon) => pokemon.id), [survivor.id]);
   assert.equal(state.teamIds.includes(fainted.id), false);
   assert.equal(state.inventory.leftovers, 1);
+  assert.equal(state.money, moneyBeforeVictory + 15000);
 
-  const repeated = await store.settleBattle("faint-user", "partial-loss", { faintedPokemonIds: [survivor.id] });
+  const repeated = await store.settleBattle("faint-user", "partial-loss", { faintedPokemonIds: [survivor.id], won: true });
   assert.deepEqual(repeated.roster.map((pokemon) => pokemon.id), [survivor.id]);
+  assert.equal(repeated.money, state.money, "a retried settlement must not grant another victory reward");
 });

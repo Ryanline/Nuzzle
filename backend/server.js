@@ -28,6 +28,7 @@ const service = new BattleService(new BattleStore(path.join(dataDirectory, "batt
     await game.settleBattle(record.userId, record.id, {
       acquisitions: record.itemAcquisitions,
       faintedPokemonIds: record.result?.faintedPokemonIds,
+      won: record.result?.winner === "Player",
     });
   },
 });

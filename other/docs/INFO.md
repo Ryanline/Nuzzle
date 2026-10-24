@@ -56,7 +56,7 @@ A run contains the player's living roster, money, and combat inventory since the
 - Boxed Pokémon are not endangered by an individual battle victory.
 - Held-item ownership survives an individual holder's death after a win.
 - Surviving Pokémon receive free full healing between battles.
-- The player receives the configured rewards and extends the win streak.
+- The player receives ₽15,000 and extends the win streak.
 
 ### Losing or forfeiting
 
@@ -303,7 +303,7 @@ Move changes associated with form changes are **Deferred** until the move system
 - Most Berries cost ₽600; Sitrus, Lum, and Custap Berries cost ₽1,000.
 - Type Memories and ordinary single-type power boosters cost ₽750.
 
-These are first-pass balance values and live in the content layer so playtesting can tune them without changing inventory rules. Battle payouts, sale values, and special rewards remain **Deferred**.
+These are first-pass balance values and live in the content layer so playtesting can tune them without changing inventory rules. A daily battle victory pays ₽15,000. Sale values and special rewards remain **Deferred**.
 
 ## 10. Moves and TMs
 
@@ -425,7 +425,7 @@ trainer_eligible
 
 ## 15. Explicitly deferred or open work
 
-- Battle payouts, sale values, and special economy rewards.
+- Sale values and special economy rewards.
 - Trainer templates beyond the existing Brock slice.
 - Exact daily trainer generation and difficulty progression.
 - Post-battle encounter access and partial claims.

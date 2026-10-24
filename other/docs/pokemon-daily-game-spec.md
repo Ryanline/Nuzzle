@@ -340,7 +340,7 @@ Brock's fixed team order is Steelix, Golem, Rhyperior, Aerodactyl, Sudowoodo, an
 
 ### Currency and rewards
 
-- Regular trainer wins grant money.
+- Regular trainer wins grant ₽15,000.
 - Gym wins grant more than regular trainer wins.
 - Elite Four wins grant more than gym wins.
 - Wins may grant special rewards.
@@ -349,7 +349,7 @@ Brock's fixed team order is Steelix, Golem, Rhyperior, Aerodactyl, Sudowoodo, an
 - Items can be sold.
 - Money resets on a wipe and monthly.
 
-Prices, payouts, sale values, starting money, and exact special rewards are open. Champion cosmetic-currency rewards are a later feature. A Champion reward allowing a chosen encounter-type guarantee is tentative; its carryover behavior needs a decision.
+Sale values and exact special rewards remain open. The starting balance is ₽50,000 and a daily victory pays ₽15,000. Champion cosmetic-currency rewards are a later feature. A Champion reward allowing a chosen encounter-type guarantee is tentative; its carryover behavior needs a decision.
 
 ### Shop scope
 

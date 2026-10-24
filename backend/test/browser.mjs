@@ -164,6 +164,13 @@ await page.click('[data-shop-group="Training Items"]');
 if (await page.locator(".shop-item").count() !== 24) throw new Error("The Mart did not render every approved training item.");
 await page.click('[data-shop-group="TMs"]');
 if (await page.locator(".shop-item").count() !== 690) throw new Error("The Mart did not render every eligible TM.");
+const tmHighlightFits = await page.locator(".shop-segments").evaluate((element) => {
+  const style = getComputedStyle(element, "::before");
+  const translation = style.transform === "none" ? 0 : new DOMMatrixReadOnly(style.transform).m41;
+  const rightEdge = Number.parseFloat(style.left) + translation + Number.parseFloat(style.width);
+  return rightEdge <= element.clientWidth - 3 + .5;
+});
+if (!tmHighlightFits) throw new Error("The selected TM segment highlight overflowed its control.");
 await page.click(`[data-open-purchase="${teachableTm.id}"]`);
 const tmPurchaseResponse = page.waitForResponse((response) => response.url().includes(`/api/game/shop/${teachableTm.id}`) && response.request().method() === "POST");
 await page.click(`[data-purchase-form="${teachableTm.id}"] button[type="submit"]`);

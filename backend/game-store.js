@@ -20,6 +20,7 @@ const { Dex, toID } = require("pokemon-showdown");
 const stats = ["hp", "atk", "def", "spa", "spd", "spe"];
 const statLabels = { hp: "HP", atk: "Atk", def: "Def", spa: "SpA", spd: "SpD", spe: "Spe" };
 const startingMoney = 50000;
+const victoryReward = 15000;
 
 function gameError(message, statusCode = 400) {
   throw Object.assign(new Error(message), { statusCode });
@@ -330,7 +331,7 @@ export class GameStore {
     });
   }
 
-  async settleBattle(userId, battleId, { acquisitions = [], faintedPokemonIds = [] } = {}) {
+  async settleBattle(userId, battleId, { acquisitions = [], faintedPokemonIds = [], won = false } = {}) {
     return this.mutate(userId, (run) => {
       run.settledBattleIds ||= [];
       if (run.settledBattleIds.includes(battleId)) return this.publicState(run);
@@ -344,6 +345,7 @@ export class GameStore {
       const fainted = new Set(faintedPokemonIds);
       run.roster = run.roster.filter((pokemon) => !fainted.has(pokemon.id));
       run.teamIds = run.teamIds.filter((id) => !fainted.has(id));
+      if (won) run.money += victoryReward;
       run.settledBattleIds.push(battleId);
       return this.publicState(run);
     });
