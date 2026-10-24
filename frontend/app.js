@@ -107,6 +107,10 @@
   let configError = "";
   let battleResetBusy = false;
   let battleResetMessage = "";
+  let leaderboardView = "daily";
+  let leaderboardData = null;
+  let leaderboardLoading = false;
+  let leaderboardError = "";
   let trainerFormOpen = false;
   const emptyTrainerDraft = () => ({ name: "", spriteId: "", teamText: "" });
   let trainerDraft = emptyTrainerDraft();
@@ -178,6 +182,21 @@
         render();
       } catch {}
     }, Math.min(delay, 2_147_000_000));
+  }
+
+  async function loadLeaderboard() {
+    if (!currentUser || leaderboardLoading) return;
+    leaderboardLoading = true;
+    leaderboardError = "";
+    render();
+    try {
+      leaderboardData = await apiRequest("/api/leaderboard/daily");
+    } catch (error) {
+      leaderboardError = error.message;
+    } finally {
+      leaderboardLoading = false;
+      render();
+    }
   }
 
   async function loadAdminConfig() {
@@ -811,10 +830,23 @@
       <div class="bag-contents" role="tabpanel" aria-labelledby="${activeTabId}">${bagContents()}</div>${backButton()}</div></section>`;
   }
 
+  function leaderboardScreen() {
+    const entries = leaderboardData?.entries || [];
+    const dailyContent = leaderboardLoading
+      ? '<div class="leaderboard-empty"><strong>Loading leaderboard…</strong></div>'
+      : leaderboardError
+        ? `<div class="leaderboard-empty"><strong>Could not load leaderboard</strong><span>${escapeHtml(leaderboardError)}</span></div>`
+        : entries.length
+          ? `<ol class="leaderboard-list">${entries.map((entry) => `<li class="leaderboard-row"><span class="leaderboard-rank" aria-label="Rank ${entry.rank}">${entry.rank}</span><div class="leaderboard-entry"><strong>${escapeHtml(entry.username)}</strong><div class="leaderboard-team" aria-label="${entry.team.length - entry.fainted} surviving Pokémon and ${entry.fainted} fainted Pokémon">${entry.team.map((pokemon) => `<span class="leaderboard-mon ${pokemon.fainted ? "fainted" : "survived"}" title="${escapeHtml(pokemon.name)} — ${pokemon.fainted ? "fainted" : "survived"}"><img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId)}" alt="${escapeHtml(pokemon.name)}"></span>`).join("")}</div></div></li>`).join("")}</ol>`
+          : '<div class="leaderboard-empty"><strong>No winners yet</strong><span>Today’s first winner will appear here.</span></div>';
+    const content = leaderboardView === "daily"
+      ? dailyContent
+      : '<div class="leaderboard-empty"><strong>Streak leaderboard</strong><span>Coming next.</span></div>';
+    return `<section class="screen">${header()}<div class="leaderboard-stage"><h2>Leaderboard</h2><div class="pc-detail-tabs leaderboard-tabs" role="tablist" aria-label="Leaderboard type"><button type="button" role="tab" aria-selected="${leaderboardView === "daily"}" class="${leaderboardView === "daily" ? "selected" : ""}" data-leaderboard-view="daily">daily</button><button type="button" role="tab" aria-selected="${leaderboardView === "streak"}" class="${leaderboardView === "streak" ? "selected" : ""}" data-leaderboard-view="streak">streak</button></div><div class="leaderboard-content" role="tabpanel">${content}</div>${backButton()}</div></section>`;
+  }
+
   function simpleScreen(kind) {
-    const content = kind === "leaderboard"
-        ? '<h2>Leaderboard</h2><p>Coming soon.</p>'
-        : '<h2>Settings</h2><p>Game, sound, and accessibility options will appear here.</p>';
+    const content = '<h2>Settings</h2><p>Game, sound, and accessibility options will appear here.</p>';
     return `<section class="screen">${header()}<div class="simple-stage">${content}${backButton()}</div></section>`;
   }
 
@@ -966,7 +998,7 @@
       if (battleLogFollow) battleLogHasNew = false;
     }
     hideTooltip();
-    const screens = { home, lead, battle, pc, bag, encounters: encountersScreen, mart, settings: settingsScreen, config: configScreen };
+    const screens = { home, lead, battle, pc, bag, encounters: encountersScreen, mart, leaderboard: leaderboardScreen, settings: settingsScreen, config: configScreen };
     app.innerHTML = screens[route] ? screens[route]() : simpleScreen(route);
     bind();
   }
@@ -1255,6 +1287,11 @@
       render();
       scrollTo(0, 0);
       if (route === "config" && !adminConfig) void loadAdminConfig();
+      if (route === "leaderboard") void loadLeaderboard();
+    }));
+    document.querySelectorAll("[data-leaderboard-view]").forEach((button) => button.addEventListener("click", () => {
+      leaderboardView = button.dataset.leaderboardView;
+      render();
     }));
     document.querySelector("[data-open-trainer-form]")?.addEventListener("click", () => {
       trainerFormOpen = true;

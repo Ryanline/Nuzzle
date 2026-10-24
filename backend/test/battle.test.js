@@ -182,6 +182,31 @@ test("forfeit produces a Brock win", async () => {
   assert.equal(result.forfeited, true);
 });
 
+test("daily leaderboard ranks winners by survivors and then completion time", async () => {
+  const { service } = await serviceFixture();
+  const pokemon = (id, fainted) => ({ id, name: id, spriteId: id, fainted });
+  const addBattle = ({ id, userId, winner, completedAt, fainted }) => service.battles.set(id, {
+    record: { id, userId, challengeDate: "2026-10-24", completedAt, createdAt: completedAt },
+    state: () => ({
+      ended: true,
+      winner,
+      player: { team: Array.from({ length: 6 }, (_, index) => pokemon(`mon-${index}`, index < fainted)) },
+    }),
+  });
+  addBattle({ id: "later-clean", userId: "clean", winner: "Player", completedAt: "2026-10-24T15:00:00.000Z", fainted: 0 });
+  addBattle({ id: "early-clean", userId: "early", winner: "Player", completedAt: "2026-10-24T14:00:00.000Z", fainted: 0 });
+  addBattle({ id: "one-loss", userId: "one", winner: "Player", completedAt: "2026-10-24T13:00:00.000Z", fainted: 1 });
+  addBattle({ id: "defeat", userId: "lost", winner: "Brock", completedAt: "2026-10-24T12:00:00.000Z", fainted: 6 });
+  const usernames = { clean: "Clean", early: "Early", one: "One", lost: "Lost" };
+  const entries = service.dailyLeaderboard("2026-10-24", (id) => ({ username: usernames[id] }));
+  assert.deepEqual(entries.map(({ rank, username, fainted }) => ({ rank, username, fainted })), [
+    { rank: 1, username: "Early", fainted: 0 },
+    { rank: 2, username: "Clean", fainted: 0 },
+    { rank: 3, username: "One", fainted: 1 },
+  ]);
+  assert.equal(entries[0].team.length, 6);
+});
+
 test("a six-on-six battle can be played through to a real result", async () => {
   const { directory, service } = await serviceFixture();
   let state = await service.create({

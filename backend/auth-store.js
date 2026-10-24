@@ -131,6 +131,11 @@ export class AuthStore {
     return user ? publicUser(user) : null;
   }
 
+  userById(userId) {
+    const user = this.data.users.find((candidate) => candidate.id === userId);
+    return user ? publicUser(user) : null;
+  }
+
   async logout(token) {
     if (!token) return;
     const hash = sessionHash(token);

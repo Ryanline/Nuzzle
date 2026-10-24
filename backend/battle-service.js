@@ -398,6 +398,7 @@ export class BattleController {
 
   async settleIfEnded() {
     if (!this.stream.battle?.ended || this.record.itemsSettled) return;
+    this.record.completedAt ||= new Date().toISOString();
     for (let attempt = 0; attempt < 20 && !this.log.some((entry) => entry.category === "result"); attempt++) {
       await new Promise((resolve) => setImmediate(resolve));
     }
@@ -483,6 +484,32 @@ export class BattleService {
     return [...this.battles.values()]
       .filter((battle) => battle.record.userId === userId && battle.record.challengeDate === challengeDate && !battle.record.dailyAttemptReset)
       .sort((left, right) => String(right.record.createdAt).localeCompare(String(left.record.createdAt)))[0] || null;
+  }
+
+  dailyLeaderboard(challengeDate, userById) {
+    return [...this.battles.values()]
+      .filter((battle) => battle.record.challengeDate === challengeDate && !battle.record.dailyAttemptReset)
+      .map((battle) => ({ battle, state: battle.state() }))
+      .filter(({ state }) => state.ended && state.winner === "Player")
+      .map(({ battle, state }) => {
+        const user = userById(battle.record.userId);
+        if (!user) return null;
+        const team = state.player.team.map((pokemon) => ({
+          id: pokemon.id,
+          name: pokemon.name,
+          spriteId: pokemon.spriteId,
+          fainted: pokemon.fainted,
+        }));
+        return {
+          username: user.username,
+          completedAt: battle.record.completedAt || battle.record.createdAt,
+          fainted: team.filter((pokemon) => pokemon.fainted).length,
+          team,
+        };
+      })
+      .filter(Boolean)
+      .sort((left, right) => left.fainted - right.fainted || String(left.completedAt).localeCompare(String(right.completedAt)))
+      .map((entry, index) => ({ rank: index + 1, ...entry }));
   }
 
   async resetDailyAttempt(userId, challengeDate) {
