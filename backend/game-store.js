@@ -304,6 +304,16 @@ export class GameStore {
     });
   }
 
+  async unequip(userId, pokemonId) {
+    return this.mutate(userId, (run) => {
+      const pokemon = run.roster.find((candidate) => candidate.id === pokemonId);
+      if (!pokemon) gameError("Pokémon not found.", 404);
+      if (!pokemon.heldItemId) gameError(`${pokemon.name} is not holding an item.`, 409);
+      pokemon.heldItemId = null;
+      return this.publicState(run);
+    });
+  }
+
   async applyBattleItemAcquisitions(userId, battleId, acquisitions = []) {
     return this.mutate(userId, (run) => {
       run.settledItemBattleIds ||= [];

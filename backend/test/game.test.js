@@ -190,6 +190,17 @@ test("shop limits, stack purchases, EV use, and battle snapshots are server-auth
   for (let slot = 0; slot < 12; slot++) state = await store.claimEncounter("shop-user", slot);
   state = await store.buy("shop-user", "leftovers", 1);
   await assert.rejects(store.buy("shop-user", "leftovers", 1), /once per run/i);
+  const firstHolder = state.roster[0];
+  const secondHolder = state.roster[1];
+  state = await store.equip("shop-user", firstHolder.id, "leftovers");
+  assert.equal(state.roster.find((pokemon) => pokemon.id === firstHolder.id).heldItemId, "leftovers");
+  await assert.rejects(store.equip("shop-user", secondHolder.id, "leftovers"), /no unequipped/i);
+  state = await store.unequip("shop-user", firstHolder.id);
+  assert.equal(state.roster.find((pokemon) => pokemon.id === firstHolder.id).heldItemId, null);
+  assert.equal(state.inventory.leftovers, 1);
+  state = await store.equip("shop-user", secondHolder.id, "leftovers");
+  assert.equal(state.roster.find((pokemon) => pokemon.id === secondHolder.id).heldItemId, "leftovers");
+  await assert.rejects(store.unequip("shop-user", firstHolder.id), /not holding/i);
   state = await store.buy("shop-user", "hpup", 5);
   const target = state.roster[0];
   state = await store.useTrainingItem("shop-user", target.id, "hpup", { quantity: 5 });

@@ -409,6 +409,11 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .pc-item-chooser { display: flex; min-height: 0; flex: 1; flex-direction: column; margin-top: 10px; }
 .pc-item-chooser > h3 { margin: 0; color: #284f9e; font-size: 17px; }
 .pc-item-chooser > p { margin: 3px 0 8px; color: var(--muted); font-size: 12px; }
+.pc-held-item { display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between; gap: 10px; margin: 7px 0; padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+.pc-held-item span { display: grid; gap: 1px; }
+.pc-held-item small { color: var(--muted); font-size: 11px; }
+.pc-held-item strong { font-size: 14px; font-weight: 600; }
+.pc-held-item .remove { border-color: #9a5555; color: #8a3333; }
 .pc-item-segments { flex: 0 0 auto; }
 .pc-item-list { min-height: 0; flex: 1; overflow-y: auto; overscroll-behavior: contain; }
 .pc-item-row { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto auto; min-height: 54px; align-items: center; gap: 6px; border-bottom: 1px solid #d4d8dd; font-size: 13px; }

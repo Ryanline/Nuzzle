@@ -759,12 +759,14 @@
     const ownedItems = shopItems.filter((item) => item.group === activePcItemGroup && inventory[item.id]);
     const activeGroupIndex = itemGroupOrder.indexOf(activePcItemGroup);
     const activeTabId = `pc-item-tab-${activePcItemGroup.toLowerCase().replaceAll(" ", "-")}`;
+    const heldItem = mon.heldItemId ? shopItems.find((item) => item.id === mon.heldItemId) : null;
+    const heldItemControl = heldItem ? `<div class="pc-held-item"><span><small>Currently holding</small><strong>${escapeHtml(heldItem.name)}</strong></span><button class="item-action remove" type="button" data-pc-unequip>remove</button></div>` : "";
     const rows = ownedItems.length ? ownedItems.map((item) => {
       const action = item.group === "Held Items" ? "give" : "use";
       const incompatible = item.group === "TMs" && !mon.learnableMoveIds?.includes(item.moveId);
       return `<div class="pc-item-row${incompatible ? " incompatible" : ""}">${itemIcon(item)}<span class="item-copy"><strong>${escapeHtml(item.name)}</strong><small>${incompatible ? `Cannot be learned by ${escapeHtml(mon.name)}` : escapeHtml(item.detail)}</small></span><span class="item-quantity">×${inventory[item.id]}</span><button class="item-action" type="button" data-pc-item="${item.id}" ${incompatible ? "disabled" : ""}>${action}</button></div>`;
     }).join("") : `<div class="pc-item-empty"><strong>No items</strong><span>This category is empty.</span></div>`;
-    return `<section class="pc-item-chooser" aria-labelledby="pc-item-heading"><h3 id="pc-item-heading">Use item on ${mon.name}</h3><div class="shop-segments pc-item-segments" data-active-index="${activeGroupIndex}" role="tablist" aria-label="Item categories">${itemGroupOrder.map((group) => { const selected = group === activePcItemGroup; return `<button id="pc-item-tab-${group.toLowerCase().replaceAll(" ", "-")}" type="button" role="tab" aria-selected="${selected}" data-pc-item-group="${group}" class="${selected ? "selected" : ""}">${group}</button>`; }).join("")}</div><div class="pc-item-list" role="tabpanel" aria-labelledby="${activeTabId}">${rows}</div></section>`;
+    return `<section class="pc-item-chooser" aria-labelledby="pc-item-heading"><h3 id="pc-item-heading">Use item on ${mon.name}</h3>${heldItemControl}<div class="shop-segments pc-item-segments" data-active-index="${activeGroupIndex}" role="tablist" aria-label="Item categories">${itemGroupOrder.map((group) => { const selected = group === activePcItemGroup; return `<button id="pc-item-tab-${group.toLowerCase().replaceAll(" ", "-")}" type="button" role="tab" aria-selected="${selected}" data-pc-item-group="${group}" class="${selected ? "selected" : ""}">${group}</button>`; }).join("")}</div><div class="pc-item-list" role="tabpanel" aria-labelledby="${activeTabId}">${rows}</div></section>`;
   }
 
   function shopRows() {
@@ -1141,6 +1143,22 @@
     try {
       applyGameState(await apiRequest(`/api/game/pokemon/${selectedPcId}/equip`, { method: "POST", body: JSON.stringify({ itemId: item.id }) }));
       pcItemMessage = `${mons[selectedPcId].name} is now holding ${item.name}.`;
+      pcItemMode = false;
+    } catch (error) {
+      pcItemMessage = error.message;
+    } finally {
+      gameBusy = false;
+      render();
+    }
+  }
+
+  async function unequipItem() {
+    if (gameBusy || !selectedPcId) return;
+    gameBusy = true;
+    const pokemonName = mons[selectedPcId].name;
+    try {
+      applyGameState(await apiRequest(`/api/game/pokemon/${selectedPcId}/unequip`, { method: "POST", body: "{}" }));
+      pcItemMessage = `${pokemonName}'s held item was returned to the Bag.`;
       pcItemMode = false;
     } catch (error) {
       pcItemMessage = error.message;
@@ -1558,6 +1576,7 @@
       }
       void equipItem(item);
     }));
+    document.querySelector("[data-pc-unequip]")?.addEventListener("click", () => void unequipItem());
     document.querySelector("[data-train-form]")?.addEventListener("submit", (event) => {
       event.preventDefault();
       const item = shopItems.find((candidate) => candidate.id === event.currentTarget.dataset.itemId);

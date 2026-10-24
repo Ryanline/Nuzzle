@@ -291,13 +291,15 @@ async function api(request, response, pathname) {
     json(response, 200, await game.buy(user.id, shopMatch[1], body.quantity));
     return true;
   }
-  const pokemonItemMatch = pathname.match(/^\/api\/game\/pokemon\/([a-z0-9]+)\/(equip|train)$/);
+  const pokemonItemMatch = pathname.match(/^\/api\/game\/pokemon\/([a-z0-9]+)\/(equip|unequip|train)$/);
   if (request.method === "POST" && pokemonItemMatch) {
     const user = requireUser(request);
     const body = await requestBody(request);
     const result = pokemonItemMatch[2] === "equip"
       ? await game.equip(user.id, pokemonItemMatch[1], body.itemId)
-      : await game.useTrainingItem(user.id, pokemonItemMatch[1], body.itemId, body.options);
+      : pokemonItemMatch[2] === "unequip"
+        ? await game.unequip(user.id, pokemonItemMatch[1])
+        : await game.useTrainingItem(user.id, pokemonItemMatch[1], body.itemId, body.options);
     json(response, 200, result);
     return true;
   }
