@@ -190,7 +190,11 @@
     leaderboardError = "";
     render();
     try {
-      leaderboardData = await apiRequest("/api/leaderboard/daily");
+      const [daily, streak] = await Promise.all([
+        apiRequest("/api/leaderboard/daily"),
+        apiRequest("/api/leaderboard/streak"),
+      ]);
+      leaderboardData = { ...daily, streakEntries: streak.entries };
     } catch (error) {
       leaderboardError = error.message;
     } finally {
@@ -832,6 +836,7 @@
 
   function leaderboardScreen() {
     const entries = leaderboardData?.entries || [];
+    const streakEntries = leaderboardData?.streakEntries || [];
     const dailyContent = leaderboardLoading
       ? '<div class="leaderboard-empty"><strong>Loading leaderboard…</strong></div>'
       : leaderboardError
@@ -839,9 +844,14 @@
         : entries.length
           ? `<ol class="leaderboard-list">${entries.map((entry) => `<li class="leaderboard-row"><span class="leaderboard-rank" aria-label="Rank ${entry.rank}">${entry.rank}</span><div class="leaderboard-entry"><strong>${escapeHtml(entry.username)}</strong><div class="leaderboard-team" aria-label="${entry.team.length - entry.fainted} surviving Pokémon and ${entry.fainted} fainted Pokémon">${entry.team.map((pokemon) => `<span class="leaderboard-mon ${pokemon.fainted ? "fainted" : "survived"}" title="${escapeHtml(pokemon.name)} — ${pokemon.fainted ? "fainted" : "survived"}"><img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId)}" alt="${escapeHtml(pokemon.name)}"></span>`).join("")}</div></div></li>`).join("")}</ol>`
           : '<div class="leaderboard-empty"><strong>No winners yet</strong><span>Today’s first winner will appear here.</span></div>';
-    const content = leaderboardView === "daily"
-      ? dailyContent
-      : '<div class="leaderboard-empty"><strong>Streak leaderboard</strong><span>Coming next.</span></div>';
+    const streakContent = leaderboardLoading
+      ? '<div class="leaderboard-empty"><strong>Loading leaderboard…</strong></div>'
+      : leaderboardError
+        ? `<div class="leaderboard-empty"><strong>Could not load leaderboard</strong><span>${escapeHtml(leaderboardError)}</span></div>`
+        : streakEntries.length
+          ? `<ol class="leaderboard-list streak-list">${streakEntries.map((entry) => `<li class="leaderboard-row streak-row"><span class="leaderboard-rank" aria-label="Rank ${entry.rank}">${entry.rank}</span><div class="leaderboard-entry"><strong>${escapeHtml(entry.username)}</strong></div><strong class="streak-count">${entry.streak}-day streak</strong></li>`).join("")}</ol>`
+          : '<div class="leaderboard-empty"><strong>No active streaks yet</strong><span>Win today to start one.</span></div>';
+    const content = leaderboardView === "daily" ? dailyContent : streakContent;
     return `<section class="screen">${header()}<div class="leaderboard-stage"><h2>Leaderboard</h2><div class="pc-detail-tabs leaderboard-tabs" role="tablist" aria-label="Leaderboard type"><button type="button" role="tab" aria-selected="${leaderboardView === "daily"}" class="${leaderboardView === "daily" ? "selected" : ""}" data-leaderboard-view="daily">daily</button><button type="button" role="tab" aria-selected="${leaderboardView === "streak"}" class="${leaderboardView === "streak" ? "selected" : ""}" data-leaderboard-view="streak">streak</button></div><div class="leaderboard-content" role="tabpanel">${content}</div>${backButton()}</div></section>`;
   }
 

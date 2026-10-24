@@ -355,13 +355,16 @@ await page.click('.home-actions [data-route="battle"]');
 await page.waitForSelector(".result-modal");
 await page.click(".result-close");
 await page.click('.battle-result-actions [data-route="home"]');
-const leaderboardResponse = page.waitForResponse((response) => response.url().endsWith("/api/leaderboard/daily") && response.request().method() === "GET");
+const leaderboardResponses = Promise.all([
+  page.waitForResponse((response) => response.url().endsWith("/api/leaderboard/daily") && response.request().method() === "GET"),
+  page.waitForResponse((response) => response.url().endsWith("/api/leaderboard/streak") && response.request().method() === "GET"),
+]);
 await page.click('[data-route="leaderboard"]');
-if (!(await leaderboardResponse).ok()) throw new Error("Loading the daily leaderboard failed.");
+if ((await leaderboardResponses).some((response) => !response.ok())) throw new Error("Loading the leaderboards failed.");
 await page.waitForSelector('.leaderboard-tabs [data-leaderboard-view="daily"].selected');
 if (!(await page.locator(".leaderboard-empty").textContent())?.includes("No winners yet")) throw new Error("A loss incorrectly appeared on the daily leaderboard.");
 await page.click('[data-leaderboard-view="streak"]');
-if (!(await page.locator(".leaderboard-empty").textContent())?.includes("Coming next")) throw new Error("The streak tab did not show its placeholder.");
+if (!(await page.locator(".leaderboard-empty").textContent())?.includes("No active streaks yet")) throw new Error("A loss incorrectly appeared on the streak leaderboard.");
 await page.click('.leaderboard-stage [data-route="home"]');
 await page.click('[data-route="settings"]');
 if (await page.locator("[data-reset-daily-battle]").count() !== 1) throw new Error("The admin settings did not expose the daily battle reset.");

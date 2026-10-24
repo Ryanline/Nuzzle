@@ -212,6 +212,15 @@ async function api(request, response, pathname) {
     });
     return true;
   }
+  if (request.method === "GET" && pathname === "/api/leaderboard/streak") {
+    requireUser(request);
+    const today = await trainers.current();
+    json(response, 200, {
+      date: today.date,
+      entries: service.streakLeaderboard(today.date, (userId) => auth.userById(userId)),
+    });
+    return true;
+  }
   if (pathname === "/api/admin/trainers") {
     requireAdmin(request);
     if (request.method === "GET") {

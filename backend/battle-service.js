@@ -512,6 +512,48 @@ export class BattleService {
       .map((entry, index) => ({ rank: index + 1, ...entry }));
   }
 
+  streakLeaderboard(challengeDate, userById) {
+    const previousDate = (date) => {
+      const value = new Date(`${date}T00:00:00Z`);
+      value.setUTCDate(value.getUTCDate() - 1);
+      return value.toISOString().slice(0, 10);
+    };
+    const attemptsByUser = new Map();
+    for (const battle of this.battles.values()) {
+      const { userId, challengeDate: date, dailyAttemptReset } = battle.record;
+      if (!userId || !date || dailyAttemptReset) continue;
+      const state = battle.state();
+      if (!state.ended) continue;
+      const attempts = attemptsByUser.get(userId) || new Map();
+      const existing = attempts.get(date);
+      if (!existing || String(battle.record.createdAt).localeCompare(String(existing.record.createdAt)) > 0) {
+        attempts.set(date, { record: battle.record, won: state.winner === "Player" });
+      }
+      attemptsByUser.set(userId, attempts);
+    }
+    const entries = [];
+    for (const [userId, attempts] of attemptsByUser) {
+      const today = attempts.get(challengeDate);
+      if (!today?.won) continue;
+      const user = userById(userId);
+      if (!user) continue;
+      let streak = 0;
+      let date = challengeDate;
+      while (attempts.get(date)?.won) {
+        streak++;
+        date = previousDate(date);
+      }
+      entries.push({
+        username: user.username,
+        streak,
+        completedAt: today.record.completedAt || today.record.createdAt,
+      });
+    }
+    return entries
+      .sort((left, right) => right.streak - left.streak || String(left.completedAt).localeCompare(String(right.completedAt)))
+      .map((entry, index) => ({ rank: index + 1, ...entry }));
+  }
+
   async resetDailyAttempt(userId, challengeDate) {
     const matching = [...this.battles.values()].filter((battle) => (
       battle.record.userId === userId

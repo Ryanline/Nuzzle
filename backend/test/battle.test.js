@@ -207,6 +207,29 @@ test("daily leaderboard ranks winners by survivors and then completion time", as
   assert.equal(entries[0].team.length, 6);
 });
 
+test("streak leaderboard counts consecutive wins ending today", async () => {
+  const { service } = await serviceFixture();
+  const addBattle = ({ id, userId, date, winner = "Player", completedAt }) => service.battles.set(id, {
+    record: { id, userId, challengeDate: date, completedAt, createdAt: completedAt },
+    state: () => ({ ended: true, winner, player: { team: [] } }),
+  });
+  addBattle({ id: "alpha-22", userId: "alpha", date: "2026-10-22", completedAt: "2026-10-22T14:00:00.000Z" });
+  addBattle({ id: "alpha-23", userId: "alpha", date: "2026-10-23", completedAt: "2026-10-23T14:00:00.000Z" });
+  addBattle({ id: "alpha-24", userId: "alpha", date: "2026-10-24", completedAt: "2026-10-24T15:00:00.000Z" });
+  addBattle({ id: "beta-23", userId: "beta", date: "2026-10-23", completedAt: "2026-10-23T13:00:00.000Z" });
+  addBattle({ id: "beta-24", userId: "beta", date: "2026-10-24", completedAt: "2026-10-24T14:00:00.000Z" });
+  addBattle({ id: "missed-22", userId: "missed", date: "2026-10-22", completedAt: "2026-10-22T12:00:00.000Z" });
+  addBattle({ id: "missed-24", userId: "missed", date: "2026-10-24", completedAt: "2026-10-24T13:00:00.000Z" });
+  addBattle({ id: "lost-23", userId: "lost", date: "2026-10-23", completedAt: "2026-10-23T12:00:00.000Z" });
+  addBattle({ id: "lost-24", userId: "lost", date: "2026-10-24", winner: "Brock", completedAt: "2026-10-24T12:30:00.000Z" });
+  const entries = service.streakLeaderboard("2026-10-24", (id) => ({ username: id }));
+  assert.deepEqual(entries.map(({ rank, username, streak }) => ({ rank, username, streak })), [
+    { rank: 1, username: "alpha", streak: 3 },
+    { rank: 2, username: "beta", streak: 2 },
+    { rank: 3, username: "missed", streak: 1 },
+  ]);
+});
+
 test("a six-on-six battle can be played through to a real result", async () => {
   const { directory, service } = await serviceFixture();
   let state = await service.create({
