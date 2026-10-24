@@ -83,8 +83,10 @@ function estimatedDamage(battle, source, target, move) {
   const offensiveStat = move.id === "bodypress" ? "def" : move.category === "Physical" ? "atk" : "spa";
   const defensiveStat = ["psyshock", "psystrike", "secretsword"].includes(move.id) ? "def" : move.category === "Physical" ? "def" : "spd";
   const attackSource = move.id === "foulplay" ? target : source;
-  const attack = Math.max(1, attackSource.getStat(offensiveStat));
-  const defense = Math.max(1, target.getStat(defensiveStat));
+  // Forecasting happens outside move execution, so avoid ability/item callbacks
+  // that expect battle.activeMove to exist. Boosts still apply to these values.
+  const attack = Math.max(1, attackSource.getStat(offensiveStat, false, true));
+  const defense = Math.max(1, target.getStat(defensiveStat, false, true));
   let maximum = Math.floor(Math.floor(Math.floor((2 * source.level) / 5 + 2) * power * attack / defense) / 50) + 2;
   if (source.hasType(move.type)) maximum = Math.floor(maximum * 1.5);
   const effectiveness = target.runEffectiveness(move);
@@ -474,7 +476,7 @@ export class BattleController {
   }
 
   playerThreatensFasterKo(battle, source, target) {
-    if (target.getStat("spe") <= source.getStat("spe")) return false;
+    if (target.getStat("spe", false, true) <= source.getStat("spe", false, true)) return false;
     return target.moveSlots.some((slot) => {
       if (slot.pp <= 0 || slot.disabled) return false;
       const move = Dex.moves.get(slot.id);

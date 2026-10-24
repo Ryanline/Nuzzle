@@ -319,10 +319,11 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 }
 
 .pc-stage { display: flex; width: 100%; min-width: 0; min-height: calc(100vh - 104px); flex-direction: column; }
-.pc-help { margin: 0 0 10px; color: var(--muted); font-size: 12px; text-align: center; }
 .pc-section { width: 100%; min-width: 0; overflow: hidden; border: 1px solid #b8b8b8; border-radius: 8px; background: #f5f5f3; }
+.pc-section + .pc-section { margin-top: 12px; }
 .pc-section-head { display: flex; height: 34px; align-items: center; justify-content: space-between; padding: 0 11px; border-bottom: 1px solid #c9c9c9; background: #e8e8e5; }
 .pc-section-head h2 { margin: 0; font-size: 17px; font-weight: 700; text-transform: lowercase; }
+.trainer-reference-section .pc-section-head h2 { text-transform: none; }
 .pc-section-head span { color: var(--muted); font-size: 12px; }
 .party-strip { display: grid; width: 100%; min-width: 0; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; padding: 8px; }
 .party-slot { display: flex; min-width: 0; height: 78px; flex-direction: column; align-items: center; justify-content: center; padding: 2px; overflow: hidden; border: 1px solid #aaa; border-radius: 6px; background: #fff; cursor: pointer; }
@@ -330,14 +331,13 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .party-slot img { width: 58px; max-width: 100%; height: 55px; }
 .party-slot span { max-width: 100%; overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .party-slot.empty { border-style: dashed; background: transparent; color: #888; }
-.box-section { margin-top: 12px; }
+.trainer-party-slot { cursor: default; }
+.trainer-party-slot:hover { border-color: #aaa; background: #fff; }
 .pc-box { display: grid; width: 100%; min-width: 0; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 7px; padding: 10px; }
 .pc-mon { position: relative; display: flex; min-width: 0; height: 86px; flex-direction: column; align-items: center; justify-content: flex-end; padding: 2px; overflow: hidden; border: 1px solid transparent; border-radius: 6px; background: #fff; cursor: grab; touch-action: none; }
 .pc-mon:hover { border-color: #999; }
-.pc-mon.on-team { background: #eef5fb; border-color: #9ab7cf; }
 .pc-mon img { width: 68px; max-width: 120%; height: 65px; }
 .pc-mon-name { width: 100%; overflow: hidden; font-size: 10px; line-height: 15px; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
-.team-mark { position: absolute; top: 3px; right: 3px; padding: 1px 4px; border-radius: 8px; background: #2d72ae; color: #fff; font-size: 8px; font-weight: 700; letter-spacing: .02em; text-transform: uppercase; }
 .pc-mon.dragging { opacity: .35; cursor: grabbing; }
 .pc-mon.drag-over { border-radius: 8px; background: rgba(255,255,255,.35); }
 .page-back { width: calc(100% - 58px); margin: 24px 29px 0; }
@@ -815,18 +815,16 @@ html[data-theme="dark"] .auth-error { color: #ff9297; }
   .home-screen .opponent-team button { min-height: 0; overflow: visible; }
   .home-screen .opponent-team img { width: min(126px, 34vw); height: 100%; max-height: 104px; transform: translateX(-20px) scale(1.14); }
   .home-screen .home-actions { margin-top: 0; padding-top: 4px; }
-  .pc-help { font-size: 11px; line-height: 1.2; }
   .pc-section-head { height: 29px; padding: 0 8px; }
   .pc-section-head h2 { font-size: 15px; }
   .party-strip { gap: 3px; padding: 5px; }
   .party-slot { height: 67px; }
   .party-slot img { width: 51px; height: 48px; }
   .party-slot span { font-size: 9px; }
-  .box-section { margin-top: 7px; }
+  .pc-section + .pc-section { margin-top: 7px; }
   .pc-box { gap: 3px; padding: 5px; }
   .pc-mon { height: 76px; }
   .pc-mon img { width: 60px; height: 57px; }
-  .team-mark { top: 2px; right: 2px; padding: 1px 3px; font-size: 7px; }
   .pokemon-sheet { align-self: flex-end; width: 100%; height: min(590px, calc(100dvh - 22px)); max-height: calc(100dvh - 22px); padding: 15px 14px 12px; border-radius: 13px 13px 0 0; }
   .sheet-backdrop { align-items: flex-end; padding: 0; }
   .pokemon-summary { min-height: 108px; gap: 10px; }

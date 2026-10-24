@@ -558,6 +558,8 @@
   }
 
   function pc() {
+    const trainer = todayState.trainer;
+    const trainerSlots = trainer.pokemon.map((pokemon) => `<div class="party-slot trainer-party-slot" aria-label="${escapeHtml(pokemon.name)}"><img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId)}" alt=""/><span>${escapeHtml(pokemon.name)}</span></div>`).join("");
     const party = [...team].slice(0, 6);
     const partySlots = Array.from({ length: 6 }, (_, index) => {
       const id = party[index];
@@ -565,13 +567,15 @@
       const mon = mons[id];
       return `<button class="party-slot" type="button" data-pc-detail="${id}" aria-label="View ${mon.name}"><img class="sprite" src="${sprite(id)}" alt=""/><span>${mon.name}</span></button>`;
     }).join("");
-    const boxMons = pcOrder.map((id) => {
+    const boxIds = pcOrder.filter((id) => !team.has(id));
+    const boxMons = boxIds.map((id) => {
       const mon = mons[id];
-      return `<button class="pc-mon${team.has(id) ? " on-team" : ""}" type="button" draggable="false" data-pc-mon="${id}" aria-label="View ${mon.name}${team.has(id) ? ", on team" : ""}"><img class="sprite" src="${sprite(id)}" alt=""/><span class="pc-mon-name">${mon.name}</span>${team.has(id) ? '<span class="team-mark">team</span>' : ""}</button>`;
+      return `<button class="pc-mon" type="button" draggable="false" data-pc-mon="${id}" aria-label="View ${mon.name}"><img class="sprite" src="${sprite(id)}" alt=""/><span class="pc-mon-name">${mon.name}</span></button>`;
     }).join("");
-    return `<section class="screen">${header()}<div class="pc-stage"><p class="pc-help">Tap a Pokémon for details. Hold, then drag to organize the box.</p>
+    return `<section class="screen">${header()}<div class="pc-stage">
+      <section class="pc-section trainer-reference-section" aria-labelledby="trainer-team-heading"><div class="pc-section-head"><h2 id="trainer-team-heading">${escapeHtml(trainer.name)}</h2><span>${trainer.pokemon.length} Pokémon</span></div><div class="party-strip">${trainerSlots}</div></section>
       <section class="pc-section party-section" aria-labelledby="party-heading"><div class="pc-section-head"><h2 id="party-heading">team</h2><span>${party.length}/6</span></div><div class="party-strip">${partySlots}</div></section>
-      <section class="pc-section box-section" aria-labelledby="box-heading"><div class="pc-section-head"><h2 id="box-heading">box</h2><span>${pcOrder.length} Pokémon</span></div><div class="pc-box">${boxMons}</div></section>
+      <section class="pc-section box-section" aria-labelledby="box-heading"><div class="pc-section-head"><h2 id="box-heading">box</h2><span>${boxIds.length} Pokémon</span></div><div class="pc-box">${boxMons}</div></section>
       ${backButton()}</div>${selectedPcId ? pcPokemonSheet(selectedPcId) : ""}</section>`;
   }
 

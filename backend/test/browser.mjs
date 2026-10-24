@@ -182,6 +182,11 @@ const purchasedGame = await page.evaluate(() => fetch("/api/game").then((respons
 if (purchasedGame.inventory.hpup !== 5) throw new Error("The bulk purchase quantity was not persisted.");
 await page.click(".page-back");
 await page.click('[data-route="pc"]');
+if ((await page.locator(".trainer-reference-section .pc-section-head h2").textContent())?.trim() !== "Brock") throw new Error("The PC did not identify today's trainer team.");
+if (await page.locator(".trainer-reference-section .trainer-party-slot").count() !== 6) throw new Error("The PC did not show today's full trainer team.");
+if (await page.locator(".party-section [data-pc-detail]").count() !== generatedGame.teamIds.length) throw new Error("The PC Team section did not show only the active team.");
+if (await page.locator(".box-section [data-pc-mon]").count() !== generatedGame.roster.length - generatedGame.teamIds.length) throw new Error("The PC Box section did not exclude active team members.");
+if (await page.locator(".team-mark, .pc-help").count()) throw new Error("The obsolete PC team labels or helper text are still visible.");
 await page.click(`[data-pc-detail="${outgoingId}"]`);
 const pcActionSpacing = await page.locator(".pokemon-sheet").evaluate((sheet) => {
   const teamButton = sheet.querySelector("[data-team-toggle]").getBoundingClientRect();
