@@ -374,7 +374,7 @@ await page.click("[data-reset-daily-battle]");
 if (!(await resetResponse).ok()) throw new Error("Resetting the admin's daily battle failed.");
 if (!(await page.locator(".admin-battle-reset").textContent())?.includes("ready to play again")) throw new Error("The daily battle reset did not report success.");
 await page.click('.settings-stage [data-route="home"]');
-const freshBattleButton = page.locator('.home-actions [data-route="encounters"]');
+const freshBattleButton = page.locator('.home-actions .red[data-route="encounters"]');
 if ((await freshBattleButton.textContent())?.trim() !== "battle") throw new Error("A forfeit did not route the fresh run through opening encounters.");
 await freshBattleButton.click();
 if (await page.locator("[data-encounter-slot]").count() !== 12) throw new Error("A forfeit did not create twelve fresh-run encounters.");
