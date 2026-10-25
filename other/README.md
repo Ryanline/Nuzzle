@@ -75,18 +75,19 @@ The game is intentionally Nuzlocke-like and can be harsh. It should create inter
 - Shows today's trainer team first as a preparation reference, then the player's Team, then boxed Pokémon.
 - A Pokémon appears in Team or Box, never both. Team size is at most six.
 - Supports adding/removing team members and drag reordering.
-- The detail drawer shows identity, types, ability, nature, held item, calculated battle stats, moves, and a separate IV/EV view.
+- The detail drawer has Summary and Training sections. Summary shows identity, types, ability, nature, held item, calculated battle stats, and moves.
+- Training provides a Showdown-inspired build editor with EV sliders, IV inputs, nature, ability, eligible forms, and a searchable legal-move catalog. Changes and resulting stats are previewed before purchase, then applied together in one server-authoritative transaction.
 - Held items can be given or taken without closing the item view; the holder and Bag update immediately.
-- Training items and TMs are applied through the Pokémon detail flow.
+- Training costs are itemized from the persisted build to the final preview. Resetting or restoring a value before applying costs nothing.
 - There is currently no box capacity, release action, filtering, or selling.
 
 ### Bag and Mart
 
-- Both use Held Items, Training Items, and TMs tabs.
+- The Mart and Bag contain held items. Training and moves are purchased directly through a Pokémon's Training editor in the PC.
 - The Bag shows owned inventory and contextual use/equip actions.
 - The Mart uses compact rows, optional item information, and a purchase drawer.
 - Stackable items use a mobile quantity selector showing current money, owned quantity, selected quantity, and total price.
-- Held items are normally limited to one shop purchase per run. Training Items and TMs are consumable and repurchasable.
+- Held items are normally limited to one shop purchase per run.
 - Selling is not implemented.
 
 ### Battle preview and battle
@@ -202,7 +203,9 @@ Optional signature-pool moves, favored but not forced, are:
 
 ## Training Items and Form Changes
 
-Training items are consumed only after a valid change succeeds. Canceling, errors, selecting the current value, or choosing an ineligible target consumes nothing.
+Training-item names and prices define the cost of direct PC training; they are no longer purchased or stored in the Bag. A staged build is charged only after the complete final build validates and succeeds. Canceling, resetting, errors, or restoring the current value costs nothing.
+
+Legacy runs are migrated once: owned Training Items and TMs are removed and fully refunded at their current catalog prices.
 
 - HP Up, Protein, Iron, Calcium, Zinc, and Carbos add one EV to their respective stat.
 - Pomeg, Kelpsy, Qualot, Hondew, Grepa, and Tamato Berries remove one corresponding EV.
@@ -212,13 +215,13 @@ Training items are consumed only after a valid change succeeds. Canceling, error
 - An Ability Capsule never grants a hidden ability. It switches automatically between eligible ordinary abilities, is unusable when no alternative ordinary ability exists, and lets a hidden-ability holder return to an eligible ordinary ability.
 - An Ability Patch only changes an ordinary ability to an eligible hidden ability. It never reverses a hidden ability and cannot grant Zen Mode.
 
-All form-changing items are consumable, repurchasable Training Items. They persistently change form but preserve duplicate-family identity:
+Form-change prices remain based on the corresponding Training Items, but the change is purchased directly in the PC editor. Form changes persist and preserve duplicate-family identity:
 
 - **Rotom Catalog:** Change owned Rotom among Base, Heat, Wash, Frost, Fan, and Mow. Returning to Base also consumes a Catalog.
 - **Nectars:** Change owned Oricorio among Baile, Pom-Pom, Pa'u, and Sensu.
 - **Cud items:** Change owned Paldean Tauros among Combat, Blaze, and Aqua Breed.
 
-An item is consumed only when it produces a different valid form. The current implementation gives the target form a newly generated default moveset when it changes form. The final intended move-retention/replacement policy remains open and should be resolved before changing that behavior.
+A form change is charged only when it produces a different valid form. Existing moves are retained when legal for the destination form; any incompatible move must be replaced as part of the same staged build before it can be applied.
 
 ## Held Items and Persistent Ownership
 
@@ -253,8 +256,8 @@ These are first-pass balance values. Tune them in content data rather than chang
 
 - TMs replace level-up, egg, tutor, HM, and conventional limited-TM move-learning paths.
 - A Pokémon can use only a move in its own direct/inherited Showdown learnset.
-- A successful TM replaces one current move, consumes the TM, and persists. Illegal, identical, or canceled changes consume nothing.
-- TMs can be purchased repeatedly.
+- A successful move change replaces one current move, charges that move's TM price, and persists. Illegal, identical, reordered, or canceled changes cost nothing.
+- Moves can be purchased repeatedly through Training without carrying TMs in the Bag.
 - Sketch does not make every move available through Smeargle, and moves no approved Pokémon can directly learn are omitted.
 - Pure setup TMs are excluded, including common boosting moves such as Swords Dance, Dragon Dance, Nasty Plot, Calm Mind, Bulk Up, Quiver Dance, Shell Smash, Belly Drum, Shift Gear, Coil, defensive boosts, and speed boosts.
 - Spore, Revival Blessing, Shed Tail, Baton Pass, Minimize, and Double Team are also excluded.

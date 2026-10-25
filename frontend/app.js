@@ -2,6 +2,7 @@
   "use strict";
 
   const localSpriteIds = new Set(["aerodactyl", "alakazam", "arcanine", "exeggutor", "flareon", "gengar", "golem", "lapras", "machamp", "magcargo", "nidoking", "onix", "pidgeot", "raichu", "rhydon", "rhyperior", "steelix", "sudowoodo", "vaporeon", "venusaur"]);
+  const toId = (value) => String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
   const backSpriteIds = new Set(["flareon", "raichu", "vaporeon", "gengar", "venusaur", "pidgeot", "arcanine", "lapras", "alakazam", "machamp", "nidoking", "exeggutor"]);
   const sprite = (id, back = false, currentSpriteId = null, shiny = null) => {
     const speciesId = mons[id]?.speciesId || id;
@@ -88,13 +89,18 @@
   let resultOverlayOpen = false;
   let balance = 50000;
   let selectedPcId = null;
-  let pcDetailView = "stats";
+  let pcDetailView = "summary";
   let pcSwapMode = false;
   let pcItemMode = false;
-  let activePcItemGroup = "Training Items";
+  let activePcItemGroup = "Held Items";
   let pendingPcItemId = null;
   let selectedNature = null;
   let pcItemMessage = "";
+  let trainingDraft = null;
+  let trainingMoveSlot = null;
+  let trainingMoveSearch = "";
+  let trainingMessage = "";
+  let trainingTransactionKey = null;
   let selectedLeadId = null;
   let gameBusy = false;
   let purchaseMessage = "";
@@ -680,6 +686,104 @@
       ${backButton()}</div>${selectedPcId ? pcPokemonSheet(selectedPcId) : ""}</section>`;
   }
 
+  const trainingStats = [["hp", "HP"], ["atk", "Atk"], ["def", "Def"], ["spa", "SpA"], ["spd", "SpD"], ["spe", "Spe"]];
+
+  function beginTraining(mon) {
+    trainingDraft = {
+      speciesId: mon.speciesId,
+      ivs: { ...mon.ivs },
+      evs: { ...mon.evs },
+      nature: mon.nature,
+      ability: mon.ability,
+      moves: [...mon.moves],
+    };
+    trainingMoveSlot = null;
+    trainingMoveSearch = "";
+    trainingMessage = "";
+    trainingTransactionKey = crypto.randomUUID();
+  }
+
+  function trainingForm(mon, speciesId = trainingDraft?.speciesId) {
+    return mon.trainingForms?.find((form) => form.id === speciesId) || { id: mon.speciesId, name: mon.name, baseStats: mon.baseStats, ordinaryAbilities: mon.ordinaryAbilities, hiddenAbility: mon.hiddenAbility, learnableMoveIds: mon.learnableMoveIds, legalMoveIds: mon.legalMoveIds };
+  }
+
+  function availableTrainingForms(mon) {
+    const targets = new Set(shopItems.filter((item) => item.effect === "form").map((item) => item.target));
+    return (mon.trainingForms || []).filter((form) => form.id === mon.speciesId || (mon.speciesId.startsWith("rotom") && form.id.startsWith("rotom")) || targets.has(form.id));
+  }
+
+  function previewTrainingStats(mon) {
+    const draft = trainingDraft;
+    const form = trainingForm(mon);
+    const nature = natureOptions.find((option) => option.name === draft.nature) || {};
+    const labelByStat = { atk: "Atk", def: "Def", spa: "SpA", spd: "SpD", spe: "Spe" };
+    return Object.fromEntries(trainingStats.map(([stat]) => {
+      const base = form.baseStats[stat];
+      const core = Math.floor(((2 * base + draft.ivs[stat] + Math.floor(draft.evs[stat] / 4)) * mon.level) / 100);
+      const adjustment = nature.up === labelByStat[stat] ? 1.1 : nature.down === labelByStat[stat] ? .9 : 1;
+      return [stat, stat === "hp" ? (base === 1 ? 1 : core + mon.level + 10) : Math.floor((core + 5) * adjustment)];
+    }));
+  }
+
+  function localTrainingQuote(mon) {
+    const draft = trainingDraft;
+    const form = trainingForm(mon);
+    const lines = [];
+    const add = (key, label, cost) => lines.push({ key, label, cost });
+    for (const [stat, label] of trainingStats) {
+      const evDifference = draft.evs[stat] - mon.evs[stat];
+      if (evDifference) {
+        const item = shopItems.find((candidate) => candidate.effect === "ev" && candidate.stat === stat && Math.sign(candidate.amount) === Math.sign(evDifference));
+        add(`ev-${stat}`, `${label} EV ${evDifference > 0 ? "+" : "−"}${Math.abs(evDifference)}`, Math.abs(evDifference) * item.price);
+      }
+      if (draft.ivs[stat] !== mon.ivs[stat]) add(`iv-${stat}`, `${label} IV ${mon.ivs[stat]} → ${draft.ivs[stat]}`, shopItems.find((item) => item.effect === "iv").price);
+    }
+    if (draft.nature !== mon.nature) add("nature", `Nature ${mon.nature} → ${draft.nature}`, shopItems.find((item) => item.effect === "nature").price);
+    if (draft.ability !== mon.ability) {
+      const effect = draft.ability === form.hiddenAbility ? "ability-patch" : "ability-capsule";
+      add("ability", `Ability ${mon.ability} → ${draft.ability}`, shopItems.find((item) => item.effect === effect).price);
+    }
+    if (draft.speciesId !== mon.speciesId) {
+      const item = mon.speciesId.startsWith("rotom") && draft.speciesId.startsWith("rotom")
+        ? shopItems.find((candidate) => candidate.effect === "rotom")
+        : shopItems.find((candidate) => candidate.effect === "form" && candidate.target === draft.speciesId);
+      add("form", `Form ${mon.name} → ${form.name}`, item.price);
+    }
+    const known = new Set(mon.moves.map(toId));
+    for (const move of draft.moves) {
+      const moveId = toId(move);
+      if (known.has(moveId)) continue;
+      const item = shopItems.find((candidate) => candidate.id === `tm-${moveId}`);
+      add(`move-${moveId}`, `Learn ${move}`, item.price);
+    }
+    return { lines, total: lines.reduce((sum, line) => sum + line.cost, 0) };
+  }
+
+  function trainingMovePicker(mon) {
+    const form = trainingForm(mon);
+    const query = trainingMoveSearch.trim().toLowerCase();
+    const selectedElsewhere = new Set(trainingDraft.moves.filter((_, slot) => slot !== trainingMoveSlot).map(toId));
+    const moves = shopItems.filter((item) => item.group === "TMs" && form.learnableMoveIds.includes(item.moveId) && !selectedElsewhere.has(item.moveId) && (!query || `${item.name} ${item.type} ${item.category}`.toLowerCase().includes(query)));
+    return `<section class="training-move-picker"><header><button type="button" data-close-move-picker aria-label="Back to training">←</button><div><small>Replace move ${trainingMoveSlot + 1}</small><h3>${escapeHtml(trainingDraft.moves[trainingMoveSlot])}</h3></div></header><label class="move-search">Search moves<input type="search" value="${escapeHtml(trainingMoveSearch)}" placeholder="Name, type, or category" data-training-move-search autofocus></label><div class="training-move-list">${moves.map((item) => `<button type="button" data-select-training-move="${item.id}"><span><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.detail)}</small></span><b>₽${item.price.toLocaleString()}</b></button>`).join("") || `<p class="training-empty">No matching moves.</p>`}</div></section>`;
+  }
+
+  function trainingEditor(mon) {
+    if (!trainingDraft) beginTraining(mon);
+    if (trainingMoveSlot !== null) return trainingMovePicker(mon);
+    const form = trainingForm(mon);
+    const stats = previewTrainingStats(mon);
+    const quote = localTrainingQuote(mon);
+    const invalidMoveSlots = trainingDraft.moves.map((move, slot) => form.legalMoveIds.includes(toId(move)) ? null : slot).filter((slot) => slot !== null);
+    const evTotal = Object.values(trainingDraft.evs).reduce((sum, value) => sum + value, 0);
+    const rows = trainingStats.map(([stat, label]) => {
+      const changed = trainingDraft.evs[stat] !== mon.evs[stat] || trainingDraft.ivs[stat] !== mon.ivs[stat];
+      return `<div class="training-editor-row${changed ? " changed" : ""}"><div class="training-stat-result"><strong>${label}</strong><span>${stats[stat]}</span></div><div class="training-iv-control"><label for="training-iv-${stat}">IV</label><input id="training-iv-${stat}" type="number" min="0" max="31" value="${trainingDraft.ivs[stat]}" data-training-iv="${stat}" inputmode="numeric"><button type="button" data-max-training-iv="${stat}">31</button></div><div class="training-ev-control"><label for="training-ev-${stat}"><span>EV</span><output>${trainingDraft.evs[stat]}</output></label><input id="training-ev-${stat}" type="range" min="0" max="252" step="1" value="${trainingDraft.evs[stat]}" data-training-ev="${stat}"></div></div>`;
+    }).join("");
+    const abilities = [...form.ordinaryAbilities, form.hiddenAbility].filter(Boolean);
+    const forms = availableTrainingForms(mon);
+    return `<section class="training-editor" role="tabpanel"><div class="training-scroll"><div class="training-heading"><span>Final</span><span>Values update before you spend.</span></div>${rows}<div class="training-remaining"><span>${510 - evTotal} EVs remaining</span><button type="button" data-reset-evs>clear EVs</button></div><div class="training-selects"><label>Nature<select data-training-nature>${natureOptions.map((nature) => `<option value="${nature.name}" ${nature.name === trainingDraft.nature ? "selected" : ""}>${nature.name}${nature.up ? ` (+${nature.up}, −${nature.down})` : " (neutral)"}</option>`).join("")}</select></label><label>Ability<select data-training-ability>${abilities.map((ability) => `<option ${ability === trainingDraft.ability ? "selected" : ""}>${escapeHtml(ability)}</option>`).join("")}</select></label>${forms.length > 1 ? `<label>Form<select data-training-form>${forms.map((candidate) => `<option value="${candidate.id}" ${candidate.id === trainingDraft.speciesId ? "selected" : ""}>${escapeHtml(candidate.name)}</option>`).join("")}</select></label>` : ""}</div><div class="training-moves"><h3>Moves</h3>${trainingDraft.moves.map((move, slot) => `<button class="${invalidMoveSlots.includes(slot) ? "invalid" : ""}" type="button" data-edit-training-move="${slot}"><span><small>Move ${slot + 1}${invalidMoveSlots.includes(slot) ? " · replacement required" : ""}</small><strong>${escapeHtml(move)}</strong></span><b>change</b></button>`).join("")}</div>${quote.lines.length ? `<div class="training-receipt"><h3>Pending changes</h3>${quote.lines.map((line) => `<p><span>${escapeHtml(line.label)}</span><b>₽${line.cost.toLocaleString()}</b></p>`).join("")}</div>` : ""}</div><footer class="training-footer">${trainingMessage ? `<p role="alert">${escapeHtml(trainingMessage)}</p>` : ""}${invalidMoveSlots.length ? '<p role="alert">Replace moves that are illegal for the selected form.</p>' : ""}<div><span><small>${quote.lines.length} pending change${quote.lines.length === 1 ? "" : "s"}</small><button type="button" data-reset-training ${quote.lines.length ? "" : "disabled"}>reset</button></span><strong><small>Total</small> ₽${quote.total.toLocaleString()}</strong></div><div class="training-after">Balance after <b>₽${Math.max(0, balance - quote.total).toLocaleString()}</b></div><button class="gloss-button blue" type="button" data-apply-training ${quote.total && quote.total <= balance && !invalidMoveSlots.length ? "" : "disabled"}>apply changes</button></footer></section>`;
+  }
+
   function pcPokemonSheet(id) {
     const mon = mons[id];
     const onTeam = team.has(id);
@@ -691,28 +795,16 @@
       const value = stat.slice(split + 1);
       const change = label === mon.natureUp ? " raised" : label === mon.natureDown ? " lowered" : "";
       const marker = change === " raised" ? " ↑" : change === " lowered" ? " ↓" : "";
-      const ariaChange = change ? `, ${change.trim()} by ${mon.nature} nature` : "";
-      return `<span class="stat-card${change}" aria-label="${label}, ${value}${ariaChange}"><small>${label}${marker}</small><strong>${value}</strong></span>`;
+      return `<span class="stat-card${change}"><small>${label}${marker}</small><strong>${value}</strong></span>`;
     }).join("");
     const swapChooser = pcSwapMode && !onTeam ? `<section class="swap-chooser" aria-labelledby="swap-heading"><h3 id="swap-heading">Who should ${mon.name} replace?</h3><p>The new Pokémon will take the same team position.</p><div class="swap-grid">${[...team].map((teamId) => `<button type="button" data-team-replace="${teamId}"><img class="sprite" src="${sprite(teamId)}" alt=""/><span>${mons[teamId].name}</span></button>`).join("")}</div></section>` : "";
-    const primaryLabel = onTeam ? "remove from team" : "add to team";
     const itemChooser = pcItemMode ? pcItemPanel(mon) : "";
-    const statOrder = [["hp", "HP"], ["atk", "Atk"], ["def", "Def"], ["spa", "SpA"], ["spd", "SpD"], ["spe", "Spe"]];
-    const evTotal = Object.values(mon.evs || {}).reduce((sum, value) => sum + value, 0);
-    const trainingRows = statOrder.map(([key, label]) => `<div class="training-stat-row"><strong>${label}</strong><span>${mon.calculatedStats?.[key] ?? "—"}</span><span>${mon.ivs?.[key] ?? "—"}</span><span>${mon.evs?.[key] ?? "—"}<small>/252</small></span></div>`).join("");
-    const detailTabs = `<div class="pc-detail-tabs" role="tablist" aria-label="Pokémon stat details"><button type="button" role="tab" aria-selected="${pcDetailView === "stats"}" class="${pcDetailView === "stats" ? "selected" : ""}" data-pc-detail-view="stats">stats</button><button type="button" role="tab" aria-selected="${pcDetailView === "training"}" class="${pcDetailView === "training" ? "selected" : ""}" data-pc-detail-view="training">IVs &amp; EVs</button></div>`;
-    const pokemonFacts = `<div class="pokemon-facts"><p><span>Ability</span><strong>${mon.ability}</strong></p><p><span>Nature</span><strong>${mon.nature}</strong></p><p><span>Held item</span><strong>${mon.item}</strong></p></div>`;
-    const detailContent = pcDetailView === "training"
-      ? `<section class="training-details" role="tabpanel"><div class="training-stat-head"><span>Stat</span><span>Final</span><span>IV</span><span>EV</span></div>${trainingRows}<p class="ev-total"><span>Total EVs</span><strong>${evTotal} / 510</strong></p></section>`
-      : `${pokemonFacts}<section class="sheet-section" role="tabpanel"><div class="stat-grid">${stats}</div><h3>Moves</h3><div class="sheet-moves">${mon.moves.map((move) => `<span>${move}</span>`).join("")}</div></section>`;
-    const sheetContent = swapChooser || itemChooser || `${detailTabs}<div class="pc-detail-panel">${detailContent}</div>${pcItemMessage ? `<p class="sheet-feedback" role="status">${pcItemMessage}</p>` : ""}<div class="sheet-actions"><button class="gloss-button ${onTeam ? "slate" : "blue"}" type="button" data-team-toggle="${id}">${primaryLabel}</button><button class="gloss-button gold" type="button" data-open-pc-items>item</button><button class="gloss-button neutral" type="button" data-close-pc-sheet>close</button></div>`;
+    const tabs = `<div class="pc-detail-tabs" role="tablist" aria-label="Pokémon details"><button type="button" role="tab" aria-selected="${pcDetailView === "summary"}" class="${pcDetailView === "summary" ? "selected" : ""}" data-pc-detail-view="summary">Summary</button><button type="button" role="tab" aria-selected="${pcDetailView === "training"}" class="${pcDetailView === "training" ? "selected" : ""}" data-pc-detail-view="training">Training</button></div>`;
+    const summary = `<div class="pokemon-facts"><p><span>Ability</span><strong>${mon.ability}</strong></p><p><span>Nature</span><strong>${mon.nature}</strong></p><p><span>Held item</span><strong>${mon.item}</strong></p></div><section class="sheet-section" role="tabpanel"><div class="stat-grid">${stats}</div><h3>Moves</h3><div class="sheet-moves">${mon.moves.map((move) => `<span>${move}</span>`).join("")}</div></section>`;
+    const normalContent = `${tabs}<div class="pc-detail-panel">${pcDetailView === "training" ? trainingEditor(mon) : summary}</div>${pcDetailView === "summary" ? `<div class="sheet-actions"><button class="gloss-button ${onTeam ? "slate" : "blue"}" type="button" data-team-toggle="${id}">${onTeam ? "remove from team" : "add to team"}</button><button class="gloss-button gold" type="button" data-open-pc-items>held item</button><button class="gloss-button neutral" type="button" data-close-pc-sheet>close</button></div>` : ""}`;
+    const sheetContent = swapChooser || itemChooser || normalContent;
     const alternateMode = swapChooser || itemChooser;
-    return `<div class="sheet-backdrop" data-close-pc-sheet><section class="pokemon-sheet" role="dialog" aria-modal="true" aria-labelledby="pokemon-sheet-title">
-      <button class="sheet-close" type="button" data-close-pc-sheet aria-label="Close Pokémon details" autofocus>×</button>
-      <div class="pokemon-summary"><img class="sprite" src="${sprite(id)}" alt="${mon.name}"/><div><p class="sheet-kicker">Pokémon details</p><h2 id="pokemon-sheet-title">${mon.name}</h2><div class="sheet-types">${mon.types.map((type) => `<span class="type-chip ${type.toLowerCase()}">${type}</span>`).join("")}</div></div></div>
-      <div class="sheet-mode-content">${sheetContent}</div>
-      ${alternateMode ? `<button class="gloss-button neutral sheet-secondary-action" type="button" ${swapChooser ? "data-cancel-pc-swap" : "data-cancel-pc-items"}>cancel</button>` : ""}
-    </section></div>`;
+    return `<div class="sheet-backdrop" data-close-pc-sheet><section class="pokemon-sheet${pcDetailView === "training" && !alternateMode ? " training-sheet" : ""}" role="dialog" aria-modal="true" aria-labelledby="pokemon-sheet-title"><button class="sheet-close" type="button" data-close-pc-sheet aria-label="Close Pokémon details">×</button><div class="pokemon-summary"><img class="sprite" src="${sprite(id)}" alt="${mon.name}"/><div><p class="sheet-kicker">Pokémon details</p><h2 id="pokemon-sheet-title">${mon.name}</h2><div class="sheet-types">${mon.types.map((type) => `<span class="type-chip ${type.toLowerCase()}">${type}</span>`).join("")}</div></div></div><div class="sheet-mode-content">${sheetContent}</div>${alternateMode ? `<button class="gloss-button neutral sheet-secondary-action" type="button" ${swapChooser ? "data-cancel-pc-swap" : "data-cancel-pc-items"}>cancel</button>` : ""}</section></div>`;
   }
 
   function encountersScreen() {
@@ -735,7 +827,7 @@
   }
 
   let shopItems = [];
-  const itemGroupOrder = ["Held Items", "Training Items", "TMs"];
+  const itemGroupOrder = ["Held Items"];
   const natureOptions = [
     { name: "Hardy" }, { name: "Lonely", up: "Atk", down: "Def" }, { name: "Brave", up: "Atk", down: "Spe" }, { name: "Adamant", up: "Atk", down: "SpA" }, { name: "Naughty", up: "Atk", down: "SpD" },
     { name: "Bold", up: "Def", down: "Atk" }, { name: "Docile" }, { name: "Relaxed", up: "Def", down: "Spe" }, { name: "Impish", up: "Def", down: "SpA" }, { name: "Lax", up: "Def", down: "SpD" },
@@ -1203,6 +1295,35 @@
     }
   }
 
+  function hasPendingTraining(mon = mons[selectedPcId]) {
+    return Boolean(mon && trainingDraft && localTrainingQuote(mon).total);
+  }
+
+  async function applyTraining() {
+    const mon = mons[selectedPcId];
+    if (gameBusy || !mon || !trainingDraft) return;
+    const quote = localTrainingQuote(mon);
+    if (!quote.total || quote.total > balance) return;
+    gameBusy = true;
+    trainingMessage = "";
+    const targetSpeciesId = trainingDraft.speciesId;
+    try {
+      const result = await apiRequest(`/api/game/pokemon/${selectedPcId}/training/apply`, {
+        method: "POST",
+        body: JSON.stringify({ build: trainingDraft, expectedCost: quote.total, idempotencyKey: trainingTransactionKey }),
+      });
+      applyGameState(result.state);
+      selectedPcId = mons[targetSpeciesId] ? targetSpeciesId : selectedPcId;
+      beginTraining(mons[selectedPcId]);
+      trainingMessage = `Training applied for ₽${quote.total.toLocaleString()}.`;
+    } catch (error) {
+      trainingMessage = error.message;
+    } finally {
+      gameBusy = false;
+      render();
+    }
+  }
+
   function addInfoInteractions(element, html) {
     let timer = null;
     let held = false;
@@ -1563,18 +1684,22 @@
       bindVisitMart();
     }));
     bindVisitMart();
-    document.querySelectorAll("[data-pc-detail]").forEach((button) => button.addEventListener("click", () => { selectedPcId = button.dataset.pcDetail; pcDetailView = "stats"; pcSwapMode = false; pcItemMode = false; pendingPcItemId = null; selectedNature = null; pcItemMessage = ""; render(); }));
+    document.querySelectorAll("[data-pc-detail]").forEach((button) => button.addEventListener("click", () => { selectedPcId = button.dataset.pcDetail; pcDetailView = "summary"; pcSwapMode = false; pcItemMode = false; pendingPcItemId = null; selectedNature = null; pcItemMessage = ""; trainingDraft = null; trainingMoveSlot = null; trainingMessage = ""; render(); }));
     document.querySelectorAll("[data-pc-detail-view]").forEach((button) => button.addEventListener("click", () => {
       pcDetailView = button.dataset.pcDetailView;
+      if (pcDetailView === "training" && !trainingDraft) beginTraining(mons[selectedPcId]);
       render();
     }));
     document.querySelectorAll("[data-close-pc-sheet]").forEach((element) => element.addEventListener("click", (event) => {
       if (element.classList.contains("sheet-backdrop") && event.target !== element) return;
+      if (hasPendingTraining() && !window.confirm("Discard your pending training changes?")) return;
       selectedPcId = null;
       pcSwapMode = false;
       pcItemMode = false;
       pendingPcItemId = null;
       selectedNature = null;
+      trainingDraft = null;
+      trainingMoveSlot = null;
       render();
     }));
     document.querySelector("[data-open-pc-items]")?.addEventListener("click", () => {
@@ -1612,6 +1737,66 @@
       if (options.slot !== undefined) options.slot = Number(options.slot);
       if (item) void trainPokemon(item, options);
     });
+    document.querySelectorAll("[data-training-ev]").forEach((input) => {
+      const update = () => {
+        const stat = input.dataset.trainingEv;
+        const otherTotal = Object.entries(trainingDraft.evs).reduce((sum, [key, value]) => sum + (key === stat ? 0 : value), 0);
+        trainingDraft.evs[stat] = Math.max(0, Math.min(252, 510 - otherTotal, Number(input.value) || 0));
+        input.value = trainingDraft.evs[stat];
+        const row = input.closest(".training-editor-row");
+        const output = row?.querySelector("output");
+        const result = row?.querySelector(".training-stat-result span");
+        if (output) output.textContent = trainingDraft.evs[stat];
+        if (result) result.textContent = previewTrainingStats(mons[selectedPcId])[stat];
+        const remaining = document.querySelector(".training-remaining span");
+        if (remaining) remaining.textContent = `${510 - Object.values(trainingDraft.evs).reduce((sum, value) => sum + value, 0)} EVs remaining`;
+      };
+      input.addEventListener("input", update);
+      input.addEventListener("change", () => { update(); render(); });
+    });
+    document.querySelectorAll("[data-training-iv]").forEach((input) => input.addEventListener("change", () => {
+      const stat = input.dataset.trainingIv;
+      trainingDraft.ivs[stat] = Math.max(0, Math.min(31, Math.round(Number(input.value) || 0)));
+      render();
+    }));
+    document.querySelectorAll("[data-max-training-iv]").forEach((button) => button.addEventListener("click", () => {
+      trainingDraft.ivs[button.dataset.maxTrainingIv] = 31;
+      render();
+    }));
+    document.querySelector("[data-reset-evs]")?.addEventListener("click", () => {
+      for (const stat of Object.keys(trainingDraft.evs)) trainingDraft.evs[stat] = 0;
+      render();
+    });
+    document.querySelector("[data-training-nature]")?.addEventListener("change", (event) => { trainingDraft.nature = event.currentTarget.value; render(); });
+    document.querySelector("[data-training-ability]")?.addEventListener("change", (event) => { trainingDraft.ability = event.currentTarget.value; render(); });
+    document.querySelector("[data-training-form]")?.addEventListener("change", (event) => {
+      trainingDraft.speciesId = event.currentTarget.value;
+      const form = trainingForm(mons[selectedPcId]);
+      const abilities = [...form.ordinaryAbilities, form.hiddenAbility].filter(Boolean);
+      if (!abilities.includes(trainingDraft.ability)) trainingDraft.ability = form.ordinaryAbilities[0];
+      render();
+    });
+    document.querySelectorAll("[data-edit-training-move]").forEach((button) => button.addEventListener("click", () => { trainingMoveSlot = Number(button.dataset.editTrainingMove); trainingMoveSearch = ""; render(); }));
+    document.querySelector("[data-close-move-picker]")?.addEventListener("click", () => { trainingMoveSlot = null; trainingMoveSearch = ""; render(); });
+    document.querySelector("[data-training-move-search]")?.addEventListener("input", (event) => {
+      trainingMoveSearch = event.currentTarget.value;
+      render();
+      requestAnimationFrame(() => {
+        const search = document.querySelector("[data-training-move-search]");
+        search?.focus();
+        search?.setSelectionRange(search.value.length, search.value.length);
+      });
+    });
+    document.querySelectorAll("[data-select-training-move]").forEach((button) => button.addEventListener("click", () => {
+      const item = shopItems.find((candidate) => candidate.id === button.dataset.selectTrainingMove);
+      if (!item) return;
+      trainingDraft.moves[trainingMoveSlot] = item.move;
+      trainingMoveSlot = null;
+      trainingMoveSearch = "";
+      render();
+    }));
+    document.querySelector("[data-reset-training]")?.addEventListener("click", () => { beginTraining(mons[selectedPcId]); render(); });
+    document.querySelector("[data-apply-training]")?.addEventListener("click", () => void applyTraining());
     document.querySelector("[data-team-toggle]")?.addEventListener("click", (event) => {
       const id = event.currentTarget.dataset.teamToggle;
       if (team.has(id)) {
@@ -1709,12 +1894,15 @@
       element.addEventListener("click", () => {
         if (element.dataset.held || dragArmed) { delete element.dataset.held; dragArmed = false; return; }
         selectedPcId = element.dataset.pcMon;
-        pcDetailView = "stats";
+        pcDetailView = "summary";
         pcSwapMode = false;
         pcItemMode = false;
         pendingPcItemId = null;
         selectedNature = null;
         pcItemMessage = "";
+        trainingDraft = null;
+        trainingMoveSlot = null;
+        trainingMessage = "";
         render();
       });
     });

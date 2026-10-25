@@ -270,6 +270,16 @@ async function api(request, response, pathname) {
     json(response, 200, result);
     return true;
   }
+  const pokemonTrainingMatch = pathname.match(/^\/api\/game\/pokemon\/([a-z0-9]+)\/training\/(quote|apply)$/);
+  if (request.method === "POST" && pokemonTrainingMatch) {
+    const user = requireUser(request);
+    const body = await requestBody(request);
+    const result = pokemonTrainingMatch[2] === "quote"
+      ? await game.quoteTrainingBuild(user.id, pokemonTrainingMatch[1], body.build)
+      : await game.applyTrainingBuild(user.id, pokemonTrainingMatch[1], body.build, body.expectedCost, body.idempotencyKey);
+    json(response, 200, result);
+    return true;
+  }
   if (request.method === "POST" && pathname === "/api/battles") {
     const user = requireUser(request);
     const body = await requestBody(request);

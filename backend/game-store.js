@@ -21,6 +21,7 @@ const stats = ["hp", "atk", "def", "spa", "spd", "spe"];
 const statLabels = { hp: "HP", atk: "Atk", def: "Def", spa: "SpA", spd: "SpD", spe: "Spe" };
 const startingMoney = 50000;
 const victoryReward = 15000;
+const directTrainingVersion = 1;
 
 function gameError(message, statusCode = 400) {
   throw Object.assign(new Error(message), { statusCode });
@@ -133,6 +134,111 @@ function calculatedStats(pokemon) {
   }));
 }
 
+function trainingItem(effect, predicate = () => true) {
+  return itemCatalog.find((item) => item.effect === effect && predicate(item));
+}
+
+function migrateDirectTraining(run) {
+  if ((run.directTrainingVersion || 0) >= directTrainingVersion) return;
+  for (const [itemId, quantity] of Object.entries(run.inventory || {})) {
+    const item = itemById.get(itemId);
+    if (!item || !["Training Items", "TMs"].includes(item.group)) continue;
+    run.money += item.price * quantity;
+    delete run.inventory[itemId];
+  }
+  run.directTrainingVersion = directTrainingVersion;
+}
+
+function formChangeItem(pokemon, speciesId) {
+  if (pokemon.speciesId === speciesId) return null;
+  if (pokemon.speciesId.startsWith("rotom") && speciesId.startsWith("rotom")) return trainingItem("rotom");
+  return trainingItem("form", (item) => item.target === speciesId);
+}
+
+function legalMoveIds(speciesId) {
+  try {
+    return new Set(Dex.species.getFullLearnset(speciesId).flatMap(({ learnset }) => Object.keys(learnset)));
+  } catch {
+    return new Set();
+  }
+}
+
+function buildTrainingQuote(pokemon, proposed = {}) {
+  const speciesId = String(proposed.speciesId || pokemon.speciesId);
+  const species = pokemonById.get(speciesId);
+  if (!species || species.encounterFamilyId !== pokemon.encounterFamilyId) gameError("Choose a valid form for this Pokémon.");
+
+  const ivs = {};
+  const evs = {};
+  for (const stat of stats) {
+    const iv = Number(proposed.ivs?.[stat] ?? pokemon.ivs[stat]);
+    const ev = Number(proposed.evs?.[stat] ?? pokemon.evs[stat]);
+    if (!Number.isInteger(iv) || iv < 0 || iv > 31) gameError(`${statLabels[stat]} IV must be from 0 to 31.`);
+    if (!Number.isInteger(ev) || ev < 0 || ev > 252) gameError(`${statLabels[stat]} EV must be from 0 to 252.`);
+    ivs[stat] = iv;
+    evs[stat] = ev;
+  }
+  if (Object.values(evs).reduce((sum, value) => sum + value, 0) > 510) gameError("A Pokémon cannot have more than 510 total EVs.");
+
+  const nature = Dex.natures.get(String(proposed.nature || pokemon.nature));
+  if (!nature.exists) gameError("Choose a valid nature.");
+  const ability = String(proposed.ability || pokemon.ability);
+  const eligibleAbilities = [...species.ordinaryAbilities, species.hiddenAbility].filter(Boolean);
+  if (!eligibleAbilities.includes(ability)) gameError(`${ability || "That ability"} is not available to ${species.name}.`);
+
+  const moves = Array.isArray(proposed.moves) ? proposed.moves.map((move) => Dex.moves.get(String(move)).name) : [...pokemon.moves];
+  if (moves.length !== pokemon.moves.length || moves.some((move) => !move)) gameError(`Choose exactly ${pokemon.moves.length} valid moves.`);
+  if (!["ditto", "unown"].includes(speciesId) && new Set(moves.map(toID)).size !== moves.length) gameError("A Pokémon cannot know the same move twice.");
+  const learnable = legalMoveIds(speciesId);
+  for (const move of moves) {
+    if (!learnable.has(toID(move))) gameError(`${species.name} cannot learn ${move}.`);
+  }
+
+  const lineItems = [];
+  for (const stat of stats) {
+    const difference = evs[stat] - pokemon.evs[stat];
+    if (difference) {
+      const item = trainingItem("ev", (candidate) => candidate.stat === stat && Math.sign(candidate.amount) === Math.sign(difference));
+      lineItems.push({ key: `ev-${stat}`, label: `${statLabels[stat]} EV ${difference > 0 ? "+" : "−"}${Math.abs(difference)}`, quantity: Math.abs(difference), unitPrice: item.price, cost: Math.abs(difference) * item.price });
+    }
+    if (ivs[stat] !== pokemon.ivs[stat]) {
+      const item = trainingItem("iv");
+      lineItems.push({ key: `iv-${stat}`, label: `${statLabels[stat]} IV ${pokemon.ivs[stat]} → ${ivs[stat]}`, quantity: 1, unitPrice: item.price, cost: item.price });
+    }
+  }
+  if (nature.name !== pokemon.nature) {
+    const item = trainingItem("nature");
+    lineItems.push({ key: "nature", label: `Nature ${pokemon.nature} → ${nature.name}`, quantity: 1, unitPrice: item.price, cost: item.price });
+  }
+  if (ability !== pokemon.ability) {
+    const effect = ability === species.hiddenAbility ? "ability-patch" : "ability-capsule";
+    const item = trainingItem(effect);
+    lineItems.push({ key: "ability", label: `Ability ${pokemon.ability} → ${ability}`, quantity: 1, unitPrice: item.price, cost: item.price });
+  }
+  if (speciesId !== pokemon.speciesId) {
+    const item = formChangeItem(pokemon, speciesId);
+    if (!item) gameError(`That form change is not available for ${pokemon.name}.`);
+    lineItems.push({ key: "form", label: `Form ${pokemon.name} → ${species.name}`, quantity: 1, unitPrice: item.price, cost: item.price });
+  }
+  const knownMoveIds = new Set(pokemon.moves.map(toID));
+  for (const move of moves) {
+    const moveId = toID(move);
+    if (knownMoveIds.has(moveId)) continue;
+    const item = itemById.get(`tm-${moveId}`);
+    if (!item) gameError(`${move} is not available for training.`);
+    lineItems.push({ key: `move-${moveId}`, label: `Learn ${move}`, quantity: 1, unitPrice: item.price, cost: item.price });
+  }
+
+  const normalized = { speciesId, ivs, evs, nature: nature.name, ability, moves };
+  const preview = { ...pokemon, ...normalized, name: species.name, level: pokemon.level };
+  return {
+    build: normalized,
+    calculatedStats: calculatedStats(preview),
+    lineItems,
+    total: lineItems.reduce((sum, item) => sum + item.cost, 0),
+  };
+}
+
 function pokemonView(pokemon) {
   const species = pokemonById.get(pokemon.speciesId);
   const values = calculatedStats(pokemon);
@@ -149,6 +255,18 @@ function pokemonView(pokemon) {
       return { name, type: move.exists ? move.type : "Normal" };
     }),
     learnableMoveIds: [...learnableMoveIds(pokemon.speciesId)],
+    legalMoveIds: [...legalMoveIds(pokemon.speciesId)],
+    trainingForms: pokemonCatalog
+      .filter((candidate) => candidate.encounterFamilyId === pokemon.encounterFamilyId)
+      .map((candidate) => ({
+        id: candidate.id,
+        name: candidate.name,
+        baseStats: { ...candidate.baseStats },
+        ordinaryAbilities: [...candidate.ordinaryAbilities],
+        hiddenAbility: candidate.hiddenAbility,
+        learnableMoveIds: [...learnableMoveIds(candidate.id)],
+        legalMoveIds: [...legalMoveIds(candidate.id)],
+      })),
     item: pokemon.heldItemId ? itemById.get(pokemon.heldItemId)?.name || "None" : "None",
   };
 }
@@ -167,6 +285,8 @@ function newRun(userId, month = null) {
     openingBatchClaimed: false,
     starterGuarantee: true,
     daily: null,
+    directTrainingVersion,
+    trainingTransactions: [],
   };
 }
 
@@ -211,6 +331,7 @@ export class GameStore {
       migrateOpeningEncounters(run);
       if (!run.month) run.month = month;
       if (run.month !== month) run = this.data.runs[userId] = newRun(userId, month);
+      migrateDirectTraining(run);
       ensureDaily(run, date);
       result = operation(run);
       await this.save();
@@ -281,6 +402,7 @@ export class GameStore {
       const item = itemById.get(itemId);
       quantity = Number(quantity);
       if (!item) gameError("Item not found.", 404);
+      if (item.group !== "Held Items") gameError("Training changes are purchased directly from the PC.", 409);
       if (!Number.isInteger(quantity) || quantity < 1 || quantity > 999) gameError("Choose a quantity from 1 to 999.");
       if (item.purchaseLimit === 1 && (run.purchasedUnique.includes(item.id) || quantity !== 1)) gameError(`${item.name} may only be purchased once per run.`, 409);
       const cost = item.price * quantity;
@@ -424,6 +546,42 @@ export class GameStore {
     });
   }
 
+  async quoteTrainingBuild(userId, pokemonId, proposed) {
+    return this.mutate(userId, (run) => {
+      const pokemon = run.roster.find((candidate) => candidate.id === pokemonId);
+      if (!pokemon) gameError("Pokémon not found.", 404);
+      return buildTrainingQuote(pokemon, proposed);
+    });
+  }
+
+  async applyTrainingBuild(userId, pokemonId, proposed, expectedCost, idempotencyKey) {
+    return this.mutate(userId, (run) => {
+      if (!idempotencyKey || typeof idempotencyKey !== "string" || idempotencyKey.length > 100) gameError("A valid training transaction key is required.");
+      run.trainingTransactions ||= [];
+      if (run.trainingTransactions.includes(idempotencyKey)) return { state: this.publicState(run), applied: false };
+      const pokemon = run.roster.find((candidate) => candidate.id === pokemonId);
+      if (!pokemon) gameError("Pokémon not found.", 404);
+      const quote = buildTrainingQuote(pokemon, proposed);
+      if (Number(expectedCost) !== quote.total) gameError("The training price changed. Review the updated total and try again.", 409);
+      if (quote.total < 1) gameError("Make at least one training change.", 409);
+      if (run.money < quote.total) gameError("You do not have enough coins.", 409);
+      run.money -= quote.total;
+      const previousId = pokemon.id;
+      const species = pokemonById.get(quote.build.speciesId);
+      Object.assign(pokemon, quote.build, {
+        id: species.id,
+        name: species.name,
+        spriteId: species.spriteId,
+        types: [...species.types],
+        encounterFamilyId: species.encounterFamilyId,
+      });
+      run.teamIds = run.teamIds.map((id) => id === previousId ? pokemon.id : id);
+      run.trainingTransactions.push(idempotencyKey);
+      if (run.trainingTransactions.length > 100) run.trainingTransactions.splice(0, run.trainingTransactions.length - 100);
+      return { state: this.publicState(run), quote, applied: true };
+    });
+  }
+
   changeForm(run, pokemon, speciesId) {
     const species = pokemonById.get(speciesId);
     const previousId = pokemon.id;
@@ -468,7 +626,7 @@ export class GameStore {
 
 export function publicContent() {
   return {
-    pokemon: pokemonCatalog.map(({ baseStats, ordinaryAbilities, hiddenAbility, ...pokemon }) => pokemon),
+    pokemon: pokemonCatalog,
     items: itemCatalog,
     natures: natureNames,
     startingMoney,

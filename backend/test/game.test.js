@@ -128,7 +128,7 @@ test("a wipe immediately starts a fresh run without changing the game date", asy
   const { store } = await fixture();
   let state = await store.get("wipe-user");
   for (let slot = 0; slot < 12; slot++) state = await store.claimEncounter("wipe-user", slot);
-  state = await store.buy("wipe-user", "hpup", 4);
+  state = await store.buy("wipe-user", "leftovers", 1);
   const previousRunId = state.runId;
 
   const reset = await store.resetAfterWipe("wipe-user", "lost-battle");
@@ -184,14 +184,13 @@ test("the first game date of a new month resets the run to an empty opening enco
   assert.equal(november.encounters[0].count, 1);
 });
 
-test("shop limits, stack purchases, EV use, and battle snapshots are server-authoritative", async () => {
+test("held-item purchases, atomic training builds, and battle snapshots are server-authoritative", async () => {
   const { store } = await fixture();
   let state = await store.get("shop-user");
   for (let slot = 0; slot < 12; slot++) state = await store.claimEncounter("shop-user", slot);
   state = await store.buy("shop-user", "leftovers", 1);
   await assert.rejects(store.buy("shop-user", "leftovers", 1), /once per run/i);
-  const firstHolder = state.roster[0];
-  const secondHolder = state.roster[1];
+  const [firstHolder, secondHolder] = state.roster.filter((pokemon) => !pokemon.heldItemId);
   state = await store.equip("shop-user", firstHolder.id, "leftovers");
   assert.equal(state.roster.find((pokemon) => pokemon.id === firstHolder.id).heldItemId, "leftovers");
   await assert.rejects(store.equip("shop-user", secondHolder.id, "leftovers"), /no unequipped/i);
@@ -201,25 +200,54 @@ test("shop limits, stack purchases, EV use, and battle snapshots are server-auth
   state = await store.equip("shop-user", secondHolder.id, "leftovers");
   assert.equal(state.roster.find((pokemon) => pokemon.id === secondHolder.id).heldItemId, "leftovers");
   await assert.rejects(store.unequip("shop-user", firstHolder.id), /not holding/i);
-  state = await store.buy("shop-user", "hpup", 5);
   const target = state.roster[0];
-  state = await store.useTrainingItem("shop-user", target.id, "hpup", { quantity: 5 });
-  assert.equal(state.roster.find((pokemon) => pokemon.id === target.id).evs.hp, 5);
-  assert.equal(state.inventory.hpup, undefined);
+  await assert.rejects(store.buy("shop-user", "hpup", 5), /directly from the PC/i);
 
-  const refreshedTarget = state.roster.find((pokemon) => pokemon.id === target.id);
-  const tm = itemCatalog.find((item) => item.group === "TMs" && refreshedTarget.learnableMoveIds.includes(item.moveId) && !refreshedTarget.moves.some((move) => move.toLowerCase().replace(/[^a-z0-9]+/g, "") === item.moveId));
+  const tm = itemCatalog.find((item) => item.group === "TMs" && target.learnableMoveIds.includes(item.moveId) && !target.moves.some((move) => move.toLowerCase().replace(/[^a-z0-9]+/g, "") === item.moveId));
   assert.ok(tm, "the generated Pokémon should have at least one teachable TM");
-  state = await store.buy("shop-user", tm.id, 1);
-  const previousMove = state.roster.find((pokemon) => pokemon.id === target.id).moves[0];
-  state = await store.useTrainingItem("shop-user", target.id, tm.id, { slot: 0 });
+  const previousMove = target.moves[0];
+  const build = {
+    speciesId: target.speciesId,
+    ivs: { ...target.ivs },
+    evs: { ...target.evs, hp: 5 },
+    nature: target.nature,
+    ability: target.ability,
+    moves: [tm.move, ...target.moves.slice(1)],
+  };
+  const quote = await store.quoteTrainingBuild("shop-user", target.id, build);
+  assert.equal(quote.total, 50 + tm.price);
+  const moneyBeforeTraining = state.money;
+  await assert.rejects(store.quoteTrainingBuild("shop-user", target.id, { ...build, evs: { ...build.evs, hp: 252, atk: 252, def: 7 } }), /510 total EVs/i);
+  await assert.rejects(store.applyTrainingBuild("shop-user", target.id, build, quote.total - 1, "wrong-price"), /price changed/i);
+  const applied = await store.applyTrainingBuild("shop-user", target.id, build, quote.total, "training-one");
+  state = applied.state;
+  assert.equal(state.money, moneyBeforeTraining - quote.total);
+  assert.equal(state.roster.find((pokemon) => pokemon.id === target.id).evs.hp, 5);
   assert.equal(state.roster.find((pokemon) => pokemon.id === target.id).moves[0], tm.move);
   assert.notEqual(previousMove, tm.move);
-  assert.equal(state.inventory[tm.id], undefined);
+  const retried = await store.applyTrainingBuild("shop-user", target.id, build, quote.total, "training-one");
+  assert.equal(retried.applied, false);
+  assert.equal(retried.state.money, state.money);
 
   const team = await store.battleTeam("shop-user", state.teamIds, state.teamIds[2]);
   assert.equal(team[0].species, pokemonById.get(state.teamIds[2]).showdownName);
   assert.deepEqual(team[0].evs, state.roster.find((pokemon) => pokemon.id === state.teamIds[2]).evs);
+});
+
+test("legacy training and TM inventory is refunded once", async () => {
+  const { store } = await fixture();
+  await store.get("migration-user");
+  const run = store.data.runs["migration-user"];
+  run.directTrainingVersion = 0;
+  run.inventory.hpup = 12;
+  run.inventory["tm-thunderbolt"] = 2;
+  const before = run.money;
+  const state = await store.get("migration-user");
+  assert.equal(state.money, before + 12 * 10 + 2 * 1500);
+  assert.equal(state.inventory.hpup, undefined);
+  assert.equal(state.inventory["tm-thunderbolt"], undefined);
+  const again = await store.get("migration-user");
+  assert.equal(again.money, state.money);
 });
 
 test("stolen battle items persist once and equip only to an empty-handed owner", async () => {
