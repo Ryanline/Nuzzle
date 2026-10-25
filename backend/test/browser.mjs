@@ -146,7 +146,7 @@ const outgoingPokemon = generatedGame.roster.find((pokemon) => pokemon.id === ou
 const content = await page.evaluate(() => fetch("/api/content").then((response) => response.json()));
 const teachableTm = content.items.find((item) => item.group === "TMs" && outgoingPokemon.learnableMoveIds.includes(item.moveId) && !outgoingPokemon.moves.some((move) => move.toLowerCase().replace(/[^a-z0-9]+/g, "") === item.moveId));
 if (!teachableTm) throw new Error("No compatible TM was available for the PC teaching flow.");
-const replacementId = generatedGame.roster.find((pokemon) => !generatedGame.teamIds.includes(pokemon.id)).id;
+const replacementId = generatedGame.roster.find((pokemon) => !generatedGame.teamIds.includes(pokemon.id) && pokemon.ability !== "Illusion").id;
 const replacementName = generatedGame.roster.find((pokemon) => pokemon.id === replacementId).name;
 await page.click(".page-back");
 await page.click('[data-route="encounters"]');
