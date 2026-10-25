@@ -237,8 +237,8 @@ const summaryAppearance = await page.locator(".pokemon-sheet").evaluate((sheet) 
     factsTopBorder: getComputedStyle(sheet.querySelector(".pokemon-facts")).borderTopWidth,
   };
 });
-if (summaryAppearance.labels.join(",") !== "Move to box,Held item,Close") throw new Error("The PC Summary actions did not use the requested labels and capitalization.");
-if (!summaryAppearance.classes.every((value) => /pc-(?:team|item|close)-action/.test(value))) throw new Error("The PC Summary actions did not use their purpose-based colors.");
+if (summaryAppearance.labels.join(",") !== "Remove from team,Held item,Close") throw new Error("The PC Summary actions did not use the requested labels and capitalization.");
+if (!summaryAppearance.classes[0].includes("red") || !summaryAppearance.classes[1].includes("blue") || !summaryAppearance.classes[2].includes("slate")) throw new Error("The PC Summary actions did not match the Battle, Mart, and Settings colors.");
 if (summaryAppearance.lightBackgrounds.some((value, index) => value === summaryAppearance.darkBackgrounds[index])) throw new Error("The PC Summary action colors did not adapt to dark mode.");
 if (summaryAppearance.factsTopBorder !== "0px") throw new Error("PC Summary retained the redundant divider above Ability.");
 const pcActionSpacing = await page.locator(".pokemon-sheet").evaluate((sheet) => {

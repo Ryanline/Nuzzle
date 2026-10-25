@@ -477,9 +477,6 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .sheet-actions .gloss-button, .training-footer-actions .gloss-button { min-height: 38px; padding-top: 3px; padding-bottom: 4px; font-size: 15px; }
 .sheet-actions .gloss-button { width: 100%; }
 .sheet-actions .gloss-button:disabled { opacity: .5; cursor: default; filter: grayscale(.35); }
-.pc-team-action { border-color: #5e496b; background: linear-gradient(#9271a3, #684d79); color: #fff; }
-.pc-item-action { border-color: #315f5b; background: linear-gradient(#568681, #386964); color: #fff; }
-.pc-close-action { border-color: #40576c; background: linear-gradient(#607b95, #435d75); color: #fff; }
 .sheet-feedback { position: absolute; z-index: 2; top: 13px; right: 56px; max-width: calc(100% - 120px); margin: 0; padding: 4px 8px; overflow: hidden; border: 1px solid #aac5ae; border-radius: 10px; background: #edf6ee; color: #397443; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .plain-button { min-height: 42px; border: 1px solid #999; border-radius: 7px; background: #fff; cursor: pointer; }
 .plain-button:hover { background: #f1f1f1; }
@@ -764,9 +761,6 @@ html[data-theme="dark"] {
 html[data-theme="dark"] body { background: #121212; }
 html[data-theme="dark"] .gloss-button { border-color: rgba(15,18,21,.78); box-shadow: inset 0 1px rgba(255,255,255,.18), inset 0 -2px rgba(0,0,0,.22), 0 2px 2px rgba(0,0,0,.42); }
 html[data-theme="dark"] .gloss-button.neutral { border-color: #59636c; background: linear-gradient(#454c53, #30363c); color: var(--ink); }
-html[data-theme="dark"] .pc-team-action { border-color: #6f5880; background: linear-gradient(#745989, #523f63); color: #f8f2fb; }
-html[data-theme="dark"] .pc-item-action { border-color: #477a75; background: linear-gradient(#477974, #315a57); color: #effaf8; }
-html[data-theme="dark"] .pc-close-action { border-color: #57728c; background: linear-gradient(#526e89, #394f65); color: #f2f7fb; }
 html[data-theme="dark"] .account-button { border-color: #68747d; background: linear-gradient(#3a4249, #252b31); color: #d4dce2; }
 html[data-theme="dark"] .account-button.signed-in,
 html[data-theme="dark"] .account-avatar,
