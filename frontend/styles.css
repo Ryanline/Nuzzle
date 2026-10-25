@@ -23,7 +23,7 @@
 }
 
 * { box-sizing: border-box; }
-html, body { min-width: 320px; min-height: 100%; }
+html, body { min-width: 320px; min-height: 100%; -webkit-text-size-adjust: 100%; }
 html, body, .app { overflow-anchor: none; }
 body { margin: 0; overflow-x: hidden; background: #292929; color: var(--ink); font: 16px/1.3 Arial, Helvetica, sans-serif; }
 button { color: inherit; font: inherit; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
@@ -826,12 +826,14 @@ html[data-theme="dark"] .auth-error { color: #ff9297; }
   .screen { height: 100vh; height: 100dvh; min-height: 0; padding: 0 14px 8px; overflow: hidden; }
   .home-screen { display: flex; padding-top: env(safe-area-inset-top); padding-right: max(14px, env(safe-area-inset-right)); padding-bottom: max(8px, env(safe-area-inset-bottom)); padding-left: max(14px, env(safe-area-inset-left)); flex-direction: column; overscroll-behavior: none; }
   .screen-header { height: 62px; }
-  .home-screen .screen-header { flex: 0 0 94px; }
+  .home-screen .screen-header { flex: 0 0 104px; }
   .screen-title { position: absolute; right: 112px; left: 0; max-width: none; font-size: 16px; }
   .header-tools { top: 10px; right: -2px; gap: 6px; }
-  .home-header { height: 94px; padding-bottom: 7px; }
+  .home-header { height: 104px; padding-bottom: 0; }
   .home-header .header-tools { top: 4px; }
-  .home-header .screen-title, .home-header .screen-meta { font-size: 15px; }
+  .home-header .header-title-group { position: absolute; right: 0; bottom: 8px; left: 0; width: auto; }
+  .home-header .screen-title, .home-header .screen-meta { font-size: clamp(12px, 3.55vw, 14px); }
+  .home-header .screen-meta { white-space: nowrap; }
   .theme-toggle { width: 60px; height: 38px; border-radius: 19px; }
   .theme-toggle i { width: 30px; height: 30px; }
   .theme-toggle[aria-checked="true"] i { transform: none; }
@@ -959,9 +961,10 @@ html[data-theme="dark"] .auth-error { color: #ff9297; }
 }
 
 @media (max-width: 520px) and (max-height: 700px) {
-  .home-screen .screen-header { flex-basis: 88px; }
+  .home-screen .screen-header { flex-basis: 100px; }
   .home-screen .header-tools { top: 2px; }
-  .home-header { height: 88px; padding-bottom: 4px; }
+  .home-header { height: 100px; }
+  .home-header .header-title-group { bottom: 5px; }
   .home-screen .landing { grid-template-rows: minmax(42px, .62fr) minmax(86px, 1fr) auto; }
   .home-screen .home-actions .gloss-button { min-height: 35px; font-size: 16px; }
   .lead-arena { height: 240px; }
