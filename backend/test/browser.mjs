@@ -220,7 +220,7 @@ const pcActionSpacing = await page.locator(".pokemon-sheet").evaluate((sheet) =>
     sheetBottom: sheetBounds.bottom,
   };
 });
-if (pcActionSpacing.firstGap < 9 || Math.abs(pcActionSpacing.firstGap - pcActionSpacing.secondGap) > 1) throw new Error("The PC drawer actions do not have consistent spacing.");
+if (pcActionSpacing.firstGap < 6 || Math.abs(pcActionSpacing.firstGap - pcActionSpacing.secondGap) > 1) throw new Error("The PC drawer actions do not have consistent spacing.");
 if (pcActionSpacing.closeBottom > pcActionSpacing.sheetBottom + 1) throw new Error("The PC drawer actions overflow the drawer.");
 await page.setViewportSize({ width: 390, height: 568 });
 await page.click('[data-pc-detail-view="training"]');
@@ -238,8 +238,10 @@ const trainingLayout = await page.locator(".training-sheet").evaluate((sheet) =>
   const spriteBounds = sheet.querySelector(".pokemon-summary > img").getBoundingClientRect();
   const nameStyle = getComputedStyle(sheet.querySelector(".pokemon-summary h2"));
   const maxButton = sheet.querySelector(".training-iv-max");
+  const footerButtons = [...sheet.querySelectorAll(".training-footer-actions .gloss-button")];
   const slider = sheet.querySelector("[data-training-ev]");
   return {
+    sheetHeight: sheetBounds.height,
     horizontalOverflow: sheet.scrollWidth - sheet.clientWidth,
     footerOverflow: footerBounds.bottom - sheetBounds.bottom,
     trainingScrollOverflow: trainingContent.scrollHeight - trainingContent.clientHeight,
@@ -249,12 +251,15 @@ const trainingLayout = await page.locator(".training-sheet").evaluate((sheet) =>
     nameFontSize: nameStyle.fontSize,
     maxButtonText: maxButton.textContent,
     maxButtonWidth: maxButton.getBoundingClientRect().width,
+    footerButtonLabels: footerButtons.map((button) => button.textContent.trim()),
+    footerButtonHeights: footerButtons.map((button) => button.getBoundingClientRect().height),
     sliderHeight: slider.getBoundingClientRect().height,
   };
 });
 if (trainingLayout.horizontalOverflow > 1 || trainingLayout.footerOverflow > 1 || trainingLayout.trainingScrollOverflow > 1) throw new Error(`The compact Training editor overflowed or required scrolling in its mobile drawer: ${JSON.stringify(trainingLayout)}`);
 if (trainingLayout.unusedGap > 10) throw new Error("The Training drawer retained dead space between its moves and footer.");
 if (trainingLayout.maxButtonText !== "Max IV" || trainingLayout.maxButtonWidth > 30) throw new Error("The compact IV shortcut did not read Max IV at its original width.");
+if (trainingLayout.footerButtonLabels.join(",") !== "apply changes,close" || new Set(trainingLayout.footerButtonHeights).size !== 1) throw new Error("The Training footer did not expose normalized Apply and Close actions.");
 if (trainingLayout.sliderHeight > 20) throw new Error("The Training EV slider remained too thick for the compact layout.");
 await page.fill('[data-training-ev-input="hp"]', "7");
 if (await page.locator('[data-training-ev="hp"]').inputValue() !== "7") throw new Error("Typing an EV did not synchronize its slider.");
@@ -268,14 +273,18 @@ if (!(await trainingResponse).ok()) throw new Error("Applying a staged training 
 const tmTrainedGame = await page.evaluate(() => fetch("/api/game").then((response) => response.json()));
 if (tmTrainedGame.roster.find((pokemon) => pokemon.id === outgoingId).evs.hp !== 5) throw new Error("The staged EV change was not applied.");
 if (tmTrainedGame.roster.find((pokemon) => pokemon.id === outgoingId).moves[0] !== teachableTm.move) throw new Error("The selected move slot was not replaced.");
-await page.setViewportSize({ width: 390, height: 844 });
 await page.click('[data-pc-detail-view="summary"]');
 const summaryHeader = await page.locator(".pokemon-sheet").evaluate((sheet) => ({
+  sheetHeight: sheet.getBoundingClientRect().height,
   summaryHeight: sheet.querySelector(".pokemon-summary").getBoundingClientRect().height,
   spriteWidth: sheet.querySelector(".pokemon-summary > img").getBoundingClientRect().width,
   nameFontSize: getComputedStyle(sheet.querySelector(".pokemon-summary h2")).fontSize,
+  actionButtonHeight: sheet.querySelector(".sheet-actions .gloss-button").getBoundingClientRect().height,
 }));
-if (JSON.stringify(summaryHeader) !== JSON.stringify({ summaryHeight: trainingLayout.summaryHeight, spriteWidth: trainingLayout.spriteWidth, nameFontSize: trainingLayout.nameFontSize })) throw new Error("Summary and Training did not share the same Pokémon header sizing.");
+if (summaryHeader.sheetHeight !== trainingLayout.sheetHeight) throw new Error("Summary and Training drawers did not share the same height.");
+if (summaryHeader.summaryHeight !== trainingLayout.summaryHeight || summaryHeader.spriteWidth !== trainingLayout.spriteWidth || summaryHeader.nameFontSize !== trainingLayout.nameFontSize) throw new Error("Summary and Training did not share the same Pokémon header sizing.");
+if (summaryHeader.actionButtonHeight !== trainingLayout.footerButtonHeights[0]) throw new Error("Summary and Training actions did not share the same button height.");
+await page.setViewportSize({ width: 390, height: 844 });
 await page.click("[data-open-pc-items]");
 await page.click('[data-pc-item-group="Held Items"]');
 const equipResponse = page.waitForResponse((response) => response.url().includes(`/api/game/pokemon/${outgoingId}/equip`) && response.request().method() === "POST");
