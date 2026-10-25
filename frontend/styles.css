@@ -378,7 +378,6 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .pokemon-summary h2 { margin: 0 0 2px; font-size: 20px; font-weight: 400; }
 .sheet-types { display: flex; gap: 4px; }
 .sheet-types .type-chip { padding: 2px 5px; font-size: 8px; font-style: normal; }
-.pokemon-facts { border-top: 1px solid #ccc; }
 .pokemon-facts p { display: grid; grid-template-columns: 90px 1fr; gap: 12px; margin: 0; padding: 7px 2px; border-bottom: 1px solid #ddd; font-size: 13px; }
 .pokemon-facts p span { color: var(--muted); }
 .pokemon-facts p strong { font-weight: 400; text-align: right; }
@@ -461,7 +460,9 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .training-move-picker > header small { color: var(--muted); font-size: 9px; text-transform: uppercase; }
 .training-move-picker > header h3 { margin: 0; font-size: 16px; font-weight: 400; }
 .move-search { display: grid; gap: 3px; margin: 8px 0; color: var(--muted); font-size: 10px; }
-.move-search input { height: 36px; padding: 5px 8px; border: 1px solid #aeb5bb; border-radius: 4px; background: var(--page); color: var(--ink); font: inherit; }
+.move-search > span { color: var(--ink); font-size: 12px; font-weight: 700; }
+.move-search input { height: 36px; padding: 5px 30px 5px 9px; border: 1px solid #8d9aa3; border-radius: 4px; background: var(--page); color: var(--ink); font: inherit; font-size: 13px; }
+.move-search small { text-align: right; }
 .training-move-list { min-height: 0; flex: 1; overflow-y: auto; overscroll-behavior: contain; }
 .training-move-list > button { display: flex; width: 100%; min-height: 52px; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 4px; border: 0; border-bottom: 1px solid #d8dcdf; background: transparent; color: var(--ink); cursor: pointer; text-align: left; }
 .training-move-list > button:hover { background: var(--surface); }
@@ -476,6 +477,9 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .sheet-actions .gloss-button, .training-footer-actions .gloss-button { min-height: 38px; padding-top: 3px; padding-bottom: 4px; font-size: 15px; }
 .sheet-actions .gloss-button { width: 100%; }
 .sheet-actions .gloss-button:disabled { opacity: .5; cursor: default; filter: grayscale(.35); }
+.pc-team-action { border-color: #5e496b; background: linear-gradient(#9271a3, #684d79); color: #fff; }
+.pc-item-action { border-color: #315f5b; background: linear-gradient(#568681, #386964); color: #fff; }
+.pc-close-action { border-color: #40576c; background: linear-gradient(#607b95, #435d75); color: #fff; }
 .sheet-feedback { position: absolute; z-index: 2; top: 13px; right: 56px; max-width: calc(100% - 120px); margin: 0; padding: 4px 8px; overflow: hidden; border: 1px solid #aac5ae; border-radius: 10px; background: #edf6ee; color: #397443; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .plain-button { min-height: 42px; border: 1px solid #999; border-radius: 7px; background: #fff; cursor: pointer; }
 .plain-button:hover { background: #f1f1f1; }
@@ -554,8 +558,9 @@ button.encounter-card:active { background: #eef5ef; transform: translateY(1px); 
 .encounter-status { padding: 4px 7px; border: 1px solid #aac5ae; border-radius: 10px; background: #edf6ee; color: #397443; font-size: 10px; white-space: nowrap; }
 .encounter-card.revealed { animation: encounter-reveal 240ms ease-out; }
 .encounter-empty { display: flex; min-height: 100%; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
-.encounter-empty h2 { margin: 0 0 2px; font-size: 20px; font-weight: 400; }
-.encounter-empty p { margin: 0; color: var(--muted); font-size: 13px; }
+.encounter-empty p { margin: 0; color: var(--ink); font-size: 16px; font-weight: 400; }
+.encounter-empty p + p { margin-top: 5px; color: var(--muted); font-size: 13px; }
+.encounter-empty b { font-variant-numeric: tabular-nums; font-weight: 400; }
 @keyframes encounter-reveal { from { opacity: .4; transform: scale(.97); } }
 @media (prefers-reduced-motion: reduce) { .encounter-card.revealed { animation: none; } }
 .encounter-stage .page-back { flex: 0 0 auto; margin-top: 8px; margin-bottom: 12px; }
@@ -759,6 +764,9 @@ html[data-theme="dark"] {
 html[data-theme="dark"] body { background: #121212; }
 html[data-theme="dark"] .gloss-button { border-color: rgba(15,18,21,.78); box-shadow: inset 0 1px rgba(255,255,255,.18), inset 0 -2px rgba(0,0,0,.22), 0 2px 2px rgba(0,0,0,.42); }
 html[data-theme="dark"] .gloss-button.neutral { border-color: #59636c; background: linear-gradient(#454c53, #30363c); color: var(--ink); }
+html[data-theme="dark"] .pc-team-action { border-color: #6f5880; background: linear-gradient(#745989, #523f63); color: #f8f2fb; }
+html[data-theme="dark"] .pc-item-action { border-color: #477a75; background: linear-gradient(#477974, #315a57); color: #effaf8; }
+html[data-theme="dark"] .pc-close-action { border-color: #57728c; background: linear-gradient(#526e89, #394f65); color: #f2f7fb; }
 html[data-theme="dark"] .account-button { border-color: #68747d; background: linear-gradient(#3a4249, #252b31); color: #d4dce2; }
 html[data-theme="dark"] .account-button.signed-in,
 html[data-theme="dark"] .account-avatar,
@@ -871,7 +879,6 @@ html[data-theme="dark"] .battle-log-entry.opponent { background: #3b292c; }
 html[data-theme="dark"] .battle-log-card header button,
 html[data-theme="dark"] .item-action,
 html[data-theme="dark"] .item-about-button { border-color: #6c7a85; background: #292f35; color: #b9daf4; }
-html[data-theme="dark"] .pokemon-facts,
 html[data-theme="dark"] .pokemon-facts p,
 html[data-theme="dark"] .shop-item,
 html[data-theme="dark"] .bag-item { border-color: #4c565e; }

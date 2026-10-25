@@ -68,6 +68,7 @@ The game is intentionally Nuzlocke-like and can be harsh. It should create inter
 - Starters do not appear in ordinary encounters, including Sundays.
 - Results are generated and persisted server-side before reveal, so refreshes cannot reroll them.
 - A claimed result stays visible for the current visit, then disappears from the encounter screen after leaving.
+- Once every encounter is claimed, the centered empty state shows only a concise completion message and the countdown to new encounters.
 - Duplicate protection covers the entire living roster and results reserved in the same batch. A dead Pokémon may be encountered again.
 - Encounter eligibility comes only from the approvals CSV; never infer it from every Showdown species.
 
@@ -76,7 +77,7 @@ The game is intentionally Nuzlocke-like and can be harsh. It should create inter
 - Shows today's trainer team first as a preparation reference, then the player's Team, then boxed Pokémon.
 - A Pokémon appears in Team or Box, never both. Team size is at most six.
 - Supports adding/removing team members and drag reordering.
-- The detail drawer has Summary and Training sections. Summary shows identity, types, ability, nature, held item, calculated battle stats, and moves.
+- The detail drawer has Summary and Training sections. Summary shows identity, types, ability, nature, held item, calculated battle stats, and moves. Its purpose-colored actions use consistent capitalization and adapt to light and dark themes.
 - Training provides a compact, non-scrolling, Showdown-inspired mobile editor in a drawer that shares its height, Pokémon header sizing, and normalized bottom actions with Summary. Each horizontal stat row shows the stat name, base value, synchronized numeric EV and slider controls, numeric IV with a compact Max IV shortcut, and final calculated value. Nature choices are grouped by the stat they raise, followed by neutral natures; ability, eligible forms, and a searchable legal-move catalog follow below. Changes and resulting stats are previewed before purchase, then applied together in one server-authoritative transaction.
 - Held items can be given or taken without closing the item view; the holder and Bag update immediately.
 - Training shows the pending-change count, total cost, and resulting balance. Lowering EVs or IVs is free; only values raised above their persisted baseline are charged. Resetting or restoring a value before applying costs nothing.

@@ -193,6 +193,13 @@ await page.click(".page-back");
 await page.click('[data-route="encounters"]');
 if (await page.locator(".encounter-card.revealed").count()) throw new Error("Previously claimed encounters remained visible after returning to the screen.");
 if (!await page.locator(".encounter-empty").count()) throw new Error("The completed encounter screen did not show its empty state.");
+if (await page.locator(".encounter-count").count()) throw new Error("The completed encounter screen retained the redundant top status.");
+const completedEncounterCopy = await page.locator(".encounter-empty").evaluate((element) => ({
+  lines: [...element.querySelectorAll("p")].map((line) => line.textContent.trim()),
+  fontWeight: getComputedStyle(element.querySelector("p")).fontWeight,
+}));
+if (completedEncounterCopy.lines[0] !== "All encounters claimed" || !/^New encounters in \d{2}:\d{2}:\d{2}$/.test(completedEncounterCopy.lines[1])) throw new Error("The completed encounter state did not show the concise rollover message.");
+if (Number(completedEncounterCopy.fontWeight) > 400) throw new Error("The completed encounter message was styled as a title.");
 await page.click(".page-back");
 await page.click('[data-route="mart"]');
 if (await page.locator('[data-shop-group="TMs"], [data-shop-group="Training Items"]').count()) throw new Error("Training consumables still appeared in the Mart.");
@@ -216,6 +223,24 @@ if (await page.locator(".party-section [data-pc-detail]").count() !== generatedG
 if (await page.locator(".box-section [data-pc-mon]").count() !== generatedGame.roster.length - generatedGame.teamIds.length) throw new Error("The PC Box section did not exclude active team members.");
 if (await page.locator(".team-mark, .pc-help").count()) throw new Error("The obsolete PC team labels or helper text are still visible.");
 await page.click(`[data-pc-detail="${outgoingId}"]`);
+const summaryAppearance = await page.locator(".pokemon-sheet").evaluate((sheet) => {
+  const buttons = [...sheet.querySelectorAll(".sheet-actions .gloss-button")];
+  const lightBackgrounds = buttons.map((button) => getComputedStyle(button).backgroundImage);
+  document.documentElement.dataset.theme = "dark";
+  const darkBackgrounds = buttons.map((button) => getComputedStyle(button).backgroundImage);
+  document.documentElement.dataset.theme = "light";
+  return {
+    labels: buttons.map((button) => button.textContent.trim()),
+    classes: buttons.map((button) => button.className),
+    lightBackgrounds,
+    darkBackgrounds,
+    factsTopBorder: getComputedStyle(sheet.querySelector(".pokemon-facts")).borderTopWidth,
+  };
+});
+if (summaryAppearance.labels.join(",") !== "Move to box,Held item,Close") throw new Error("The PC Summary actions did not use the requested labels and capitalization.");
+if (!summaryAppearance.classes.every((value) => /pc-(?:team|item|close)-action/.test(value))) throw new Error("The PC Summary actions did not use their purpose-based colors.");
+if (summaryAppearance.lightBackgrounds.some((value, index) => value === summaryAppearance.darkBackgrounds[index])) throw new Error("The PC Summary action colors did not adapt to dark mode.");
+if (summaryAppearance.factsTopBorder !== "0px") throw new Error("PC Summary retained the redundant divider above Ability.");
 const pcActionSpacing = await page.locator(".pokemon-sheet").evaluate((sheet) => {
   const teamButton = sheet.querySelector("[data-team-toggle]").getBoundingClientRect();
   const itemButton = sheet.querySelector("[data-open-pc-items]").getBoundingClientRect();
@@ -269,12 +294,17 @@ const trainingLayout = await page.locator(".training-sheet").evaluate((sheet) =>
 if (trainingLayout.horizontalOverflow > 1 || trainingLayout.footerOverflow > 1 || trainingLayout.trainingScrollOverflow > 1) throw new Error(`The compact Training editor overflowed or required scrolling in its mobile drawer: ${JSON.stringify(trainingLayout)}`);
 if (trainingLayout.unusedGap > 10) throw new Error("The Training drawer retained dead space between its moves and footer.");
 if (trainingLayout.maxButtonText !== "Max IV" || trainingLayout.maxButtonWidth > 30) throw new Error("The compact IV shortcut did not read Max IV at its original width.");
-if (trainingLayout.footerButtonLabels.join(",") !== "apply changes,close" || new Set(trainingLayout.footerButtonHeights).size !== 1) throw new Error("The Training footer did not expose normalized Apply and Close actions.");
+if (trainingLayout.footerButtonLabels.join(",") !== "Apply changes,Close" || new Set(trainingLayout.footerButtonHeights).size !== 1) throw new Error("The Training footer did not expose normalized Apply and Close actions.");
 if (trainingLayout.sliderHeight > 20) throw new Error("The Training EV slider remained too thick for the compact layout.");
 await page.fill('[data-training-ev-input="hp"]', "7");
 if (await page.locator('[data-training-ev="hp"]').inputValue() !== "7") throw new Error("Typing an EV did not synchronize its slider.");
 await page.locator('[data-training-ev="hp"]').evaluate((input) => { input.value = "5"; input.dispatchEvent(new Event("input", { bubbles: true })); input.dispatchEvent(new Event("change", { bubbles: true })); });
 await page.click('[data-edit-training-move="0"]');
+if (!await page.locator("[data-training-move-search]").count()) throw new Error("The Training move picker did not expose search.");
+await page.fill("[data-training-move-search]", "definitely-no-such-move");
+if (await page.locator("[data-select-training-move]").count() || !await page.locator(".training-empty").count()) throw new Error("Move search did not filter nonmatching moves.");
+await page.fill("[data-training-move-search]", teachableTm.move);
+if (!await page.locator(`[data-select-training-move="${teachableTm.id}"]`).count()) throw new Error("Move search did not find a compatible move by name.");
 await page.click(`[data-select-training-move="${teachableTm.id}"]`);
 if (!(await page.locator(".training-footer-line").textContent())?.includes(`Total ₽${(50 + teachableTm.price).toLocaleString()}`)) throw new Error("Training did not show the staged build total in its compact footer.");
 const trainingResponse = page.waitForResponse((response) => response.url().includes(`/api/game/pokemon/${outgoingId}/training/apply`) && response.request().method() === "POST");
