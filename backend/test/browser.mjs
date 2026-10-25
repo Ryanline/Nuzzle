@@ -222,6 +222,7 @@ const pcActionSpacing = await page.locator(".pokemon-sheet").evaluate((sheet) =>
 });
 if (pcActionSpacing.firstGap < 9 || Math.abs(pcActionSpacing.firstGap - pcActionSpacing.secondGap) > 1) throw new Error("The PC drawer actions do not have consistent spacing.");
 if (pcActionSpacing.closeBottom > pcActionSpacing.sheetBottom + 1) throw new Error("The PC drawer actions overflow the drawer.");
+await page.setViewportSize({ width: 390, height: 568 });
 await page.click('[data-pc-detail-view="training"]');
 if (await page.locator(".pc-detail-panel > .pokemon-facts").count()) throw new Error("Training still includes the general Pokémon facts.");
 if (await page.locator(".training-editor-row").count() !== 6) throw new Error("Training did not show all six battle stats.");
@@ -229,25 +230,28 @@ if (!(await page.locator(".training-remaining").textContent())?.includes("EVs re
 const trainingLayout = await page.locator(".training-sheet").evaluate((sheet) => {
   const sheetBounds = sheet.getBoundingClientRect();
   const footerBounds = sheet.querySelector(".training-footer").getBoundingClientRect();
+  const trainingContent = sheet.querySelector(".training-scroll");
   const slider = sheet.querySelector("[data-training-ev]");
   return {
     horizontalOverflow: sheet.scrollWidth - sheet.clientWidth,
     footerOverflow: footerBounds.bottom - sheetBounds.bottom,
+    trainingScrollOverflow: trainingContent.scrollHeight - trainingContent.clientHeight,
     sliderHeight: slider.getBoundingClientRect().height,
   };
 });
-if (trainingLayout.horizontalOverflow > 1 || trainingLayout.footerOverflow > 1) throw new Error("The compact Training editor overflowed its mobile drawer.");
+if (trainingLayout.horizontalOverflow > 1 || trainingLayout.footerOverflow > 1 || trainingLayout.trainingScrollOverflow > 1) throw new Error("The compact Training editor overflowed or required scrolling in its mobile drawer.");
 if (trainingLayout.sliderHeight > 20) throw new Error("The Training EV slider remained too thick for the compact layout.");
 await page.locator('[data-training-ev="hp"]').evaluate((input) => { input.value = "5"; input.dispatchEvent(new Event("input", { bubbles: true })); input.dispatchEvent(new Event("change", { bubbles: true })); });
 await page.click('[data-edit-training-move="0"]');
 await page.click(`[data-select-training-move="${teachableTm.id}"]`);
-if (await page.locator(".training-receipt p").count() < 2) throw new Error("Training did not itemize the staged EV and move changes.");
+if (!(await page.locator(".training-footer-line").textContent())?.includes(`Total ₽${(50 + teachableTm.price).toLocaleString()}`)) throw new Error("Training did not show the staged build total in its compact footer.");
 const trainingResponse = page.waitForResponse((response) => response.url().includes(`/api/game/pokemon/${outgoingId}/training/apply`) && response.request().method() === "POST");
 await page.click("[data-apply-training]");
 if (!(await trainingResponse).ok()) throw new Error("Applying a staged training build failed.");
 const tmTrainedGame = await page.evaluate(() => fetch("/api/game").then((response) => response.json()));
 if (tmTrainedGame.roster.find((pokemon) => pokemon.id === outgoingId).evs.hp !== 5) throw new Error("The staged EV change was not applied.");
 if (tmTrainedGame.roster.find((pokemon) => pokemon.id === outgoingId).moves[0] !== teachableTm.move) throw new Error("The selected move slot was not replaced.");
+await page.setViewportSize({ width: 390, height: 844 });
 await page.click('[data-pc-detail-view="summary"]');
 await page.click("[data-open-pc-items]");
 await page.click('[data-pc-item-group="Held Items"]');

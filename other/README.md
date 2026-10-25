@@ -76,9 +76,9 @@ The game is intentionally Nuzlocke-like and can be harsh. It should create inter
 - A Pokémon appears in Team or Box, never both. Team size is at most six.
 - Supports adding/removing team members and drag reordering.
 - The detail drawer has Summary and Training sections. Summary shows identity, types, ability, nature, held item, calculated battle stats, and moves.
-- Training provides a Showdown-inspired build editor with EV sliders, IV inputs, nature, ability, eligible forms, and a searchable legal-move catalog. Changes and resulting stats are previewed before purchase, then applied together in one server-authoritative transaction.
+- Training provides a compact, non-scrolling, Showdown-inspired mobile editor with horizontal stat rows, EV sliders, IV inputs, nature, ability, eligible forms, and a searchable legal-move catalog. Changes and resulting stats are previewed before purchase, then applied together in one server-authoritative transaction.
 - Held items can be given or taken without closing the item view; the holder and Bag update immediately.
-- Training costs are itemized from the persisted build to the final preview. Lowering EVs or IVs is free; only values raised above their persisted baseline are charged. Resetting or restoring a value before applying costs nothing.
+- Training shows the pending-change count, total cost, and resulting balance. Lowering EVs or IVs is free; only values raised above their persisted baseline are charged. Resetting or restoring a value before applying costs nothing.
 - There is currently no box capacity, release action, filtering, or selling.
 
 ### Bag and Mart
