@@ -60,7 +60,7 @@ await page.waitForSelector(".pc-stage");
 if (!(await page.locator(".account-button").getAttribute("aria-label"))?.includes(username)) throw new Error("The account control did not show the authenticated user.");
 if (await page.locator(".account-online").count()) throw new Error("The obsolete account status dot is still rendered.");
 await page.click("[data-open-account]");
-if (!(await page.locator(".account-profile .account-avatar img").getAttribute("src"))?.includes("mystery.png")) throw new Error("A new account did not default to the mystery trainer avatar.");
+if (!(await page.locator(".account-profile .account-avatar img").getAttribute("src"))?.includes("/trainers/unknownf.png")) throw new Error("A new account did not default to Showdown's unknown trainer avatar.");
 const avatarListResponse = page.waitForResponse((response) => response.url().endsWith("/api/account/avatars") && response.request().method() === "GET");
 await page.click("[data-edit-avatar]");
 if (!(await avatarListResponse).ok()) throw new Error("Loading the account avatar catalog failed.");
@@ -396,6 +396,17 @@ await page.waitForSelector('.leaderboard-tabs [data-leaderboard-view="daily"].se
 if (await page.locator(".leaderboard-row.leaderboard-loss").count() !== 1) throw new Error("A completed loss did not appear on the daily leaderboard.");
 if (!(await page.locator(".leaderboard-row.leaderboard-loss").textContent())?.includes(username)) throw new Error("The daily loss row did not show the account name.");
 if (!(await page.locator(".leaderboard-row.leaderboard-loss .leaderboard-avatar img").getAttribute("src"))?.includes("/trainers/misty.png")) throw new Error("The selected account avatar did not appear on the daily leaderboard.");
+const leaderboardRowLayout = await page.locator(".leaderboard-row.leaderboard-loss").evaluate((row) => {
+  const avatar = row.querySelector(".leaderboard-avatar").getBoundingClientRect();
+  const team = row.querySelector(".leaderboard-team").getBoundingClientRect();
+  return {
+    height: row.getBoundingClientRect().height,
+    avatarCenter: avatar.top + avatar.height / 2,
+    teamCenter: team.top + team.height / 2,
+  };
+});
+if (Math.abs(leaderboardRowLayout.avatarCenter - leaderboardRowLayout.teamCenter) > 2) throw new Error("The leaderboard avatar was not aligned beside the Pokémon team.");
+if (leaderboardRowLayout.height > 85) throw new Error("The daily leaderboard row became too tall.");
 await page.click('[data-leaderboard-view="streak"]');
 if (!(await page.locator(".streak-row").textContent())?.includes("0-day streak")) throw new Error("A completed loss did not appear as a zero-day streak.");
 await page.click('.leaderboard-stage [data-route="home"]');

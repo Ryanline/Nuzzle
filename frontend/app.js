@@ -16,6 +16,7 @@
     ? "assets/trainers/brock.png"
     : `https://play.pokemonshowdown.com/sprites/trainers/${encodeURIComponent(id)}.png`;
   const mysteryTrainerSprite = "assets/trainers/mystery.png";
+  const defaultAccountAvatarId = "unknownf";
   const app = document.querySelector("#app");
   const tooltip = document.querySelector("#tooltip");
   const savedTheme = localStorage.getItem("nuzzleTheme");
@@ -274,22 +275,23 @@
   }
 
   function avatarContent(user) {
-    const source = user?.avatarSpriteId ? trainerSprite(user.avatarSpriteId) : mysteryTrainerSprite;
+    const source = trainerSprite(user?.avatarSpriteId || defaultAccountAvatarId);
     return `<img class="sprite" src="${source}" alt="">`;
   }
 
   function avatarChoices(query = avatarQuery) {
     const search = String(query).trim().toLowerCase();
+    const selectableSprites = avatarSprites.filter((trainer) => trainer.id !== defaultAccountAvatarId);
     const matches = search
-      ? avatarSprites.filter((trainer) => trainer.id.includes(search) || trainer.name.toLowerCase().includes(search))
-      : avatarSprites;
-    const mysterySelected = !currentUser?.avatarSpriteId;
-    const mystery = `<button class="avatar-choice mystery${mysterySelected ? " selected" : ""}" type="button" data-avatar-sprite="" aria-label="Mystery trainer" aria-pressed="${mysterySelected}" title="Mystery trainer"><img class="sprite" src="${mysteryTrainerSprite}" alt=""></button>`;
+      ? selectableSprites.filter((trainer) => trainer.id.includes(search) || trainer.name.toLowerCase().includes(search))
+      : selectableSprites;
+    const defaultSelected = !currentUser?.avatarSpriteId || currentUser.avatarSpriteId === defaultAccountAvatarId;
+    const defaultChoice = `<button class="avatar-choice${defaultSelected ? " selected" : ""}" type="button" data-avatar-sprite="" aria-label="Unknown trainer" aria-pressed="${defaultSelected}" title="Unknown trainer (default)"><img class="sprite" src="${trainerSprite(defaultAccountAvatarId)}" alt=""></button>`;
     const choices = matches.map((trainer) => {
       const selected = currentUser?.avatarSpriteId === trainer.id;
       return `<button class="avatar-choice${selected ? " selected" : ""}" type="button" data-avatar-sprite="${trainer.id}" aria-label="${escapeHtml(trainer.name)}" aria-pressed="${selected}" title="${escapeHtml(trainer.name)}"><img class="sprite" src="${trainerSprite(trainer.id)}" alt="" loading="lazy"></button>`;
     }).join("");
-    return mystery + choices + (matches.length ? "" : '<p class="avatar-empty">No matching avatars.</p>');
+    return defaultChoice + choices + (matches.length ? "" : '<p class="avatar-empty">No matching avatars.</p>');
   }
 
   function resetAuthDialog() {
@@ -834,7 +836,7 @@
       : leaderboardError
         ? `<div class="leaderboard-empty"><strong>Could not load leaderboard</strong><span>${escapeHtml(leaderboardError)}</span></div>`
         : entries.length
-          ? `<ol class="leaderboard-list">${entries.map((entry) => `<li class="leaderboard-row${entry.won ? "" : " leaderboard-loss"}"><span class="leaderboard-rank" aria-label="Rank ${entry.rank}">${entry.rank}</span><div class="leaderboard-entry"><div class="leaderboard-identity"><span class="leaderboard-avatar" aria-hidden="true">${avatarContent(entry)}</span><strong>${escapeHtml(entry.username)}${entry.won ? "" : '<small>loss</small>'}</strong></div><div class="leaderboard-team" aria-label="${entry.team.length - entry.fainted} surviving Pokémon and ${entry.fainted} fainted Pokémon">${entry.team.map((pokemon) => `<span class="leaderboard-mon ${pokemon.fainted ? "fainted" : "survived"}" title="${escapeHtml(pokemon.name)} — ${pokemon.fainted ? "fainted" : "survived"}"><img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId, pokemon.shiny)}" alt="${escapeHtml(pokemon.name)}"></span>`).join("")}</div></div></li>`).join("")}</ol>`
+          ? `<ol class="leaderboard-list">${entries.map((entry) => `<li class="leaderboard-row${entry.won ? "" : " leaderboard-loss"}"><span class="leaderboard-rank" aria-label="Rank ${entry.rank}">${entry.rank}</span><div class="leaderboard-entry"><strong class="leaderboard-player-name">${escapeHtml(entry.username)}${entry.won ? "" : '<small>loss</small>'}</strong><div class="leaderboard-roster"><span class="leaderboard-avatar" aria-hidden="true">${avatarContent(entry)}</span><div class="leaderboard-team" aria-label="${entry.team.length - entry.fainted} surviving Pokémon and ${entry.fainted} fainted Pokémon">${entry.team.map((pokemon) => `<span class="leaderboard-mon ${pokemon.fainted ? "fainted" : "survived"}" title="${escapeHtml(pokemon.name)} — ${pokemon.fainted ? "fainted" : "survived"}"><img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId, pokemon.shiny)}" alt="${escapeHtml(pokemon.name)}"></span>`).join("")}</div></div></div></li>`).join("")}</ol>`
           : '<div class="leaderboard-empty"><strong>No results yet</strong><span>Today’s first completed battle will appear here.</span></div>';
     const streakContent = leaderboardLoading
       ? '<div class="leaderboard-empty"><strong>Loading leaderboard…</strong></div>'
