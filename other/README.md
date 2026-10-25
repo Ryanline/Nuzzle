@@ -387,7 +387,7 @@ Tune encounter weights, prices, rewards, AI, and trainer sets from these observa
 - `other/ops/` — production service and reverse-proxy configuration references.
 - `ops/known_hosts` — pinned production SSH host key kept at the workflow-compatible root path.
 - `.github/workflows/` — CI and production deployment automation.
-- `package.json` and `package-lock.json` — repository-level Node runtime, dependencies, and commands. The root package is authoritative; `frontend/package.json` only retains frontend-oriented metadata/scripts.
+- `package.json` and `package-lock.json` — repository-level Node runtime, dependencies, and commands.
 
 Runtime-generated account and game data beneath `backend/data/` is ignored locally. Production state lives outside deployed releases under `/var/lib/nuzzle`.
 
