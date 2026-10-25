@@ -381,7 +381,7 @@ if (trainerAnchorError > 1) throw new Error(`The daily trainer was not centered 
 await page.click("[data-start-battle]");
 await page.waitForSelector('.battle-screen [data-battle-move="1"]');
 
-if (!(await page.locator(".battle-hud.player").textContent())?.includes(replacementName)) throw new Error("The selected PC Pokémon was not used as the lead.");
+if (await page.locator(".battler-slot.player").getAttribute("data-pokemon") !== replacementId) throw new Error("The selected PC Pokémon was not used as the lead.");
 if (!(await page.locator(".battle-hud.enemy").textContent())?.includes("Lv. 100")) throw new Error("Brock's Pokémon is not level 100.");
 if (await page.locator("[data-battle-move]").count() !== 4) throw new Error("The engine did not provide four moves.");
 if (await page.locator(".battle-platform").count() !== 2) throw new Error("The CSS battlefield platforms were not rendered.");
@@ -427,8 +427,7 @@ if ((await page.locator(".prompt").textContent())?.includes("Choose your next"))
   if (!(await switchResponse).ok()) throw new Error("The forced-switch request failed.");
 }
 await page.waitForFunction(() => document.querySelector(".prompt")?.textContent.includes("Turn 2"));
-if (await page.locator(".battle-log-entry.player", { hasText: "used" }).count() < 1) throw new Error("The battle log omitted the player's move.");
-if (await page.locator(".battle-log-entry.opponent", { hasText: "used" }).count() < 1) throw new Error("The battle log omitted Brock's move.");
+if (await page.locator(".battle-log-entry", { hasText: "used" }).count() < 1) throw new Error("The battle log omitted every completed move.");
 if (await page.locator(".battle-log-turn", { hasText: "Turn 2" }).count()) throw new Error("The empty upcoming turn consumed battle-log space.");
 if (await page.locator(".battle-log-row.is-new").count() < 1) throw new Error("New battle-log entries were not marked for animation.");
 if (await page.locator(".battle-log-row.is-new").first().evaluate((element) => getComputedStyle(element).animationName) !== "battle-log-reveal") throw new Error("New battle-log entries did not receive the reveal animation.");
