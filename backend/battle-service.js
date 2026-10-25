@@ -253,7 +253,7 @@ function pokemonView(pokemon, ownSide) {
     id: species?.id || toID(species?.name || pokemon.name),
     name: species?.name || pokemon.name,
     spriteId: species?.spriteid || species?.id || toID(species?.name || pokemon.name),
-    shiny: Boolean(pokemon.shiny),
+    shiny: Boolean(pokemon.set?.shiny || pokemon.details?.toLowerCase().includes(", shiny")),
     level: pokemon.level,
     hp: ownSide ? pokemon.hp : null,
     maxHp: ownSide ? pokemon.maxhp : null,

@@ -133,7 +133,7 @@ test("a player can switch to any configured party member", async () => {
 
 test("a daily trainer and team are snapshotted into the battle", async () => {
   const { service } = await serviceFixture();
-  const opponentTeam = [{ name: "Starmie", species: "Starmie", ability: "Natural Cure", level: 100, moves: ["Surf"] }];
+  const opponentTeam = [{ name: "Starmie", species: "Starmie", ability: "Natural Cure", level: 100, moves: ["Surf"], shiny: true }];
   const state = await service.create({
     partyIds: ["vaporeon"],
     leadId: "vaporeon",
@@ -146,6 +146,8 @@ test("a daily trainer and team are snapshotted into the battle", async () => {
   assert.equal(state.opponent.name, "Misty");
   assert.equal(state.opponent.spriteId, "misty");
   assert.equal(state.opponent.active.id, "starmie");
+  assert.equal(state.opponent.active.shiny, true);
+  assert.equal(state.opponent.team[0].shiny, true);
   assert.equal(state.challengeDate, "2026-10-23");
   assert.equal(state.challengeNumber, 9);
 });
