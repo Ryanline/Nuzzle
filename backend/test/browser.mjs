@@ -233,15 +233,28 @@ const trainingLayout = await page.locator(".training-sheet").evaluate((sheet) =>
   const sheetBounds = sheet.getBoundingClientRect();
   const footerBounds = sheet.querySelector(".training-footer").getBoundingClientRect();
   const trainingContent = sheet.querySelector(".training-scroll");
+  const movesBounds = sheet.querySelector(".training-moves").getBoundingClientRect();
+  const summaryBounds = sheet.querySelector(".pokemon-summary").getBoundingClientRect();
+  const spriteBounds = sheet.querySelector(".pokemon-summary > img").getBoundingClientRect();
+  const nameStyle = getComputedStyle(sheet.querySelector(".pokemon-summary h2"));
+  const maxButton = sheet.querySelector(".training-iv-max");
   const slider = sheet.querySelector("[data-training-ev]");
   return {
     horizontalOverflow: sheet.scrollWidth - sheet.clientWidth,
     footerOverflow: footerBounds.bottom - sheetBounds.bottom,
     trainingScrollOverflow: trainingContent.scrollHeight - trainingContent.clientHeight,
+    unusedGap: footerBounds.top - movesBounds.bottom,
+    summaryHeight: summaryBounds.height,
+    spriteWidth: spriteBounds.width,
+    nameFontSize: nameStyle.fontSize,
+    maxButtonText: maxButton.textContent,
+    maxButtonWidth: maxButton.getBoundingClientRect().width,
     sliderHeight: slider.getBoundingClientRect().height,
   };
 });
-if (trainingLayout.horizontalOverflow > 1 || trainingLayout.footerOverflow > 1 || trainingLayout.trainingScrollOverflow > 1) throw new Error("The compact Training editor overflowed or required scrolling in its mobile drawer.");
+if (trainingLayout.horizontalOverflow > 1 || trainingLayout.footerOverflow > 1 || trainingLayout.trainingScrollOverflow > 1) throw new Error(`The compact Training editor overflowed or required scrolling in its mobile drawer: ${JSON.stringify(trainingLayout)}`);
+if (trainingLayout.unusedGap > 10) throw new Error("The Training drawer retained dead space between its moves and footer.");
+if (trainingLayout.maxButtonText !== "Max IV" || trainingLayout.maxButtonWidth > 30) throw new Error("The compact IV shortcut did not read Max IV at its original width.");
 if (trainingLayout.sliderHeight > 20) throw new Error("The Training EV slider remained too thick for the compact layout.");
 await page.fill('[data-training-ev-input="hp"]', "7");
 if (await page.locator('[data-training-ev="hp"]').inputValue() !== "7") throw new Error("Typing an EV did not synchronize its slider.");
@@ -257,6 +270,12 @@ if (tmTrainedGame.roster.find((pokemon) => pokemon.id === outgoingId).evs.hp !==
 if (tmTrainedGame.roster.find((pokemon) => pokemon.id === outgoingId).moves[0] !== teachableTm.move) throw new Error("The selected move slot was not replaced.");
 await page.setViewportSize({ width: 390, height: 844 });
 await page.click('[data-pc-detail-view="summary"]');
+const summaryHeader = await page.locator(".pokemon-sheet").evaluate((sheet) => ({
+  summaryHeight: sheet.querySelector(".pokemon-summary").getBoundingClientRect().height,
+  spriteWidth: sheet.querySelector(".pokemon-summary > img").getBoundingClientRect().width,
+  nameFontSize: getComputedStyle(sheet.querySelector(".pokemon-summary h2")).fontSize,
+}));
+if (JSON.stringify(summaryHeader) !== JSON.stringify({ summaryHeight: trainingLayout.summaryHeight, spriteWidth: trainingLayout.spriteWidth, nameFontSize: trainingLayout.nameFontSize })) throw new Error("Summary and Training did not share the same Pokémon header sizing.");
 await page.click("[data-open-pc-items]");
 await page.click('[data-pc-item-group="Held Items"]');
 const equipResponse = page.waitForResponse((response) => response.url().includes(`/api/game/pokemon/${outgoingId}/equip`) && response.request().method() === "POST");
