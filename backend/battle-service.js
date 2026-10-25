@@ -28,6 +28,29 @@ function randomEntry(values) {
   return values[crypto.randomInt(values.length)];
 }
 
+export function shuffledTeamOrder(length, randomInt = crypto.randomInt) {
+  const slots = Array.from({ length }, (_, index) => index + 1);
+  for (let index = slots.length - 1; index > 0; index--) {
+    const swapIndex = randomInt(index + 1);
+    [slots[index], slots[swapIndex]] = [slots[swapIndex], slots[index]];
+  }
+  return slots;
+}
+
+export function trainerReplacementChoice(pokemon, choose = randomEntry) {
+  const slots = pokemon
+    .map((candidate, index) => ({ pokemon: candidate, slot: index + 1 }))
+    .filter(({ pokemon: candidate }) => !candidate.active && !isFainted(candidate.condition));
+  return slots.length ? `switch ${choose(slots).slot}` : "pass";
+}
+
+function savedTeamOrder(order, length) {
+  const fallback = Array.from({ length }, (_, index) => index + 1);
+  if (!Array.isArray(order) || order.length !== length) return fallback;
+  const normalized = order.map(Number);
+  return [...normalized].sort((left, right) => left - right).every((slot, index) => slot === index + 1) ? normalized : fallback;
+}
+
 function moveHitCount(move) {
   if (!move.multihit) return 1;
   if (typeof move.multihit === "number") return move.multihit;
@@ -415,7 +438,9 @@ export class BattleController {
   async handleRequest(side, request) {
     if (request.wait) return;
     if (request.teamPreview) {
-      await this.streams[side].write("team 123456".slice(0, 5 + request.side.pokemon.length));
+      const length = request.side.pokemon.length;
+      const order = side === "p2" ? savedTeamOrder(this.record.opponentTeamOrder, length) : savedTeamOrder(null, length);
+      await this.streams[side].write(`team ${order.join("")}`);
       return;
     }
     const saved = this.record.choices[side][this.replayIndexes[side]++];
@@ -440,10 +465,7 @@ export class BattleController {
 
   chooseBrockAction(request) {
     if (request.forceSwitch) {
-      const slots = request.side.pokemon
-        .map((pokemon, index) => ({ pokemon, slot: index + 1 }))
-        .filter(({ pokemon }) => !pokemon.active && !isFainted(pokemon.condition));
-      return slots.length ? `switch ${randomEntry(slots).slot}` : "pass";
+      return trainerReplacementChoice(request.side.pokemon);
     }
     const legalMoves = request.active?.[0]?.moves
       .map((choice, index) => ({ choice, move: Dex.moves.get(choice.id), slot: index + 1 }))
@@ -815,6 +837,7 @@ export class BattleService {
     const attemptKey = this.dailyAttemptKey(userId, challengeDate);
     if (attemptKey && this.dailyAttempts.has(attemptKey)) choiceError("You already used today's daily battle attempt.", 409);
     const teamSnapshot = playerTeam || buildPlayerTeam(partyIds, leadId);
+    const opponentSnapshot = opponentTeam || buildBrockTeam();
     if (!Array.isArray(teamSnapshot) || teamSnapshot.length < 1 || teamSnapshot.length > 6) choiceError("Choose between one and six Pokémon.");
     const record = {
       id: crypto.randomUUID(),
@@ -826,7 +849,8 @@ export class BattleService {
       leadId,
       playerTeamIds: [leadId, ...partyIds.filter((id) => id !== leadId)],
       playerTeam: structuredClone(teamSnapshot),
-      opponentTeam: structuredClone(opponentTeam || buildBrockTeam()),
+      opponentTeam: structuredClone(opponentSnapshot),
+      opponentTeamOrder: shuffledTeamOrder(opponentSnapshot.length),
       trainerName,
       trainerSpriteId,
       challengeDate,

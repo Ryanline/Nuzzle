@@ -3,7 +3,7 @@ import { mkdtemp } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { acquisitionFromProtocol, BattleService, faintedPlayerIds, playerTeamIds } from "../battle-service.js";
+import { acquisitionFromProtocol, BattleService, faintedPlayerIds, playerTeamIds, shuffledTeamOrder, trainerReplacementChoice } from "../battle-service.js";
 import { BattleStore } from "../battle-store.js";
 import { buildBrockTeam, buildPlayerTeam, PLAYER_IDS } from "../teams.js";
 
@@ -99,11 +99,24 @@ test("battle slots map back to roster IDs after the selected lead is reordered",
   ]), ["raichu", "vaporeon"]);
 });
 
+test("trainer team order and faint replacements use eligible random selections", () => {
+  assert.deepEqual(shuffledTeamOrder(4, () => 0), [2, 3, 4, 1]);
+  assert.equal(trainerReplacementChoice([
+    { active: true, condition: "100/100" },
+    { active: false, condition: "0 fnt" },
+    { active: false, condition: "80/100" },
+    { active: false, condition: "40/100" },
+  ], (choices) => choices.at(-1)), "switch 4");
+});
+
 test("Showdown advances a real turn and rejects stale choices", async () => {
   const { service } = await serviceFixture();
   const initial = await service.create({ partyIds: defaultParty, leadId: "vaporeon" });
+  const battle = service.get(initial.id);
+  const order = battle.record.opponentTeamOrder;
   assert.equal(initial.player.active.id, "vaporeon");
-  assert.equal(initial.opponent.active.id, "steelix");
+  assert.deepEqual([...order].sort((left, right) => left - right), [1, 2, 3, 4, 5, 6]);
+  assert.equal(initial.opponent.active.name, battle.record.opponentTeam[order[0] - 1].species);
   assert.equal(initial.moves.length, 4);
   assert.equal(initial.rqid, 1);
 
@@ -186,6 +199,8 @@ test("a saved battle replays to the same decision point", async () => {
   assert.equal(restored.rqid, afterMove.rqid);
   assert.deepEqual(restored.player.team.map((pokemon) => pokemon.hp), afterMove.player.team.map((pokemon) => pokemon.hp));
   assert.deepEqual(restored.opponent.team.map((pokemon) => pokemon.percent), afterMove.opponent.team.map((pokemon) => pokemon.percent));
+  assert.equal(restored.opponent.active.id, afterMove.opponent.active.id);
+  assert.deepEqual(restoredService.get(initial.id).record.opponentTeamOrder, service.get(initial.id).record.opponentTeamOrder);
 });
 
 test("a saved battle belongs only to the account that created it", async () => {

@@ -294,7 +294,7 @@ The current opponent is deterministic rule-based selection, not machine learning
 7. Rank later useful status moves below ordinary damage.
 8. Put immune, redundant, or failing choices last.
 
-The trainer commits before seeing the player's current action, never voluntarily switches, chooses a random living replacement when forced or after a pivot move, and cannot use Bag items.
+The trainer commits before seeing the player's current action, begins each new battle with a randomly selected team member, never voluntarily switches, chooses another random living team member when forced to replace a fainted Pokémon or after a pivot move, and cannot use Bag items. These selections are saved in the battle record so replaying a persisted battle cannot reroll them.
 
 ## Interface and Accessibility Direction
 
