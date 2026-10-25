@@ -28,6 +28,9 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 375, height: 667 }
     const title = screen.querySelector(".screen-title");
     const titleRect = title.getBoundingClientRect();
     const toolsRect = screen.querySelector(".header-tools").getBoundingClientRect();
+    const meta = screen.querySelector(".screen-meta");
+    const titleStyle = getComputedStyle(title);
+    const metaStyle = getComputedStyle(meta);
     return {
       viewportHeight: window.innerHeight,
       settingsBottom: settings.bottom,
@@ -42,7 +45,11 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 375, height: 667 }
       titleTop: titleRect.top,
       toolsBottom: toolsRect.bottom,
       titleClipped: title.scrollWidth > title.clientWidth + 1 || title.scrollHeight > title.clientHeight + 1,
-      metaText: screen.querySelector(".screen-meta")?.textContent || "",
+      metaText: meta.textContent || "",
+      titleFontSize: titleStyle.fontSize,
+      metaFontSize: metaStyle.fontSize,
+      metaHeight: meta.getBoundingClientRect().height,
+      metaLineHeight: Number.parseFloat(metaStyle.lineHeight),
     };
   });
   if (landingBounds.settingsBottom > landingBounds.viewportHeight + 1 || landingBounds.settingsHeight < 34) throw new Error(`Landing controls do not fit ${viewport.width}x${viewport.height}.`);
@@ -52,6 +59,8 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 375, height: 667 }
   if (Math.abs(landingBounds.opponentSpriteTranslation + 20) > .1) throw new Error(`Opponent team sprites were not shifted left 20px at ${viewport.width}x${viewport.height}.`);
   if (landingBounds.titleTop < landingBounds.toolsBottom - 1 || landingBounds.titleClipped) throw new Error(`The daily title overlaps the header controls or is clipped at ${viewport.width}x${viewport.height}.`);
   if (!/next trainer in \d{2}:\d{2}:\d{2}/i.test(landingBounds.metaText)) throw new Error(`The daily countdown is missing at ${viewport.width}x${viewport.height}.`);
+  if (!landingBounds.metaText.includes(" - ") || landingBounds.titleFontSize !== landingBounds.metaFontSize) throw new Error(`The date and countdown line does not match the title typography at ${viewport.width}x${viewport.height}.`);
+  if (landingBounds.metaHeight > landingBounds.metaLineHeight * 1.5) throw new Error(`The date and countdown wrapped at ${viewport.width}x${viewport.height}.`);
 }
 await page.setViewportSize({ width: 390, height: 844 });
 if (await page.locator(".menu-toggle").count()) throw new Error("The obsolete hamburger menu is still rendered.");

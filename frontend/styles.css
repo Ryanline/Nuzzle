@@ -35,11 +35,11 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .screen-header { position: relative; z-index: 20; display: flex; align-items: center; justify-content: center; height: 104px; background: var(--page); }
 .screen-title { max-width: calc(100% - 190px); margin: 0; overflow: hidden; font-size: clamp(19px, 4.3vw, 30px); font-weight: 400; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
 .header-tools { position: absolute; top: 32px; right: 0; display: flex; align-items: center; gap: 8px; }
-.home-header { height: 118px; align-items: flex-end; padding-bottom: 12px; }
+.home-header { height: 126px; align-items: flex-end; padding-bottom: 10px; }
 .home-header .header-tools { top: 10px; }
 .header-title-group { width: 100%; min-width: 0; text-align: center; }
 .home-header .screen-title { max-width: none; overflow: visible; line-height: 1.12; text-overflow: clip; white-space: normal; }
-.screen-meta { margin: 3px 0 0; color: var(--muted); font-size: 12px; line-height: 1.15; }
+.screen-meta { margin: 3px 0 0; color: var(--muted); font-size: clamp(19px, 4.3vw, 30px); line-height: 1.12; }
 .screen-meta b { font-variant-numeric: tabular-nums; font-weight: 400; }
 .theme-toggle { position: relative; width: 62px; height: 40px; padding: 0; border: 1px solid #c4c8cb; border-radius: 20px; background: #fff; box-shadow: 0 2px 3px rgba(0,0,0,.18); cursor: pointer; }
 .theme-toggle i { position: absolute; top: 3px; left: 3px; display: grid; width: 32px; height: 32px; place-items: center; border-radius: 50%; background: #17191b; color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.28); transform: translateX(24px); transition: transform 170ms ease, background-color 170ms ease, color 170ms ease; }
@@ -831,8 +831,7 @@ html[data-theme="dark"] .auth-error { color: #ff9297; }
   .header-tools { top: 10px; right: -2px; gap: 6px; }
   .home-header { height: 94px; padding-bottom: 7px; }
   .home-header .header-tools { top: 4px; }
-  .home-header .screen-title { position: static; font-size: 16px; }
-  .home-header .screen-meta { font-size: 11px; }
+  .home-header .screen-title, .home-header .screen-meta { font-size: 15px; }
   .theme-toggle { width: 60px; height: 38px; border-radius: 19px; }
   .theme-toggle i { width: 30px; height: 30px; }
   .theme-toggle[aria-checked="true"] i { transform: none; }
