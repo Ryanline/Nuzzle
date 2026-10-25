@@ -226,6 +226,8 @@ await page.setViewportSize({ width: 390, height: 568 });
 await page.click('[data-pc-detail-view="training"]');
 if (await page.locator(".pc-detail-panel > .pokemon-facts").count()) throw new Error("Training still includes the general Pokémon facts.");
 if (await page.locator(".training-editor-row").count() !== 6) throw new Error("Training did not show all six battle stats.");
+if ((await page.locator(".training-stat-name").allTextContents()).join(",") !== "HP,Atk,Def,Sp. Atk,Sp. Def,Spe") throw new Error("Training did not use the requested Showdown stat labels.");
+if ((await page.locator(".training-column-head").textContent())?.includes("FINAL") || (await page.locator(".training-editor").textContent())?.includes("Values update before you spend")) throw new Error("Training retained the removed explanatory headings.");
 if (!(await page.locator(".training-remaining").textContent())?.includes("EVs remaining")) throw new Error("Training did not show the remaining EV budget.");
 const trainingLayout = await page.locator(".training-sheet").evaluate((sheet) => {
   const sheetBounds = sheet.getBoundingClientRect();
@@ -241,6 +243,8 @@ const trainingLayout = await page.locator(".training-sheet").evaluate((sheet) =>
 });
 if (trainingLayout.horizontalOverflow > 1 || trainingLayout.footerOverflow > 1 || trainingLayout.trainingScrollOverflow > 1) throw new Error("The compact Training editor overflowed or required scrolling in its mobile drawer.");
 if (trainingLayout.sliderHeight > 20) throw new Error("The Training EV slider remained too thick for the compact layout.");
+await page.fill('[data-training-ev-input="hp"]', "7");
+if (await page.locator('[data-training-ev="hp"]').inputValue() !== "7") throw new Error("Typing an EV did not synchronize its slider.");
 await page.locator('[data-training-ev="hp"]').evaluate((input) => { input.value = "5"; input.dispatchEvent(new Event("input", { bubbles: true })); input.dispatchEvent(new Event("change", { bubbles: true })); });
 await page.click('[data-edit-training-move="0"]');
 await page.click(`[data-select-training-move="${teachableTm.id}"]`);

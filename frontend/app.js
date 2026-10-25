@@ -687,6 +687,7 @@
   }
 
   const trainingStats = [["hp", "HP"], ["atk", "Atk"], ["def", "Def"], ["spa", "SpA"], ["spd", "SpD"], ["spe", "Spe"]];
+  const trainingStatNames = { hp: "HP", atk: "Atk", def: "Def", spa: "Sp. Atk", spd: "Sp. Def", spe: "Spe" };
 
   function beginTraining(mon) {
     trainingDraft = {
@@ -783,14 +784,13 @@
     const quote = localTrainingQuote(mon);
     const invalidMoveSlots = trainingDraft.moves.map((move, slot) => form.legalMoveIds.includes(toId(move)) ? null : slot).filter((slot) => slot !== null);
     const evTotal = Object.values(trainingDraft.evs).reduce((sum, value) => sum + value, 0);
-    const rows = trainingStats.map(([stat, label]) => {
+    const rows = trainingStats.map(([stat]) => {
       const changed = trainingDraft.evs[stat] !== mon.evs[stat] || trainingDraft.ivs[stat] !== mon.ivs[stat];
-      const evFill = (trainingDraft.evs[stat] / 252) * 100;
-      return `<div class="training-editor-row${changed ? " changed" : ""}"><div class="training-stat-result"><strong>${label}</strong><span>${stats[stat]}</span></div><div class="training-iv-control"><label for="training-iv-${stat}">IV</label><input id="training-iv-${stat}" type="number" min="0" max="31" value="${trainingDraft.ivs[stat]}" data-training-iv="${stat}" inputmode="numeric"><button type="button" data-max-training-iv="${stat}">31</button></div><div class="training-ev-control"><label for="training-ev-${stat}"><span>EV</span><output>${trainingDraft.evs[stat]}</output></label><input id="training-ev-${stat}" type="range" min="0" max="252" step="1" value="${trainingDraft.evs[stat]}" style="--ev-fill:${evFill}%" data-training-ev="${stat}"></div></div>`;
+      return `<div class="training-editor-row${changed ? " changed" : ""}"><strong class="training-stat-name">${trainingStatNames[stat]}</strong><span class="training-base-value">${form.baseStats[stat]}</span><input class="training-ev-input" aria-label="${trainingStatNames[stat]} EV" type="number" min="0" max="252" value="${trainingDraft.evs[stat]}" data-training-ev-input="${stat}" inputmode="numeric"><input class="training-ev-slider" aria-label="${trainingStatNames[stat]} EV slider" type="range" min="0" max="252" step="1" value="${trainingDraft.evs[stat]}" data-training-ev="${stat}"><input class="training-iv-input" aria-label="${trainingStatNames[stat]} IV" type="number" min="0" max="31" value="${trainingDraft.ivs[stat]}" data-training-iv="${stat}" inputmode="numeric"><button class="training-iv-max" type="button" data-max-training-iv="${stat}" aria-label="Max ${trainingStatNames[stat]} IV">Max</button><output class="training-final-value" aria-label="Final ${trainingStatNames[stat]} stat">${stats[stat]}</output></div>`;
     }).join("");
     const abilities = [...form.ordinaryAbilities, form.hiddenAbility].filter(Boolean);
     const forms = availableTrainingForms(mon);
-    return `<section class="training-editor" role="tabpanel"><div class="training-scroll"><div class="training-heading"><span>Final stats</span><span>Preview before spending</span></div>${rows}<div class="training-remaining"><span>${510 - evTotal} EVs remaining</span><button type="button" data-reset-evs>clear EVs</button></div><div class="training-selects"><label>Nature<select data-training-nature>${natureOptions.map((nature) => `<option value="${nature.name}" ${nature.name === trainingDraft.nature ? "selected" : ""}>${nature.name}${nature.up ? ` (+${nature.up}, −${nature.down})` : " (neutral)"}</option>`).join("")}</select></label><label>Ability<select data-training-ability>${abilities.map((ability) => `<option ${ability === trainingDraft.ability ? "selected" : ""}>${escapeHtml(ability)}</option>`).join("")}</select></label>${forms.length > 1 ? `<label>Form<select data-training-form>${forms.map((candidate) => `<option value="${candidate.id}" ${candidate.id === trainingDraft.speciesId ? "selected" : ""}>${escapeHtml(candidate.name)}</option>`).join("")}</select></label>` : ""}</div><div class="training-moves"><h3>Moves</h3>${trainingDraft.moves.map((move, slot) => `<button class="${invalidMoveSlots.includes(slot) ? "invalid" : ""}" type="button" data-edit-training-move="${slot}"><span><small>Move ${slot + 1}${invalidMoveSlots.includes(slot) ? " · replacement required" : ""}</small><strong>${escapeHtml(move)}</strong></span><b>change</b></button>`).join("")}</div></div><footer class="training-footer">${trainingMessage ? `<p role="alert">${escapeHtml(trainingMessage)}</p>` : ""}${invalidMoveSlots.length ? '<p role="alert">Replace moves that are illegal for the selected form.</p>' : ""}<div class="training-footer-line"><span>${quote.lines.length} pending change${quote.lines.length === 1 ? "" : "s"}<button type="button" data-reset-training ${quote.changed ? "" : "disabled"}>reset</button></span><span>Total ₽${quote.total.toLocaleString()}</span></div><div class="training-after">Balance after ₽${Math.max(0, balance - quote.total).toLocaleString()}</div><button class="gloss-button blue" type="button" data-apply-training ${quote.changed && quote.total <= balance && !invalidMoveSlots.length ? "" : "disabled"}>apply changes</button></footer></section>`;
+    return `<section class="training-editor" role="tabpanel"><div class="training-scroll"><div class="training-column-head" aria-hidden="true"><span>Stat</span><span>Base</span><span>EV</span><span></span><span>IV</span><span></span><span>Total</span></div>${rows}<div class="training-remaining"><span>${510 - evTotal} EVs remaining</span><button type="button" data-reset-evs>clear EVs</button></div><div class="training-selects"><label>Nature<select data-training-nature>${natureOptions.map((nature) => `<option value="${nature.name}" ${nature.name === trainingDraft.nature ? "selected" : ""}>${nature.name}${nature.up ? ` (+${nature.up}, −${nature.down})` : " (neutral)"}</option>`).join("")}</select></label><label>Ability<select data-training-ability>${abilities.map((ability) => `<option ${ability === trainingDraft.ability ? "selected" : ""}>${escapeHtml(ability)}</option>`).join("")}</select></label>${forms.length > 1 ? `<label>Form<select data-training-form>${forms.map((candidate) => `<option value="${candidate.id}" ${candidate.id === trainingDraft.speciesId ? "selected" : ""}>${escapeHtml(candidate.name)}</option>`).join("")}</select></label>` : ""}</div><div class="training-moves"><h3>Moves</h3>${trainingDraft.moves.map((move, slot) => `<button class="${invalidMoveSlots.includes(slot) ? "invalid" : ""}" type="button" data-edit-training-move="${slot}"><span><small>Move ${slot + 1}${invalidMoveSlots.includes(slot) ? " · replacement required" : ""}</small><strong>${escapeHtml(move)}</strong></span><b>change</b></button>`).join("")}</div></div><footer class="training-footer">${trainingMessage ? `<p role="alert">${escapeHtml(trainingMessage)}</p>` : ""}${invalidMoveSlots.length ? '<p role="alert">Replace moves that are illegal for the selected form.</p>' : ""}<div class="training-footer-line"><span>${quote.lines.length} pending change${quote.lines.length === 1 ? "" : "s"}<button type="button" data-reset-training ${quote.changed ? "" : "disabled"}>reset</button></span><span>Total ₽${quote.total.toLocaleString()}</span></div><div class="training-after">Balance after ₽${Math.max(0, balance - quote.total).toLocaleString()}</div><button class="gloss-button blue" type="button" data-apply-training ${quote.changed && quote.total <= balance && !invalidMoveSlots.length ? "" : "disabled"}>apply changes</button></footer></section>`;
   }
 
   function pcPokemonSheet(id) {
@@ -1746,29 +1746,37 @@
       if (options.slot !== undefined) options.slot = Number(options.slot);
       if (item) void trainPokemon(item, options);
     });
-    document.querySelectorAll("[data-training-ev]").forEach((input) => {
-      const update = () => {
-        const stat = input.dataset.trainingEv;
+    const updateTrainingEv = (stat, rawValue) => {
         const otherTotal = Object.entries(trainingDraft.evs).reduce((sum, [key, value]) => sum + (key === stat ? 0 : value), 0);
-        trainingDraft.evs[stat] = Math.max(0, Math.min(252, 510 - otherTotal, Number(input.value) || 0));
-        input.value = trainingDraft.evs[stat];
-        input.style.setProperty("--ev-fill", `${(trainingDraft.evs[stat] / 252) * 100}%`);
-        const row = input.closest(".training-editor-row");
-        const output = row?.querySelector("output");
-        const result = row?.querySelector(".training-stat-result span");
-        if (output) output.textContent = trainingDraft.evs[stat];
+        trainingDraft.evs[stat] = Math.max(0, Math.min(252, 510 - otherTotal, Math.round(Number(rawValue) || 0)));
+        const slider = document.querySelector(`[data-training-ev="${stat}"]`);
+        const numeric = document.querySelector(`[data-training-ev-input="${stat}"]`);
+        if (slider) slider.value = trainingDraft.evs[stat];
+        if (numeric) numeric.value = trainingDraft.evs[stat];
+        const result = slider?.closest(".training-editor-row")?.querySelector(".training-final-value");
         if (result) result.textContent = previewTrainingStats(mons[selectedPcId])[stat];
         const remaining = document.querySelector(".training-remaining span");
         if (remaining) remaining.textContent = `${510 - Object.values(trainingDraft.evs).reduce((sum, value) => sum + value, 0)} EVs remaining`;
+    };
+    document.querySelectorAll("[data-training-ev]").forEach((input) => {
+      input.addEventListener("input", () => updateTrainingEv(input.dataset.trainingEv, input.value));
+      input.addEventListener("change", () => { updateTrainingEv(input.dataset.trainingEv, input.value); render(); });
+    });
+    document.querySelectorAll("[data-training-ev-input]").forEach((input) => {
+      input.addEventListener("input", () => updateTrainingEv(input.dataset.trainingEvInput, input.value));
+      input.addEventListener("change", () => { updateTrainingEv(input.dataset.trainingEvInput, input.value); setTimeout(render, 0); });
+    });
+    document.querySelectorAll("[data-training-iv]").forEach((input) => {
+      const update = () => {
+        const stat = input.dataset.trainingIv;
+        trainingDraft.ivs[stat] = Math.max(0, Math.min(31, Math.round(Number(input.value) || 0)));
+        input.value = trainingDraft.ivs[stat];
+        const result = input.closest(".training-editor-row")?.querySelector(".training-final-value");
+        if (result) result.textContent = previewTrainingStats(mons[selectedPcId])[stat];
       };
       input.addEventListener("input", update);
-      input.addEventListener("change", () => { update(); render(); });
+      input.addEventListener("change", () => { update(); setTimeout(render, 0); });
     });
-    document.querySelectorAll("[data-training-iv]").forEach((input) => input.addEventListener("change", () => {
-      const stat = input.dataset.trainingIv;
-      trainingDraft.ivs[stat] = Math.max(0, Math.min(31, Math.round(Number(input.value) || 0)));
-      render();
-    }));
     document.querySelectorAll("[data-max-training-iv]").forEach((button) => button.addEventListener("click", () => {
       trainingDraft.ivs[button.dataset.maxTrainingIv] = 31;
       render();
