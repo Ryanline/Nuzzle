@@ -229,6 +229,27 @@ test("held-item purchases, atomic training builds, and battle snapshots are serv
   assert.equal(retried.applied, false);
   assert.equal(retried.state.money, state.money);
 
+  const trained = state.roster.find((pokemon) => pokemon.id === target.id);
+  const loweredIvStat = Object.entries(trained.ivs).find(([, value]) => value > 0)?.[0];
+  assert.ok(loweredIvStat, "the generated Pokémon should have an IV that can be lowered");
+  const loweredBuild = {
+    speciesId: trained.speciesId,
+    ivs: { ...trained.ivs, [loweredIvStat]: 0 },
+    evs: { ...trained.evs, hp: 0 },
+    nature: trained.nature,
+    ability: trained.ability,
+    moves: [...trained.moves],
+  };
+  const freeQuote = await store.quoteTrainingBuild("shop-user", target.id, loweredBuild);
+  assert.equal(freeQuote.changed, true);
+  assert.equal(freeQuote.total, 0);
+  assert.equal(freeQuote.lineItems.every((item) => item.cost === 0), true);
+  const moneyBeforeReduction = state.money;
+  state = (await store.applyTrainingBuild("shop-user", target.id, loweredBuild, 0, "free-reduction")).state;
+  assert.equal(state.money, moneyBeforeReduction);
+  assert.equal(state.roster.find((pokemon) => pokemon.id === target.id).evs.hp, 0);
+  assert.equal(state.roster.find((pokemon) => pokemon.id === target.id).ivs[loweredIvStat], 0);
+
   const team = await store.battleTeam("shop-user", state.teamIds, state.teamIds[2]);
   assert.equal(team[0].species, pokemonById.get(state.teamIds[2]).showdownName);
   assert.deepEqual(team[0].evs, state.roster.find((pokemon) => pokemon.id === state.teamIds[2]).evs);

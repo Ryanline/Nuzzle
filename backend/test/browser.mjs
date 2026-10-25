@@ -226,6 +226,18 @@ await page.click('[data-pc-detail-view="training"]');
 if (await page.locator(".pc-detail-panel > .pokemon-facts").count()) throw new Error("Training still includes the general Pokémon facts.");
 if (await page.locator(".training-editor-row").count() !== 6) throw new Error("Training did not show all six battle stats.");
 if (!(await page.locator(".training-remaining").textContent())?.includes("EVs remaining")) throw new Error("Training did not show the remaining EV budget.");
+const trainingLayout = await page.locator(".training-sheet").evaluate((sheet) => {
+  const sheetBounds = sheet.getBoundingClientRect();
+  const footerBounds = sheet.querySelector(".training-footer").getBoundingClientRect();
+  const slider = sheet.querySelector("[data-training-ev]");
+  return {
+    horizontalOverflow: sheet.scrollWidth - sheet.clientWidth,
+    footerOverflow: footerBounds.bottom - sheetBounds.bottom,
+    sliderHeight: slider.getBoundingClientRect().height,
+  };
+});
+if (trainingLayout.horizontalOverflow > 1 || trainingLayout.footerOverflow > 1) throw new Error("The compact Training editor overflowed its mobile drawer.");
+if (trainingLayout.sliderHeight > 20) throw new Error("The Training EV slider remained too thick for the compact layout.");
 await page.locator('[data-training-ev="hp"]').evaluate((input) => { input.value = "5"; input.dispatchEvent(new Event("input", { bubbles: true })); input.dispatchEvent(new Event("change", { bubbles: true })); });
 await page.click('[data-edit-training-move="0"]');
 await page.click(`[data-select-training-move="${teachableTm.id}"]`);

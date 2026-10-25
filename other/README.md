@@ -78,7 +78,7 @@ The game is intentionally Nuzlocke-like and can be harsh. It should create inter
 - The detail drawer has Summary and Training sections. Summary shows identity, types, ability, nature, held item, calculated battle stats, and moves.
 - Training provides a Showdown-inspired build editor with EV sliders, IV inputs, nature, ability, eligible forms, and a searchable legal-move catalog. Changes and resulting stats are previewed before purchase, then applied together in one server-authoritative transaction.
 - Held items can be given or taken without closing the item view; the holder and Bag update immediately.
-- Training costs are itemized from the persisted build to the final preview. Resetting or restoring a value before applying costs nothing.
+- Training costs are itemized from the persisted build to the final preview. Lowering EVs or IVs is free; only values raised above their persisted baseline are charged. Resetting or restoring a value before applying costs nothing.
 - There is currently no box capacity, release action, filtering, or selling.
 
 ### Bag and Mart
@@ -207,10 +207,10 @@ Training-item names and prices define the cost of direct PC training; they are n
 
 Legacy runs are migrated once: owned Training Items and TMs are removed and fully refunded at their current catalog prices.
 
-- HP Up, Protein, Iron, Calcium, Zinc, and Carbos add one EV to their respective stat.
-- Pomeg, Kelpsy, Qualot, Hondew, Grepa, and Tamato Berries remove one corresponding EV.
-- Stack use is supported. Enforce `0–252` per stat and `510` total EVs, cap the applied quantity to the legal amount, and charge only for the amount applied.
-- A Bottle Cap edits one selected IV to any integer from `0–31`, defaulting to `31` in the UI.
+- HP Up, Protein, Iron, Calcium, Zinc, and Carbos price EV increases at ₽10 per point in their respective stat.
+- EVs may be lowered directly for free. A staged value is charged only for the amount above that Pokémon's persisted EV value.
+- Enforce `0–252` per stat and `510` total EVs.
+- Raising one IV above its persisted value costs one Bottle Cap. Lowering an IV is free; the UI defaults its quick-set action to `31`.
 - A Nature Mint lets the player choose any nature.
 - An Ability Capsule never grants a hidden ability. It switches automatically between eligible ordinary abilities, is unusable when no alternative ordinary ability exists, and lets a hidden-ability holder return to an eligible ordinary ability.
 - An Ability Patch only changes an ordinary ability to an eligible hidden ability. It never reverses a hidden ability and cannot grant Zen Mode.
@@ -242,7 +242,7 @@ A form change is charged only when it produces a different valid form. Existing 
 
 - Fresh run money: ₽50,000.
 - Daily victory reward: ₽15,000.
-- Vitamins: ₽10 each; EV-reduction Berries: ₽8 each.
+- EV increases: ₽10 per point. Legacy EV-reduction Berries retain an ₽8 refund value but reductions are free in Training.
 - Bottle Cap: ₽900; Nature Mint: ₽1,500; Ability Capsule: ₽2,000; Ability Patch: ₽3,000.
 - Rotom Catalog: ₽2,000; Nectar: ₽750; Paldean Tauros Cud: ₽1,000.
 - Premium held items cost ₽2,500: Assault Vest, Booster Energy, Choice Band, Choice Scarf, Choice Specs, Covert Cloak, Focus Sash, Heavy-Duty Boots, Leftovers, Life Orb, Loaded Dice, and Rocky Helmet.

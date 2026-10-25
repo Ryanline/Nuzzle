@@ -197,13 +197,16 @@ function buildTrainingQuote(pokemon, proposed = {}) {
   const lineItems = [];
   for (const stat of stats) {
     const difference = evs[stat] - pokemon.evs[stat];
-    if (difference) {
-      const item = trainingItem("ev", (candidate) => candidate.stat === stat && Math.sign(candidate.amount) === Math.sign(difference));
-      lineItems.push({ key: `ev-${stat}`, label: `${statLabels[stat]} EV ${difference > 0 ? "+" : "−"}${Math.abs(difference)}`, quantity: Math.abs(difference), unitPrice: item.price, cost: Math.abs(difference) * item.price });
+    if (difference > 0) {
+      const item = trainingItem("ev", (candidate) => candidate.stat === stat && candidate.amount > 0);
+      lineItems.push({ key: `ev-${stat}`, label: `${statLabels[stat]} EV +${difference}`, quantity: difference, unitPrice: item.price, cost: difference * item.price });
+    } else if (difference < 0) {
+      lineItems.push({ key: `ev-${stat}`, label: `${statLabels[stat]} EV −${Math.abs(difference)}`, quantity: Math.abs(difference), unitPrice: 0, cost: 0 });
     }
     if (ivs[stat] !== pokemon.ivs[stat]) {
-      const item = trainingItem("iv");
-      lineItems.push({ key: `iv-${stat}`, label: `${statLabels[stat]} IV ${pokemon.ivs[stat]} → ${ivs[stat]}`, quantity: 1, unitPrice: item.price, cost: item.price });
+      const raising = ivs[stat] > pokemon.ivs[stat];
+      const cost = raising ? trainingItem("iv").price : 0;
+      lineItems.push({ key: `iv-${stat}`, label: `${statLabels[stat]} IV ${pokemon.ivs[stat]} → ${ivs[stat]}`, quantity: 1, unitPrice: cost, cost });
     }
   }
   if (nature.name !== pokemon.nature) {
@@ -231,11 +234,17 @@ function buildTrainingQuote(pokemon, proposed = {}) {
 
   const normalized = { speciesId, ivs, evs, nature: nature.name, ability, moves };
   const preview = { ...pokemon, ...normalized, name: species.name, level: pokemon.level };
+  const changed = speciesId !== pokemon.speciesId
+    || nature.name !== pokemon.nature
+    || ability !== pokemon.ability
+    || stats.some((stat) => ivs[stat] !== pokemon.ivs[stat] || evs[stat] !== pokemon.evs[stat])
+    || moves.some((move, slot) => move !== pokemon.moves[slot]);
   return {
     build: normalized,
     calculatedStats: calculatedStats(preview),
     lineItems,
     total: lineItems.reduce((sum, item) => sum + item.cost, 0),
+    changed,
   };
 }
 
@@ -563,7 +572,7 @@ export class GameStore {
       if (!pokemon) gameError("Pokémon not found.", 404);
       const quote = buildTrainingQuote(pokemon, proposed);
       if (Number(expectedCost) !== quote.total) gameError("The training price changed. Review the updated total and try again.", 409);
-      if (quote.total < 1) gameError("Make at least one training change.", 409);
+      if (!quote.changed) gameError("Make at least one training change.", 409);
       if (run.money < quote.total) gameError("You do not have enough coins.", 409);
       run.money -= quote.total;
       const previousId = pokemon.id;

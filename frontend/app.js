@@ -732,11 +732,16 @@
     const add = (key, label, cost) => lines.push({ key, label, cost });
     for (const [stat, label] of trainingStats) {
       const evDifference = draft.evs[stat] - mon.evs[stat];
-      if (evDifference) {
-        const item = shopItems.find((candidate) => candidate.effect === "ev" && candidate.stat === stat && Math.sign(candidate.amount) === Math.sign(evDifference));
-        add(`ev-${stat}`, `${label} EV ${evDifference > 0 ? "+" : "−"}${Math.abs(evDifference)}`, Math.abs(evDifference) * item.price);
+      if (evDifference > 0) {
+        const item = shopItems.find((candidate) => candidate.effect === "ev" && candidate.stat === stat && candidate.amount > 0);
+        add(`ev-${stat}`, `${label} EV +${evDifference}`, evDifference * item.price);
+      } else if (evDifference < 0) {
+        add(`ev-${stat}`, `${label} EV −${Math.abs(evDifference)}`, 0);
       }
-      if (draft.ivs[stat] !== mon.ivs[stat]) add(`iv-${stat}`, `${label} IV ${mon.ivs[stat]} → ${draft.ivs[stat]}`, shopItems.find((item) => item.effect === "iv").price);
+      if (draft.ivs[stat] !== mon.ivs[stat]) {
+        const cost = draft.ivs[stat] > mon.ivs[stat] ? shopItems.find((item) => item.effect === "iv").price : 0;
+        add(`iv-${stat}`, `${label} IV ${mon.ivs[stat]} → ${draft.ivs[stat]}`, cost);
+      }
     }
     if (draft.nature !== mon.nature) add("nature", `Nature ${mon.nature} → ${draft.nature}`, shopItems.find((item) => item.effect === "nature").price);
     if (draft.ability !== mon.ability) {
@@ -756,7 +761,10 @@
       const item = shopItems.find((candidate) => candidate.id === `tm-${moveId}`);
       add(`move-${moveId}`, `Learn ${move}`, item.price);
     }
-    return { lines, total: lines.reduce((sum, line) => sum + line.cost, 0) };
+    const changed = draft.speciesId !== mon.speciesId || draft.nature !== mon.nature || draft.ability !== mon.ability
+      || trainingStats.some(([stat]) => draft.ivs[stat] !== mon.ivs[stat] || draft.evs[stat] !== mon.evs[stat])
+      || draft.moves.some((move, slot) => move !== mon.moves[slot]);
+    return { lines, total: lines.reduce((sum, line) => sum + line.cost, 0), changed };
   }
 
   function trainingMovePicker(mon) {
@@ -777,11 +785,12 @@
     const evTotal = Object.values(trainingDraft.evs).reduce((sum, value) => sum + value, 0);
     const rows = trainingStats.map(([stat, label]) => {
       const changed = trainingDraft.evs[stat] !== mon.evs[stat] || trainingDraft.ivs[stat] !== mon.ivs[stat];
-      return `<div class="training-editor-row${changed ? " changed" : ""}"><div class="training-stat-result"><strong>${label}</strong><span>${stats[stat]}</span></div><div class="training-iv-control"><label for="training-iv-${stat}">IV</label><input id="training-iv-${stat}" type="number" min="0" max="31" value="${trainingDraft.ivs[stat]}" data-training-iv="${stat}" inputmode="numeric"><button type="button" data-max-training-iv="${stat}">31</button></div><div class="training-ev-control"><label for="training-ev-${stat}"><span>EV</span><output>${trainingDraft.evs[stat]}</output></label><input id="training-ev-${stat}" type="range" min="0" max="252" step="1" value="${trainingDraft.evs[stat]}" data-training-ev="${stat}"></div></div>`;
+      const evFill = (trainingDraft.evs[stat] / 252) * 100;
+      return `<div class="training-editor-row${changed ? " changed" : ""}"><div class="training-stat-result"><strong>${label}</strong><span>${stats[stat]}</span></div><div class="training-iv-control"><label for="training-iv-${stat}">IV</label><input id="training-iv-${stat}" type="number" min="0" max="31" value="${trainingDraft.ivs[stat]}" data-training-iv="${stat}" inputmode="numeric"><button type="button" data-max-training-iv="${stat}">31</button></div><div class="training-ev-control"><label for="training-ev-${stat}"><span>EV</span><output>${trainingDraft.evs[stat]}</output></label><input id="training-ev-${stat}" type="range" min="0" max="252" step="1" value="${trainingDraft.evs[stat]}" style="--ev-fill:${evFill}%" data-training-ev="${stat}"></div></div>`;
     }).join("");
     const abilities = [...form.ordinaryAbilities, form.hiddenAbility].filter(Boolean);
     const forms = availableTrainingForms(mon);
-    return `<section class="training-editor" role="tabpanel"><div class="training-scroll"><div class="training-heading"><span>Final</span><span>Values update before you spend.</span></div>${rows}<div class="training-remaining"><span>${510 - evTotal} EVs remaining</span><button type="button" data-reset-evs>clear EVs</button></div><div class="training-selects"><label>Nature<select data-training-nature>${natureOptions.map((nature) => `<option value="${nature.name}" ${nature.name === trainingDraft.nature ? "selected" : ""}>${nature.name}${nature.up ? ` (+${nature.up}, −${nature.down})` : " (neutral)"}</option>`).join("")}</select></label><label>Ability<select data-training-ability>${abilities.map((ability) => `<option ${ability === trainingDraft.ability ? "selected" : ""}>${escapeHtml(ability)}</option>`).join("")}</select></label>${forms.length > 1 ? `<label>Form<select data-training-form>${forms.map((candidate) => `<option value="${candidate.id}" ${candidate.id === trainingDraft.speciesId ? "selected" : ""}>${escapeHtml(candidate.name)}</option>`).join("")}</select></label>` : ""}</div><div class="training-moves"><h3>Moves</h3>${trainingDraft.moves.map((move, slot) => `<button class="${invalidMoveSlots.includes(slot) ? "invalid" : ""}" type="button" data-edit-training-move="${slot}"><span><small>Move ${slot + 1}${invalidMoveSlots.includes(slot) ? " · replacement required" : ""}</small><strong>${escapeHtml(move)}</strong></span><b>change</b></button>`).join("")}</div>${quote.lines.length ? `<div class="training-receipt"><h3>Pending changes</h3>${quote.lines.map((line) => `<p><span>${escapeHtml(line.label)}</span><b>₽${line.cost.toLocaleString()}</b></p>`).join("")}</div>` : ""}</div><footer class="training-footer">${trainingMessage ? `<p role="alert">${escapeHtml(trainingMessage)}</p>` : ""}${invalidMoveSlots.length ? '<p role="alert">Replace moves that are illegal for the selected form.</p>' : ""}<div><span><small>${quote.lines.length} pending change${quote.lines.length === 1 ? "" : "s"}</small><button type="button" data-reset-training ${quote.lines.length ? "" : "disabled"}>reset</button></span><strong><small>Total</small> ₽${quote.total.toLocaleString()}</strong></div><div class="training-after">Balance after <b>₽${Math.max(0, balance - quote.total).toLocaleString()}</b></div><button class="gloss-button blue" type="button" data-apply-training ${quote.total && quote.total <= balance && !invalidMoveSlots.length ? "" : "disabled"}>apply changes</button></footer></section>`;
+    return `<section class="training-editor" role="tabpanel"><div class="training-scroll"><div class="training-heading"><span>Final</span><span>Values update before you spend.</span></div>${rows}<div class="training-remaining"><span>${510 - evTotal} EVs remaining</span><button type="button" data-reset-evs>clear EVs</button></div><div class="training-selects"><label>Nature<select data-training-nature>${natureOptions.map((nature) => `<option value="${nature.name}" ${nature.name === trainingDraft.nature ? "selected" : ""}>${nature.name}${nature.up ? ` (+${nature.up}, −${nature.down})` : " (neutral)"}</option>`).join("")}</select></label><label>Ability<select data-training-ability>${abilities.map((ability) => `<option ${ability === trainingDraft.ability ? "selected" : ""}>${escapeHtml(ability)}</option>`).join("")}</select></label>${forms.length > 1 ? `<label>Form<select data-training-form>${forms.map((candidate) => `<option value="${candidate.id}" ${candidate.id === trainingDraft.speciesId ? "selected" : ""}>${escapeHtml(candidate.name)}</option>`).join("")}</select></label>` : ""}</div><div class="training-moves"><h3>Moves</h3>${trainingDraft.moves.map((move, slot) => `<button class="${invalidMoveSlots.includes(slot) ? "invalid" : ""}" type="button" data-edit-training-move="${slot}"><span><small>Move ${slot + 1}${invalidMoveSlots.includes(slot) ? " · replacement required" : ""}</small><strong>${escapeHtml(move)}</strong></span><b>change</b></button>`).join("")}</div>${quote.lines.length ? `<div class="training-receipt"><h3>Pending changes</h3>${quote.lines.map((line) => `<p><span>${escapeHtml(line.label)}</span><b>${line.cost ? `₽${line.cost.toLocaleString()}` : "free"}</b></p>`).join("")}</div>` : ""}</div><footer class="training-footer">${trainingMessage ? `<p role="alert">${escapeHtml(trainingMessage)}</p>` : ""}${invalidMoveSlots.length ? '<p role="alert">Replace moves that are illegal for the selected form.</p>' : ""}<div><span><small>${quote.lines.length} pending change${quote.lines.length === 1 ? "" : "s"}</small><button type="button" data-reset-training ${quote.changed ? "" : "disabled"}>reset</button></span><strong><small>Total</small> ₽${quote.total.toLocaleString()}</strong></div><div class="training-after">Balance after <b>₽${Math.max(0, balance - quote.total).toLocaleString()}</b></div><button class="gloss-button blue" type="button" data-apply-training ${quote.changed && quote.total <= balance && !invalidMoveSlots.length ? "" : "disabled"}>apply changes</button></footer></section>`;
   }
 
   function pcPokemonSheet(id) {
@@ -1296,14 +1305,14 @@
   }
 
   function hasPendingTraining(mon = mons[selectedPcId]) {
-    return Boolean(mon && trainingDraft && localTrainingQuote(mon).total);
+    return Boolean(mon && trainingDraft && localTrainingQuote(mon).changed);
   }
 
   async function applyTraining() {
     const mon = mons[selectedPcId];
     if (gameBusy || !mon || !trainingDraft) return;
     const quote = localTrainingQuote(mon);
-    if (!quote.total || quote.total > balance) return;
+    if (!quote.changed || quote.total > balance) return;
     gameBusy = true;
     trainingMessage = "";
     const targetSpeciesId = trainingDraft.speciesId;
@@ -1743,6 +1752,7 @@
         const otherTotal = Object.entries(trainingDraft.evs).reduce((sum, [key, value]) => sum + (key === stat ? 0 : value), 0);
         trainingDraft.evs[stat] = Math.max(0, Math.min(252, 510 - otherTotal, Number(input.value) || 0));
         input.value = trainingDraft.evs[stat];
+        input.style.setProperty("--ev-fill", `${(trainingDraft.evs[stat] / 252) * 100}%`);
         const row = input.closest(".training-editor-row");
         const output = row?.querySelector("output");
         const result = row?.querySelector(".training-stat-result span");
