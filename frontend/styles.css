@@ -110,6 +110,8 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .gloss-button { min-height: 48px; padding: 5px 14px 7px; border: 2px solid rgba(65,40,30,.55); border-radius: 8px; color: white; box-shadow: inset 0 2px rgba(255,255,255,.45), inset 0 -2px rgba(0,0,0,.15), 0 2px 2px rgba(0,0,0,.22); cursor: pointer; font-size: 20px; text-shadow: 0 1px 1px rgba(0,0,0,.35); }
 .gloss-button:hover { filter: brightness(1.07); }
 .gloss-button:active { transform: translateY(1px); box-shadow: inset 0 2px 4px rgba(0,0,0,.18); }
+.gloss-button:disabled { opacity: .48; cursor: default; filter: grayscale(.25); }
+.gloss-button:disabled:active { transform: none; }
 .gloss-button.is-current { filter: brightness(1.08) saturate(1.12); box-shadow: inset 0 0 0 3px rgba(255,255,255,.68), inset 0 -2px rgba(0,0,0,.14), 0 0 0 2px #454545, 0 2px 3px rgba(0,0,0,.24); }
 .red { background: linear-gradient(var(--red-a), var(--red-b)); }
 .orange { background: linear-gradient(var(--orange-a), var(--orange-b)); }
@@ -623,7 +625,7 @@ button.encounter-card:active { background: #eef5ef; transform: translateY(1px); 
 .mart-sheet-cancel { width: 100%; min-height: 36px; margin-top: 6px; }
 .bag-item { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto auto; min-height: 62px; align-items: center; gap: 8px; border-bottom: 1px solid #d4d8dd; }
 .item-quantity { min-width: 42px; padding: 4px 7px; border: 1px solid #aaa; border-radius: 12px; background: #f4f4f4; font-size: 13px; text-align: center; }
-.item-action { min-width: 58px; min-height: 34px; padding: 3px 9px; border: 1px solid #287ac4; border-radius: 6px; background: #fff; color: #1e659f; cursor: pointer; font-weight: 700; text-transform: lowercase; }
+.item-action { min-width: 58px; min-height: 34px; padding: 3px 9px; border: 1px solid #287ac4; border-radius: 6px; background: #fff; color: #1e659f; cursor: pointer; font-weight: 700; }
 .item-action:hover { background: #eaf4fc; }
 .item-action:active { background: #dcecf8; transform: translateY(1px); }
 .bag-empty { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
@@ -665,19 +667,13 @@ button.encounter-card:active { background: #eef5ef; transform: translateY(1px); 
 .leaderboard-empty span { font-size: 12px; }
 .leaderboard-stage .page-back { flex: 0 0 auto; margin-top: 8px; margin-bottom: 12px; }
 
-.settings-stage { gap: 10px; text-align: left; }
-.settings-stage h2 { margin: 12px 0 5px; text-align: center; }
-.settings-link-card, .settings-card { width: 100%; padding: 14px; border: 1px solid #b8c0c6; border-radius: 8px; background: var(--raised); box-shadow: 0 1px 3px rgba(0,0,0,.12); text-align: left; }
-.settings-link-card { display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
-.settings-link-card span { display: grid; gap: 3px; }
-.settings-link-card strong { font-size: 17px; text-transform: lowercase; }
-.settings-link-card small, .settings-card p { color: var(--muted); font-size: 12px; }
-.settings-link-card b { color: #4b78a2; font-size: 28px; font-weight: 400; }
-.settings-card h3, .settings-card p { margin: 0; }
-.settings-card h3 { margin-bottom: 3px; font-size: 16px; }
-.admin-battle-reset button { min-height: 35px; margin-top: 10px; padding: 6px 11px; border: 1px solid #a34d4d; border-radius: 6px; background: #fff2f2; color: #8e3030; cursor: pointer; font-weight: 700; }
-.admin-battle-reset button:disabled { opacity: .45; cursor: default; }
-.admin-battle-reset small { display: block; min-height: 15px; margin-top: 5px; color: #397443; font-size: 11px; }
+.more-stage { gap: 12px; text-align: center; }
+.simple-stage.more-stage h2 { margin: 5px 0 2px; }
+.more-actions { display: grid; gap: 7px; }
+.more-developer { display: grid; gap: 7px; margin-top: 10px; }
+.more-developer h3 { margin: 0; color: var(--muted); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
+.more-status { min-height: 16px; color: #397443; font-size: 11px; }
+.more-stage .page-back { margin-top: auto; }
 
 .config-screen { padding-bottom: 0; }
 .config-stage { display: flex; min-height: calc(100vh - 104px); flex-direction: column; gap: 10px; padding-bottom: 12px; overflow-y: auto; overscroll-behavior: contain; }
@@ -815,8 +811,6 @@ html[data-theme="dark"] .lead-stat.lowered strong { color: #f09b9f; }
 html[data-theme="dark"] .pc-section,
 html[data-theme="dark"] .pokemon-sheet,
 html[data-theme="dark"] .battle-log-card,
-html[data-theme="dark"] .settings-link-card,
-html[data-theme="dark"] .settings-card,
 html[data-theme="dark"] .trainer-queue-row,
 html[data-theme="dark"] .battle-log-card.expanded { border-color: #59636c; background: var(--surface); color: var(--ink); }
 html[data-theme="dark"] .config-current { border-color: #46634b; background: #24352a; }

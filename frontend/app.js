@@ -538,26 +538,26 @@
     const dailyBattleUsed = Boolean(currentUser && gameState?.dailyBattleAttempted && gameState?.dailyBattleId);
     const battleRoute = dailyBattleUsed ? "battle" : currentUser && gameState && !gameState.battleUnlocked ? "encounters" : "lead";
     return `<nav class="${className}" aria-label="Game sections">
-      <button class="gloss-button red${currentClass("battle")}"${currentPage("battle")} data-route="${battleRoute}">${dailyBattleUsed ? gameState.dailyBattleEnded ? "view result" : "resume battle" : "battle"}</button>
-      <button class="gloss-button orange${currentClass("pc")}"${currentPage("pc")} data-route="pc">pc box</button>
-      <button class="gloss-button gold${currentClass("bag")}"${currentPage("bag")} data-route="bag">bag</button>
-      <button class="gloss-button green${currentClass("encounters")}"${currentPage("encounters")} data-route="encounters">encounter (${encounters.filter((item) => !item.claimed).length})</button>
-      <button class="gloss-button blue${currentClass("mart")}"${currentPage("mart")} data-route="mart">mart</button>
-      <button class="gloss-button purple${currentClass("leaderboard")}"${currentPage("leaderboard")} data-route="leaderboard">leaderboard</button>
-      <button class="gloss-button slate${currentClass("settings")}"${currentPage("settings")} data-route="settings">settings</button>
+      <button class="gloss-button red${currentClass("battle")}"${currentPage("battle")} data-route="${battleRoute}">${dailyBattleUsed ? gameState.dailyBattleEnded ? "View result" : "Resume battle" : "Battle"}</button>
+      <button class="gloss-button orange${currentClass("pc")}"${currentPage("pc")} data-route="pc">PC box</button>
+      <button class="gloss-button gold${currentClass("bag")}"${currentPage("bag")} data-route="bag">Bag</button>
+      <button class="gloss-button green${currentClass("encounters")}"${currentPage("encounters")} data-route="encounters">Encounter (${encounters.filter((item) => !item.claimed).length})</button>
+      <button class="gloss-button blue${currentClass("mart")}"${currentPage("mart")} data-route="mart">Mart</button>
+      <button class="gloss-button purple${currentClass("leaderboard")}"${currentPage("leaderboard")} data-route="leaderboard">Leaderboard</button>
+      <button class="gloss-button slate${currentClass("settings")}"${currentPage("settings")} data-route="settings">More</button>
     </nav>`;
   }
 
   function authCard() {
-    if (currentUser && avatarPickerOpen) return `<div class="auth-backdrop" data-close-auth><section class="auth-card account-card avatar-picker-card" role="dialog" aria-modal="true" aria-labelledby="account-title"><button class="auth-close" type="button" aria-label="Close account" data-close-auth>×</button><div class="avatar-picker-head"><h2 id="account-title">Choose an avatar</h2><button type="button" data-cancel-avatar>cancel</button></div><label class="avatar-search"><span>Find a trainer</span><input type="search" value="${escapeHtml(avatarQuery)}" placeholder="Type to narrow the list" autocomplete="off" data-avatar-search></label>${avatarError ? `<p class="auth-error" role="alert">${escapeHtml(avatarError)}</p>` : ""}<div class="avatar-grid" data-avatar-grid>${avatarLoading ? '<p class="avatar-empty">Loading avatars…</p>' : avatarChoices()}</div></section></div>`;
-    if (currentUser) return `<div class="auth-backdrop" data-close-auth><section class="auth-card account-card" role="dialog" aria-modal="true" aria-labelledby="account-title"><button class="auth-close" type="button" aria-label="Close account" data-close-auth>×</button><h2 id="account-title">Account</h2><div class="account-profile"><span class="account-avatar">${avatarContent(currentUser)}</span><strong class="account-name">${escapeHtml(currentUser.username)}</strong><button class="profile-link" type="button" data-edit-avatar>choose avatar</button></div>${avatarError ? `<p class="auth-error" role="alert">${escapeHtml(avatarError)}</p>` : ""}<button class="auth-primary logout-button" type="button" data-logout ${authLoading ? "disabled" : ""}>${authLoading ? "logging out…" : "log out"}</button></section></div>`;
+    if (currentUser && avatarPickerOpen) return `<div class="auth-backdrop" data-close-auth><section class="auth-card account-card avatar-picker-card" role="dialog" aria-modal="true" aria-labelledby="account-title"><button class="auth-close" type="button" aria-label="Close account" data-close-auth>×</button><div class="avatar-picker-head"><h2 id="account-title">Choose an avatar</h2><button type="button" data-cancel-avatar>Cancel</button></div><label class="avatar-search"><span>Find a trainer</span><input type="search" value="${escapeHtml(avatarQuery)}" placeholder="Type to narrow the list" autocomplete="off" data-avatar-search></label>${avatarError ? `<p class="auth-error" role="alert">${escapeHtml(avatarError)}</p>` : ""}<div class="avatar-grid" data-avatar-grid>${avatarLoading ? '<p class="avatar-empty">Loading avatars…</p>' : avatarChoices()}</div></section></div>`;
+    if (currentUser) return `<div class="auth-backdrop" data-close-auth><section class="auth-card account-card" role="dialog" aria-modal="true" aria-labelledby="account-title"><button class="auth-close" type="button" aria-label="Close account" data-close-auth>×</button><h2 id="account-title">Account</h2><div class="account-profile"><span class="account-avatar">${avatarContent(currentUser)}</span><strong class="account-name">${escapeHtml(currentUser.username)}</strong><button class="profile-link" type="button" data-edit-avatar>Choose avatar</button></div>${avatarError ? `<p class="auth-error" role="alert">${escapeHtml(avatarError)}</p>` : ""}<button class="auth-primary logout-button" type="button" data-logout ${authLoading ? "disabled" : ""}>${authLoading ? "Logging out…" : "Log out"}</button></section></div>`;
     const registering = authMode === "register";
-    return `<div class="auth-backdrop" data-close-auth><section class="auth-card" role="dialog" aria-modal="true" aria-labelledby="auth-title"><button class="auth-close" type="button" aria-label="Close login" data-close-auth>×</button><h2 id="auth-title">${registering ? "Create account" : "Log in"}</h2><form data-auth-form><label for="auth-username">Username</label><input id="auth-username" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" minlength="3" maxlength="20" pattern="[A-Za-z0-9_]+" required><label for="auth-password">Password</label><input id="auth-password" name="password" type="password" autocomplete="${registering ? "new-password" : "current-password"}" minlength="15" maxlength="128" required>${registering ? '<label for="auth-password-confirmation">Confirm password</label><input id="auth-password-confirmation" name="passwordConfirmation" type="password" autocomplete="new-password" minlength="15" maxlength="128" required><small class="password-help">Use at least 15 characters.</small>' : ""}${authError ? `<p class="auth-error" role="alert">${escapeHtml(authError)}</p>` : ""}<button class="auth-primary" type="submit" ${authLoading ? "disabled" : ""}>${authLoading ? "please wait…" : registering ? "register" : "log in"}</button></form><button class="auth-mode-link" type="button" data-auth-mode="${registering ? "login" : "register"}">${registering ? "Already have an account? Log in" : "Don't have an account? Register"}</button></section></div>`;
+    return `<div class="auth-backdrop" data-close-auth><section class="auth-card" role="dialog" aria-modal="true" aria-labelledby="auth-title"><button class="auth-close" type="button" aria-label="Close login" data-close-auth>×</button><h2 id="auth-title">${registering ? "Create account" : "Log in"}</h2><form data-auth-form><label for="auth-username">Username</label><input id="auth-username" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" minlength="3" maxlength="20" pattern="[A-Za-z0-9_]+" required><label for="auth-password">Password</label><input id="auth-password" name="password" type="password" autocomplete="${registering ? "new-password" : "current-password"}" minlength="15" maxlength="128" required>${registering ? '<label for="auth-password-confirmation">Confirm password</label><input id="auth-password-confirmation" name="passwordConfirmation" type="password" autocomplete="new-password" minlength="15" maxlength="128" required><small class="password-help">Use at least 15 characters.</small>' : ""}${authError ? `<p class="auth-error" role="alert">${escapeHtml(authError)}</p>` : ""}<button class="auth-primary" type="submit" ${authLoading ? "disabled" : ""}>${authLoading ? "Please wait…" : registering ? "Register" : "Log in"}</button></form><button class="auth-mode-link" type="button" data-auth-mode="${registering ? "login" : "register"}">${registering ? "Already have an account? Log in" : "Don't have an account? Register"}</button></section></div>`;
   }
 
   function welcomeCard() {
     if (!welcomeOpen || !currentUser) return "";
-    return `<div class="auth-backdrop welcome-backdrop"><section class="auth-card welcome-card" role="dialog" aria-modal="true" aria-labelledby="welcome-title"><h2 id="welcome-title">Welcome to Nuzzle!</h2><p>Nuzzle is a daily puzzle game built around simulated Nuzlocke battles. Start a fresh run, claim encounters, build your team, and challenge the daily Trainer.</p><p>Win to earn money and new encounters to grow your box. Lose, and your run is wiped—but tomorrow brings a fresh start and another chance!</p>${welcomeError ? `<p class="auth-error" role="alert">${escapeHtml(welcomeError)}</p>` : ""}<button class="auth-primary" type="button" data-dismiss-welcome ${welcomeLoading ? "disabled" : ""}>${welcomeLoading ? "please wait…" : "let’s go"}</button></section></div>`;
+    return `<div class="auth-backdrop welcome-backdrop"><section class="auth-card welcome-card" role="dialog" aria-modal="true" aria-labelledby="welcome-title"><h2 id="welcome-title">Welcome to Nuzzle!</h2><p>Nuzzle is a daily puzzle game built around simulated Nuzlocke battles. Start a fresh run, claim encounters, build your team, and challenge the daily Trainer.</p><p>Win to earn money and new encounters to grow your box. Lose, and your run is wiped—but tomorrow brings a fresh start and another chance!</p>${welcomeError ? `<p class="auth-error" role="alert">${escapeHtml(welcomeError)}</p>` : ""}<button class="auth-primary" type="button" data-dismiss-welcome ${welcomeLoading ? "disabled" : ""}>${welcomeLoading ? "Please wait…" : "Let’s go"}</button></section></div>`;
   }
 
   async function dismissWelcome() {
@@ -593,7 +593,7 @@
       <div class="lead-prompt"><p class="prompt">How will you start the battle?</p><h2 class="section-label">Choose Lead</h2>
       <div class="lead-grid">${chosen.map(monButton).join("")}</div><div class="lead-details-slot" data-lead-details aria-live="polite">${leadDetails(selectedLeadId)}</div></div>
       ${battleError ? `<p class="battle-error" role="alert">${escapeHtml(battleError)}</p>` : ""}
-      <div class="lead-actions"><button class="gloss-button red" type="button" data-start-battle ${selectedLeadId && !battleLoading ? "" : "disabled"}>${battleLoading ? "starting…" : "start battle"}</button><button class="gloss-button purple" type="button" data-route="home">back</button></div>
+      <div class="lead-actions"><button class="gloss-button red" type="button" data-start-battle ${selectedLeadId && !battleLoading ? "" : "disabled"}>${battleLoading ? "Starting…" : "Start battle"}</button><button class="gloss-button purple" type="button" data-route="home">Back</button></div>
     </section>`;
   }
 
@@ -625,7 +625,7 @@
   }
 
   function battle() {
-    if (!battleState) return `<section class="screen battle-screen">${header()}<div class="battle-unavailable"><h2>Battle unavailable</h2><p>${escapeHtml(battleError || "Start a battle from the lead-selection screen.")}</p><button class="gloss-button purple" data-route="lead">back</button></div></section>`;
+    if (!battleState) return `<section class="screen battle-screen">${header()}<div class="battle-unavailable"><h2>Battle unavailable</h2><p>${escapeHtml(battleError || "Start a battle from the lead-selection screen.")}</p><button class="gloss-button purple" data-route="lead">Back</button></div></section>`;
     const player = battleState.player.active;
     const enemy = battleState.opponent.active;
     const logEntries = battleState.log || (battleState.events || []).map((text, index) => ({ id: index + 1, side: "system", category: "event", text }));
@@ -655,10 +655,10 @@
       <div class="battle-platform enemy" aria-hidden="true"></div><div class="battle-platform player" aria-hidden="true"></div>
       ${enemy ? `<div class="battler-slot enemy" data-pokemon="${escapeHtml(enemy.id)}"><img class="sprite active-sprite" src="${sprite(enemy.id, false, enemy.spriteId, enemy.shiny)}" alt="${escapeHtml(enemy.name)}" /></div><section class="battle-hud enemy" aria-label="Opponent ${escapeHtml(enemy.name)}"><div class="battle-hud-title"><strong>${escapeHtml(enemy.name)}</strong><span>Lv. ${enemy.level}</span></div><div class="hp-bar ${healthTone(enemy.percent)}"><i style="width:${enemy.percent}%"></i></div><div class="battle-hud-detail"><span>HP</span><small>${enemy.percent}%</small>${enemy.status ? `<b>${escapeHtml(enemy.status.toUpperCase())}</b>` : ""}</div></section>` : ""}
       ${player ? `<div class="battler-slot player" data-pokemon="${escapeHtml(player.id)}"><img class="sprite active-sprite" src="${sprite(player.id, true, player.spriteId, player.shiny)}" alt="${escapeHtml(player.name)}" /></div><section class="battle-hud player" aria-label="Your ${escapeHtml(player.name)}"><div class="battle-hud-title"><strong>${escapeHtml(player.name)}</strong><span>Lv. ${player.level}</span></div><div class="hp-bar ${healthTone(player.percent)}"><i style="width:${player.percent}%"></i></div><div class="battle-hud-detail"><span>HP</span><small>${player.hp}/${player.maxHp}</small>${player.status ? `<b>${escapeHtml(player.status.toUpperCase())}</b>` : ""}</div></section>` : ""}
-    </div><div class="battle-panel${battleLogExpanded ? " log-expanded" : ""}"><section class="battle-log-card${battleLogExpanded ? " expanded" : ""}" aria-labelledby="battle-log-title"><header><h2 id="battle-log-title">Battle log</h2><div>${battleLogHasNew ? '<button type="button" data-battle-log-new>new events</button>' : ""}<button type="button" data-toggle-battle-log aria-expanded="${battleLogExpanded}">${battleLogExpanded ? "collapse" : "expand"}</button></div></header><div class="battle-log-body" data-battle-log role="log" aria-label="Battle events" tabindex="0"><div class="battle-log-stack">${logHtml || '<p class="battle-log-empty">The battle is starting…</p>'}</div></div></section><span class="visually-hidden" role="status" aria-live="polite">${escapeHtml(latestAnnouncement)}</span>
+    </div><div class="battle-panel${battleLogExpanded ? " log-expanded" : ""}"><section class="battle-log-card${battleLogExpanded ? " expanded" : ""}" aria-labelledby="battle-log-title"><header><h2 id="battle-log-title">Battle log</h2><div>${battleLogHasNew ? '<button type="button" data-battle-log-new>New events</button>' : ""}<button type="button" data-toggle-battle-log aria-expanded="${battleLogExpanded}">${battleLogExpanded ? "Collapse" : "Expand"}</button></div></header><div class="battle-log-body" data-battle-log role="log" aria-label="Battle events" tabindex="0"><div class="battle-log-stack">${logHtml || '<p class="battle-log-empty">The battle is starting…</p>'}</div></div></section><span class="visually-hidden" role="status" aria-live="polite">${escapeHtml(latestAnnouncement)}</span>
       <div class="battle-command-area" ${battleLogExpanded ? 'inert aria-hidden="true"' : ""}><p class="prompt">${prompt} <small>Turn ${battleState.turn}</small></p>${battleState.forcedSwitch || battleState.ended ? "" : `<h2 class="section-label attack">Attack</h2><div class="move-grid">${movesHtml}</div>`}
       <h2 class="section-label">Switch</h2><div class="switch-grid">${switchesHtml}</div>${battleError ? `<p class="battle-error" role="alert">${escapeHtml(battleError)}</p>` : ""}</div>
-      ${battleState.ended ? '<div class="battle-result-actions"><button class="gloss-button green" type="button" data-open-result>result</button><button class="gloss-button purple" data-route="home">return home</button></div>' : '<button class="gloss-button red give-up" data-forfeit-battle>give up</button>'}</div>
+      ${battleState.ended ? '<div class="battle-result-actions"><button class="gloss-button green" type="button" data-open-result>Result</button><button class="gloss-button purple" data-route="home">Return home</button></div>' : '<button class="gloss-button red give-up" data-forfeit-battle>Give up</button>'}</div>
       ${battleState.ended && resultOverlayOpen ? battleResultOverlay() : ""}
     </section>`;
   }
@@ -840,7 +840,7 @@
     const itemChooser = pcItemMode ? pcItemPanel(mon) : "";
     const tabs = `<div class="pc-detail-tabs" role="tablist" aria-label="Pokémon details"><button type="button" role="tab" aria-selected="${pcDetailView === "summary"}" class="${pcDetailView === "summary" ? "selected" : ""}" data-pc-detail-view="summary">Summary</button><button type="button" role="tab" aria-selected="${pcDetailView === "training"}" class="${pcDetailView === "training" ? "selected" : ""}" data-pc-detail-view="training">Training</button></div>`;
     const summary = `<div class="pokemon-facts"><p><span>Ability</span><strong>${mon.ability}</strong></p><p><span>Nature</span><strong>${mon.nature}</strong></p><p><span>Held item</span><strong>${mon.item}</strong></p></div><section class="sheet-section" role="tabpanel"><div class="stat-grid">${stats}</div><h3>Moves</h3><div class="sheet-moves">${mon.moves.map((move) => `<span>${move}</span>`).join("")}</div></section>`;
-    const normalContent = `${tabs}<div class="pc-detail-panel">${pcDetailView === "training" ? trainingEditor(mon) : summary}</div>${pcDetailView === "summary" ? `<div class="sheet-actions"><button class="gloss-button ${onTeam ? "red" : "blue"}" type="button" data-team-toggle="${id}">${onTeam ? "Remove from team" : "Add to team"}</button><button class="gloss-button blue" type="button" data-open-pc-items>Held item</button><button class="gloss-button slate" type="button" data-close-pc-sheet>Close</button></div>` : ""}`;
+    const normalContent = `${tabs}<div class="pc-detail-panel">${pcDetailView === "training" ? trainingEditor(mon) : summary}</div>${pcDetailView === "summary" ? `<div class="sheet-actions"><button class="gloss-button ${onTeam ? "red" : "green"}" type="button" data-team-toggle="${id}">${onTeam ? "Remove from team" : "Add to team"}</button><button class="gloss-button blue" type="button" data-open-pc-items>Held item</button><button class="gloss-button slate" type="button" data-close-pc-sheet>Close</button></div>` : ""}`;
     const sheetContent = swapChooser || itemChooser || normalContent;
     const alternateMode = swapChooser || itemChooser;
     return `<div class="sheet-backdrop" data-close-pc-sheet><section class="pokemon-sheet${pcDetailView === "training" && !alternateMode ? " training-sheet" : ""}" role="dialog" aria-modal="true" aria-labelledby="pokemon-sheet-title"><button class="sheet-close" type="button" data-close-pc-sheet aria-label="Close Pokémon details">×</button><div class="pokemon-summary"><img class="sprite" src="${sprite(id)}" alt="${mon.name}"/><div><p class="sheet-kicker">Pokémon details</p><h2 id="pokemon-sheet-title">${mon.name}</h2><div class="sheet-types">${mon.types.map((type) => `<span class="type-chip ${type.toLowerCase()}">${type}</span>`).join("")}</div></div></div><div class="sheet-mode-content">${sheetContent}</div>${alternateMode ? `<button class="gloss-button neutral sheet-secondary-action" type="button" ${swapChooser ? "data-cancel-pc-swap" : "data-cancel-pc-items"}>Cancel</button>` : ""}</section></div>`;
@@ -862,7 +862,7 @@
   }
 
   function backButton() {
-    return '<button class="gloss-button purple page-back" data-route="home">back</button>';
+    return '<button class="gloss-button purple page-back" data-route="home">Back</button>';
   }
 
   let shopItems = [];
@@ -919,7 +919,7 @@
     return shopItems.filter((item) => item.group === activeShopGroup).map((item) => {
       const owned = inventory[item.id] || 0;
       const soldOut = item.purchaseLimit === 1 && gameState?.purchasedUnique.includes(item.id);
-      return `<div class="shop-item">${itemIcon(item)}<span class="item-copy"><strong>${escapeHtml(item.name)}</strong>${owned ? `<small>Owned: ${owned}</small>` : ""}</span><button class="item-about-button" type="button" data-item-about="${item.id}" aria-label="About ${escapeHtml(item.name)}">?</button><button class="price-button" type="button" data-open-purchase="${item.id}" ${balance < item.price || soldOut ? "disabled" : ""}>${soldOut ? "bought" : `₽${item.price.toLocaleString()}`}</button></div>`;
+      return `<div class="shop-item">${itemIcon(item)}<span class="item-copy"><strong>${escapeHtml(item.name)}</strong>${owned ? `<small>Owned: ${owned}</small>` : ""}</span><button class="item-about-button" type="button" data-item-about="${item.id}" aria-label="About ${escapeHtml(item.name)}">?</button><button class="price-button" type="button" data-open-purchase="${item.id}" ${balance < item.price || soldOut ? "disabled" : ""}>${soldOut ? "Bought" : `₽${item.price.toLocaleString()}`}</button></div>`;
     }).join("");
   }
 
@@ -942,7 +942,7 @@
         <button class="sheet-close" type="button" data-close-mart-sheet aria-label="Close item information">×</button>${summary}
         <p class="mart-item-description">${escapeHtml(item.description || item.detail)}</p>
         <div class="mart-item-facts"><span><small>Price</small><strong>₽${item.price.toLocaleString()}</strong></span><span><small>Owned</small><strong>${owned}</strong></span><span><small>Limit</small><strong>${purchaseRule}</strong></span></div>
-        <div class="mart-sheet-actions">${maxQuantity ? `<button class="gloss-button blue" type="button" data-sheet-buy="${item.id}">buy</button>` : ""}<button class="plain-button" type="button" data-close-mart-sheet>close</button></div>
+        <div class="mart-sheet-actions">${maxQuantity ? `<button class="gloss-button blue" type="button" data-sheet-buy="${item.id}">Buy</button>` : ""}<button class="plain-button" type="button" data-close-mart-sheet>Close</button></div>
       </section></div>`;
     }
     const quantity = Math.max(1, Math.min(maxQuantity || 1, martPurchaseQuantity));
@@ -953,9 +953,9 @@
         <div class="purchase-ledger"><p><span>Money</span><span class="purchase-value">₽${balance.toLocaleString()}</span></p><p><span>In bag</span><span class="purchase-value">${owned}</span></p><p><span>Quantity</span><span class="purchase-value" data-purchase-quantity-output>×${quantity}</span></p><p><span>Price</span><span class="purchase-value" data-purchase-price>₽${total.toLocaleString()}</span></p></div>
         <label class="purchase-slider-label" for="purchase-quantity"><span>Slide to choose quantity</span><small>1–${maxQuantity}</small></label>
         <input class="purchase-slider" id="purchase-quantity" name="quantity" type="range" min="1" max="${Math.max(1, maxQuantity)}" value="${quantity}" ${maxQuantity <= 1 ? "disabled" : ""}>
-        <button class="gloss-button blue purchase-confirm" type="submit" ${maxQuantity ? "" : "disabled"}>buy</button>
+        <button class="gloss-button blue purchase-confirm" type="submit" ${maxQuantity ? "" : "disabled"}>Buy</button>
       </form>
-      <button class="plain-button mart-sheet-cancel" type="button" data-close-mart-sheet>cancel</button>
+      <button class="plain-button mart-sheet-cancel" type="button" data-close-mart-sheet>Cancel</button>
     </section></div>`;
   }
 
@@ -971,8 +971,8 @@
     const ownedItems = shopItems.filter((item) => item.group === activeBagGroup && inventory[item.id]);
     return ownedItems.length ? `<div class="bag-list">${ownedItems.map((item) => {
       const action = item.group === "Held Items" ? "give" : "use";
-      return `<div class="bag-item">${itemIcon(item)}<span class="item-copy"><strong>${item.name}</strong><small>${item.detail}</small></span><span class="item-quantity" aria-label="${inventory[item.id]} owned">×${inventory[item.id]}</span><button class="item-action" type="button" data-route="pc" aria-label="${action} ${item.name} from the PC">${action}</button></div>`;
-    }).join("")}</div>` : `<div class="bag-empty"><h2>No items</h2><p>Items in this category will appear here.</p><button class="gloss-button blue" type="button" data-visit-mart="${activeBagGroup}">visit mart</button></div>`;
+      return `<div class="bag-item">${itemIcon(item)}<span class="item-copy"><strong>${item.name}</strong><small>${item.detail}</small></span><span class="item-quantity" aria-label="${inventory[item.id]} owned">×${inventory[item.id]}</span><button class="item-action" type="button" data-route="pc" aria-label="${action} ${item.name} from the PC">${action === "give" ? "Give" : "Use"}</button></div>`;
+    }).join("")}</div>` : `<div class="bag-empty"><h2>No items</h2><p>Items in this category will appear here.</p><button class="gloss-button blue" type="button" data-visit-mart="${activeBagGroup}">Visit mart</button></div>`;
   }
 
   function bag() {
@@ -1002,22 +1002,14 @@
           ? `<ol class="leaderboard-list streak-list">${streakEntries.map((entry) => `<li class="leaderboard-row streak-row"><span class="leaderboard-rank" aria-label="Rank ${entry.rank}">${entry.rank}</span><div class="leaderboard-entry"><div class="leaderboard-identity"><span class="leaderboard-avatar" aria-hidden="true">${avatarContent(entry)}</span><strong>${escapeHtml(entry.username)}</strong></div></div><strong class="streak-count">${entry.streak}-day streak</strong></li>`).join("")}</ol>`
           : '<div class="leaderboard-empty"><strong>No active streaks yet</strong><span>Win today to start one.</span></div>';
     const content = leaderboardView === "daily" ? dailyContent : streakContent;
-    return `<section class="screen">${header()}<div class="leaderboard-stage"><h2>Leaderboard</h2><div class="pc-detail-tabs leaderboard-tabs" role="tablist" aria-label="Leaderboard type"><button type="button" role="tab" aria-selected="${leaderboardView === "streak"}" class="${leaderboardView === "streak" ? "selected" : ""}" data-leaderboard-view="streak">streak</button><button type="button" role="tab" aria-selected="${leaderboardView === "daily"}" class="${leaderboardView === "daily" ? "selected" : ""}" data-leaderboard-view="daily">daily</button></div><div class="leaderboard-content" role="tabpanel">${content}</div>${backButton()}</div></section>`;
-  }
-
-  function simpleScreen(kind) {
-    const content = '<h2>Settings</h2><p>Game, sound, and accessibility options will appear here.</p>';
-    return `<section class="screen">${header()}<div class="simple-stage">${content}${backButton()}</div></section>`;
+    return `<section class="screen">${header()}<div class="leaderboard-stage"><h2>Leaderboard</h2><div class="pc-detail-tabs leaderboard-tabs" role="tablist" aria-label="Leaderboard type"><button type="button" role="tab" aria-selected="${leaderboardView === "streak"}" class="${leaderboardView === "streak" ? "selected" : ""}" data-leaderboard-view="streak">Streak</button><button type="button" role="tab" aria-selected="${leaderboardView === "daily"}" class="${leaderboardView === "daily" ? "selected" : ""}" data-leaderboard-view="daily">Daily</button></div><div class="leaderboard-content" role="tabpanel">${content}</div>${backButton()}</div></section>`;
   }
 
   function settingsScreen() {
-    const adminLink = currentUser?.isAdmin
-      ? `<button class="settings-link-card" type="button" data-route="config"><span><strong>daily trainer config</strong><small>Build and order the upcoming trainer queue</small></span><b aria-hidden="true">›</b></button>`
+    const adminActions = currentUser?.isAdmin
+      ? `<section class="more-developer" aria-labelledby="developer-actions-title"><h3 id="developer-actions-title">Developer</h3><div class="more-actions"><button class="gloss-button orange" type="button" data-route="config">Scheduler</button><button class="gloss-button red" type="button" data-reset-daily-battle ${battleResetBusy || !gameState?.dailyBattleAttempted ? "disabled" : ""}>${battleResetBusy ? "Resetting…" : "Battle reset"}</button></div><small class="more-status" role="status" aria-live="polite">${escapeHtml(battleResetMessage)}</small></section>`
       : "";
-    const adminBattleReset = currentUser?.isAdmin
-      ? `<section class="settings-card admin-battle-reset"><h3>Daily battle</h3><p>Clear only your attempt for ${formatGameDate(gameState?.date)} so you can battle today's trainer again.</p><button type="button" data-reset-daily-battle ${battleResetBusy || !gameState?.dailyBattleAttempted ? "disabled" : ""}>${battleResetBusy ? "resetting…" : "reset today's battle"}</button><small role="status" aria-live="polite">${escapeHtml(battleResetMessage)}</small></section>`
-      : "";
-    return `<section class="screen">${header()}<div class="simple-stage settings-stage"><h2>Settings</h2>${adminLink}${adminBattleReset}<section class="settings-card"><h3>Theme</h3><p>Use the moon switch in the header to change this device between light and dark mode.</p></section>${backButton()}</div></section>`;
+    return `<section class="screen">${header()}<div class="simple-stage more-stage"><h2>More</h2><div class="more-actions"><button class="gloss-button blue" type="button" disabled>How to play</button><button class="gloss-button purple" type="button" disabled>Affiliation</button></div>${adminActions}${backButton()}</div></section>`;
   }
 
   async function resetDailyBattle() {
@@ -1079,14 +1071,14 @@
       </div></div>
       <div class="trainer-sprite-preview${validSprite ? "" : " mystery"}"><img class="sprite" src="${validSprite ? trainerSprite(trainerDraft.spriteId) : mysteryTrainerSprite}" alt="${validSprite ? "Selected trainer sprite" : "Mystery trainer"}" data-trainer-sprite-preview></div>
       <label>Showdown team<textarea name="teamText" rows="14" required placeholder="Starmie @ Leftovers&#10;Ability: Natural Cure&#10;Level: 100&#10;- Surf&#10;- Psychic&#10;- Ice Beam&#10;- Recover">${escapeHtml(trainerDraft.teamText)}</textarea></label>
-      <p class="config-help">The first Pokémon will lead. Paste between one and six complete Showdown sets.</p>
+      <p class="config-help">Paste between one and six complete Showdown sets. Battle order is randomized.</p>
       ${configError ? `<p class="battle-error" role="alert">${escapeHtml(configError)}</p>` : ""}
-      <button class="gloss-button blue" type="submit" ${configBusy ? "disabled" : ""}>${configBusy ? "adding…" : "add to queue"}</button>
+      <button class="gloss-button blue" type="submit" ${configBusy ? "disabled" : ""}>${configBusy ? "Adding…" : "Add to queue"}</button>
     </form>` : "";
-    return `<section class="screen config-screen">${header()}<div class="config-stage"><div class="config-heading"><div><p>Admin</p><h2>Daily trainer queue</h2></div><button class="config-add" type="button" data-open-trainer-form aria-label="Add trainer">+</button></div>
+    return `<section class="screen config-screen">${header()}<div class="config-stage"><div class="config-heading"><div><p>Admin</p><h2>Scheduler</h2></div><button class="config-add" type="button" data-open-trainer-form aria-label="Add trainer">+</button></div>
       ${currentCard}${configError && !trainerFormOpen ? `<p class="battle-error" role="alert">${escapeHtml(configError)}</p>` : ""}
       <div class="trainer-queue" data-trainer-queue>${configBusy && !adminConfig ? '<p class="config-empty">Loading queue…</p>' : rows || '<p class="config-empty">No trainers queued. Brock will be used as the fallback.</p>'}</div>
-      ${form}<button class="gloss-button purple config-back" type="button" data-route="settings">back to settings</button></div></section>`;
+      ${form}<button class="gloss-button purple config-back" type="button" data-route="settings">Back to More</button></div></section>`;
   }
 
   async function addTrainer(form) {
