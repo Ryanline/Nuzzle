@@ -18,6 +18,7 @@ function publicUser(user) {
     id: user.id,
     username: user.username,
     avatarSpriteId: avatarSpriteIds.has(user.avatarSpriteId) ? user.avatarSpriteId : null,
+    welcomeSeen: Boolean(user.welcomeSeenAt),
     createdAt: user.createdAt,
     isAdmin: user.usernameKey === ADMIN_USERNAME_KEY,
   };
@@ -146,6 +147,16 @@ export class AuthStore {
     if (!user) authError("Account not found.", 404);
     user.avatarSpriteId = avatarSpriteId;
     await this.persist();
+    return publicUser(user);
+  }
+
+  async acknowledgeWelcome(userId) {
+    const user = this.data.users.find((candidate) => candidate.id === userId);
+    if (!user) authError("Account not found.", 404);
+    if (!user.welcomeSeenAt) {
+      user.welcomeSeenAt = new Date().toISOString();
+      await this.persist();
+    }
     return publicUser(user);
   }
 

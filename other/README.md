@@ -50,6 +50,7 @@ The game is intentionally Nuzlocke-like and can be harsh. It should create inter
 - Username/password registration and login are implemented.
 - Usernames are case-insensitively unique. Passwords must contain 15–128 characters.
 - Passwords use scrypt hashes; sessions use 30-day HttpOnly, SameSite cookies.
+- Each account sees a one-time welcome dialog after its first authentication; acknowledgement persists across devices and sessions.
 - Accounts default to a Pokémon Showdown trainer avatar, which can be changed from the account view.
 - Theme is remembered per device independently of login and defaults to light. Dark mode uses `#121212`.
 - The configured administrator account has trainer scheduling and daily-attempt reset controls.
@@ -76,7 +77,7 @@ The game is intentionally Nuzlocke-like and can be harsh. It should create inter
 - A Pokémon appears in Team or Box, never both. Team size is at most six.
 - Supports adding/removing team members and drag reordering.
 - The detail drawer has Summary and Training sections. Summary shows identity, types, ability, nature, held item, calculated battle stats, and moves.
-- Training provides a compact, non-scrolling, Showdown-inspired mobile editor in a drawer that shares its height, Pokémon header sizing, and normalized bottom actions with Summary. Each horizontal stat row shows the stat name, base value, synchronized numeric EV and slider controls, numeric IV with a compact Max IV shortcut, and final calculated value. Nature, ability, eligible forms, and a searchable legal-move catalog follow below. Changes and resulting stats are previewed before purchase, then applied together in one server-authoritative transaction.
+- Training provides a compact, non-scrolling, Showdown-inspired mobile editor in a drawer that shares its height, Pokémon header sizing, and normalized bottom actions with Summary. Each horizontal stat row shows the stat name, base value, synchronized numeric EV and slider controls, numeric IV with a compact Max IV shortcut, and final calculated value. Nature choices are grouped by the stat they raise, followed by neutral natures; ability, eligible forms, and a searchable legal-move catalog follow below. Changes and resulting stats are previewed before purchase, then applied together in one server-authoritative transaction.
 - Held items can be given or taken without closing the item view; the holder and Bag update immediately.
 - Training shows the pending-change count, total cost, and resulting balance. Lowering EVs or IVs is free; only values raised above their persisted baseline are charged. Resetting or restoring a value before applying costs nothing.
 - There is currently no box capacity, release action, filtering, or selling.

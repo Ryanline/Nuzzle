@@ -162,6 +162,11 @@ async function api(request, response, pathname) {
     json(response, 200, { user: await auth.updateAvatar(user.id, body.spriteId) });
     return true;
   }
+  if (request.method === "PUT" && pathname === "/api/account/welcome") {
+    const user = requireUser(request);
+    json(response, 200, { user: await auth.acknowledgeWelcome(user.id) });
+    return true;
+  }
   if (request.method === "GET" && pathname === "/api/roster") {
     json(response, 200, { roster: publicContent().pokemon });
     return true;

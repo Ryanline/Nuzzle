@@ -61,6 +61,9 @@
   let authMode = "login";
   let authLoading = false;
   let authError = "";
+  let welcomeOpen = false;
+  let welcomeLoading = false;
+  let welcomeError = "";
   let avatarPickerOpen = false;
   let avatarSprites = [];
   let avatarLoading = false;
@@ -377,6 +380,8 @@
         body: JSON.stringify({ username, password }),
       });
       currentUser = result.user;
+      welcomeOpen = !currentUser.welcomeSeen;
+      welcomeError = "";
       loadTrainerDraft();
       authOpen = false;
       const destination = pendingRoute;
@@ -403,6 +408,9 @@
       await apiRequest("/api/auth/logout", { method: "POST" });
     } finally {
       currentUser = null;
+      welcomeOpen = false;
+      welcomeLoading = false;
+      welcomeError = "";
       avatarPickerOpen = false;
       avatarSprites = [];
       avatarQuery = "";
@@ -545,6 +553,28 @@
     if (currentUser) return `<div class="auth-backdrop" data-close-auth><section class="auth-card account-card" role="dialog" aria-modal="true" aria-labelledby="account-title"><button class="auth-close" type="button" aria-label="Close account" data-close-auth>×</button><h2 id="account-title">Account</h2><div class="account-profile"><span class="account-avatar">${avatarContent(currentUser)}</span><strong class="account-name">${escapeHtml(currentUser.username)}</strong><button class="profile-link" type="button" data-edit-avatar>choose avatar</button></div>${avatarError ? `<p class="auth-error" role="alert">${escapeHtml(avatarError)}</p>` : ""}<button class="auth-primary logout-button" type="button" data-logout ${authLoading ? "disabled" : ""}>${authLoading ? "logging out…" : "log out"}</button></section></div>`;
     const registering = authMode === "register";
     return `<div class="auth-backdrop" data-close-auth><section class="auth-card" role="dialog" aria-modal="true" aria-labelledby="auth-title"><button class="auth-close" type="button" aria-label="Close login" data-close-auth>×</button><h2 id="auth-title">${registering ? "Create account" : "Log in"}</h2><form data-auth-form><label for="auth-username">Username</label><input id="auth-username" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" minlength="3" maxlength="20" pattern="[A-Za-z0-9_]+" required><label for="auth-password">Password</label><input id="auth-password" name="password" type="password" autocomplete="${registering ? "new-password" : "current-password"}" minlength="15" maxlength="128" required>${registering ? '<label for="auth-password-confirmation">Confirm password</label><input id="auth-password-confirmation" name="passwordConfirmation" type="password" autocomplete="new-password" minlength="15" maxlength="128" required><small class="password-help">Use at least 15 characters.</small>' : ""}${authError ? `<p class="auth-error" role="alert">${escapeHtml(authError)}</p>` : ""}<button class="auth-primary" type="submit" ${authLoading ? "disabled" : ""}>${authLoading ? "please wait…" : registering ? "register" : "log in"}</button></form><button class="auth-mode-link" type="button" data-auth-mode="${registering ? "login" : "register"}">${registering ? "Already have an account? Log in" : "Don't have an account? Register"}</button></section></div>`;
+  }
+
+  function welcomeCard() {
+    if (!welcomeOpen || !currentUser) return "";
+    return `<div class="auth-backdrop welcome-backdrop"><section class="auth-card welcome-card" role="dialog" aria-modal="true" aria-labelledby="welcome-title"><h2 id="welcome-title">Welcome to Nuzzle!</h2><p>Nuzzle is a daily puzzle game built around simulated Nuzlocke battles. Start a fresh run, claim encounters, build your team, and challenge the daily Trainer.</p><p>Win to earn money and new encounters to grow your box. Lose, and your run is wiped—but tomorrow brings a fresh start and another chance!</p>${welcomeError ? `<p class="auth-error" role="alert">${escapeHtml(welcomeError)}</p>` : ""}<button class="auth-primary" type="button" data-dismiss-welcome ${welcomeLoading ? "disabled" : ""}>${welcomeLoading ? "please wait…" : "let’s go"}</button></section></div>`;
+  }
+
+  async function dismissWelcome() {
+    if (welcomeLoading) return;
+    welcomeLoading = true;
+    welcomeError = "";
+    render();
+    try {
+      const result = await apiRequest("/api/account/welcome", { method: "PUT" });
+      currentUser = result.user;
+      welcomeOpen = false;
+    } catch (error) {
+      welcomeError = error.message;
+    } finally {
+      welcomeLoading = false;
+      render();
+    }
   }
 
   function home() {
@@ -838,11 +868,12 @@
   let shopItems = [];
   const itemGroupOrder = ["Held Items"];
   const natureOptions = [
-    { name: "Hardy" }, { name: "Lonely", up: "Atk", down: "Def" }, { name: "Brave", up: "Atk", down: "Spe" }, { name: "Adamant", up: "Atk", down: "SpA" }, { name: "Naughty", up: "Atk", down: "SpD" },
-    { name: "Bold", up: "Def", down: "Atk" }, { name: "Docile" }, { name: "Relaxed", up: "Def", down: "Spe" }, { name: "Impish", up: "Def", down: "SpA" }, { name: "Lax", up: "Def", down: "SpD" },
-    { name: "Timid", up: "Spe", down: "Atk" }, { name: "Hasty", up: "Spe", down: "Def" }, { name: "Serious" }, { name: "Jolly", up: "Spe", down: "SpA" }, { name: "Naive", up: "Spe", down: "SpD" },
-    { name: "Modest", up: "SpA", down: "Atk" }, { name: "Mild", up: "SpA", down: "Def" }, { name: "Quiet", up: "SpA", down: "Spe" }, { name: "Bashful" }, { name: "Rash", up: "SpA", down: "SpD" },
-    { name: "Calm", up: "SpD", down: "Atk" }, { name: "Gentle", up: "SpD", down: "Def" }, { name: "Sassy", up: "SpD", down: "Spe" }, { name: "Careful", up: "SpD", down: "SpA" }, { name: "Quirky" },
+    { name: "Adamant", up: "Atk", down: "SpA" }, { name: "Lonely", up: "Atk", down: "Def" }, { name: "Naughty", up: "Atk", down: "SpD" }, { name: "Brave", up: "Atk", down: "Spe" },
+    { name: "Bold", up: "Def", down: "Atk" }, { name: "Impish", up: "Def", down: "SpA" }, { name: "Relaxed", up: "Def", down: "Spe" }, { name: "Lax", up: "Def", down: "SpD" },
+    { name: "Jolly", up: "Spe", down: "SpA" }, { name: "Timid", up: "Spe", down: "Atk" }, { name: "Hasty", up: "Spe", down: "Def" }, { name: "Naive", up: "Spe", down: "SpD" },
+    { name: "Modest", up: "SpA", down: "Atk" }, { name: "Mild", up: "SpA", down: "Def" }, { name: "Rash", up: "SpA", down: "SpD" }, { name: "Quiet", up: "SpA", down: "Spe" },
+    { name: "Calm", up: "SpD", down: "Atk" }, { name: "Careful", up: "SpD", down: "SpA" }, { name: "Sassy", up: "SpD", down: "Spe" }, { name: "Gentle", up: "SpD", down: "Def" },
+    { name: "Bashful" }, { name: "Docile" }, { name: "Hardy" }, { name: "Quirky" }, { name: "Serious" },
   ];
 
   function itemIcon(item) {
@@ -1128,7 +1159,7 @@
     }
     hideTooltip();
     const screens = { home, lead, battle, pc, bag, encounters: encountersScreen, mart, leaderboard: leaderboardScreen, settings: settingsScreen, config: configScreen };
-    app.innerHTML = screens[route] ? screens[route]() : simpleScreen(route);
+    app.innerHTML = `${screens[route] ? screens[route]() : simpleScreen(route)}${welcomeCard()}`;
     bind();
     updateCountdown();
   }
@@ -1422,6 +1453,7 @@
       void submitAuth(event.currentTarget);
     });
     document.querySelector("[data-logout]")?.addEventListener("click", () => void logout());
+    document.querySelector("[data-dismiss-welcome]")?.addEventListener("click", () => void dismissWelcome());
     document.querySelector("[data-edit-avatar]")?.addEventListener("click", () => {
       avatarPickerOpen = true;
       avatarQuery = "";
@@ -1948,6 +1980,8 @@
       await Promise.all([loadContent(), loadToday()]);
       const result = await apiRequest("/api/auth/me");
       currentUser = result.user;
+      welcomeOpen = Boolean(currentUser && !currentUser.welcomeSeen);
+      welcomeError = "";
       loadTrainerDraft();
       if (currentUser) {
         await loadGame();
