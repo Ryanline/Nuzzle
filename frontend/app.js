@@ -107,6 +107,7 @@
   let inventory = {};
   let todayState = fallbackToday;
   let rolloverTimer = null;
+  let countdownTimer = null;
   let adminConfig = null;
   let configBusy = false;
   let configError = "";
@@ -187,6 +188,23 @@
         render();
       } catch {}
     }, Math.min(delay, 2_147_000_000));
+  }
+
+  function countdownText() {
+    const remaining = Math.max(0, Math.ceil((Date.parse(todayState.nextRolloverAt) - Date.now()) / 1000));
+    if (!Number.isFinite(remaining)) return "--:--:--";
+    const hours = Math.floor(remaining / 3600);
+    const minutes = Math.floor((remaining % 3600) / 60);
+    const seconds = remaining % 60;
+    return [hours, minutes, seconds].map((value) => String(value).padStart(2, "0")).join(":");
+  }
+
+  function updateCountdown() {
+    clearTimeout(countdownTimer);
+    const output = document.querySelector("[data-rollover-countdown]");
+    if (!output) return;
+    output.textContent = countdownText();
+    countdownTimer = setTimeout(updateCountdown, 1000 - (Date.now() % 1000) + 20);
   }
 
   async function loadLeaderboard() {
@@ -482,16 +500,22 @@
     }
   }
 
-  function title() {
+  function title(includeDate = true) {
     const [year, month, day] = String(todayState.date).split("-");
-    return `Nuzzle #${todayState.number}: ${todayState.trainer.name} (${Number(month)}/${Number(day)}/${year})`;
+    const name = `Nuzzle #${todayState.number}: ${todayState.trainer.name}`;
+    return includeDate ? `${name} (${Number(month)}/${Number(day)}/${year})` : name;
   }
 
   function header() {
+    const homeHeader = route === "home";
+    const [year, month, day] = String(todayState.date).split("-");
     const accountLabel = currentUser ? `Account for ${currentUser.username}` : "Log in or create an account";
     const accountContent = currentUser ? avatarContent(currentUser) : '<span class="account-head"></span><span class="account-shoulders"></span>';
     const themeIcons = '<svg class="theme-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.65 17.65l1.42 1.42M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.65 6.35l1.42-1.42"></path></svg><svg class="theme-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.4 15.3A8.5 8.5 0 0 1 8.7 3.6 8.5 8.5 0 1 0 20.4 15.3Z"></path></svg>';
-    return `<header class="screen-header"><h1 class="screen-title">${title()}</h1><div class="header-tools"><button class="theme-toggle" type="button" role="switch" aria-checked="${theme === "dark"}" aria-label="Use ${theme === "dark" ? "light" : "dark"} mode" data-toggle-theme><i>${themeIcons}</i></button><button class="account-button${currentUser ? " signed-in" : ""}" type="button" aria-label="${accountLabel}" data-open-account><span class="account-glyph">${accountContent}</span></button></div></header>${authOpen ? authCard() : ""}`;
+    const titleBlock = homeHeader
+      ? `<div class="header-title-group"><h1 class="screen-title">${title(false)}</h1><p class="screen-meta"><time datetime="${todayState.date}">${Number(month)}/${Number(day)}/${year}</time><span aria-hidden="true"> · </span>next trainer in <b data-rollover-countdown>${countdownText()}</b></p></div>`
+      : `<h1 class="screen-title">${title()}</h1>`;
+    return `<header class="screen-header${homeHeader ? " home-header" : ""}">${titleBlock}<div class="header-tools"><button class="theme-toggle" type="button" role="switch" aria-checked="${theme === "dark"}" aria-label="Use ${theme === "dark" ? "light" : "dark"} mode" data-toggle-theme><i>${themeIcons}</i></button><button class="account-button${currentUser ? " signed-in" : ""}" type="button" aria-label="${accountLabel}" data-open-account><span class="account-glyph">${accountContent}</span></button></div></header>${authOpen ? authCard() : ""}`;
   }
 
   function navigation(current = "", className = "home-actions") {
@@ -1005,6 +1029,7 @@
     const screens = { home, lead, battle, pc, bag, encounters: encountersScreen, mart, leaderboard: leaderboardScreen, settings: settingsScreen, config: configScreen };
     app.innerHTML = screens[route] ? screens[route]() : simpleScreen(route);
     bind();
+    updateCountdown();
   }
 
   function monTip(id) {
