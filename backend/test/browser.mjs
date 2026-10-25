@@ -16,6 +16,7 @@ page.on("console", (message) => {
 page.on("pageerror", (error) => errors.push(error.message));
 
 await page.goto(baseUrl, { waitUntil: "networkidle" });
+if (!/^Daily Nuzzle #\d+: /.test((await page.locator(".home-header .screen-title").textContent())?.trim() || "")) throw new Error("The landing title did not identify the Daily Nuzzle.");
 for (const viewport of [{ width: 320, height: 568 }, { width: 375, height: 667 }, { width: 390, height: 844 }, { width: 430, height: 932 }]) {
   await page.setViewportSize(viewport);
   const landingBounds = await page.locator(".home-screen").evaluate((screen) => {
