@@ -167,7 +167,16 @@ export function playerTeamIds(record) {
 
 export function faintedPlayerIds(record, pokemon) {
   const ids = playerTeamIds(record);
-  return pokemon.map((entry, index) => entry.fainted ? ids[index] : null).filter(Boolean);
+  return pokemon.map((entry) => {
+    if (!entry.fainted) return null;
+    const originalName = entry.set?.name || entry.name;
+    const originalSpecies = entry.set?.species || entry.baseSpecies?.name || entry.species?.baseSpecies || entry.species?.name;
+    const index = record.playerTeam.findIndex((set) => (
+      toID(set.name || set.species) === toID(originalName)
+      || toID(set.species) === toID(originalSpecies)
+    ));
+    return index >= 0 ? ids[index] : null;
+  }).filter(Boolean);
 }
 
 function eventEntry(line, context) {

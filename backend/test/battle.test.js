@@ -65,12 +65,38 @@ test("battle slots map back to roster IDs after the selected lead is reordered",
   };
   assert.deepEqual(playerTeamIds(legacyRecord), ["vaporeon", "arcanine", "raichu"]);
   assert.deepEqual(
-    faintedPlayerIds(legacyRecord, [{ fainted: false }, { fainted: true }, { fainted: false }]),
+    faintedPlayerIds(
+      {
+        ...legacyRecord,
+        playerTeam: [
+          { name: "Vaporeon", species: "Vaporeon" },
+          { name: "Arcanine", species: "Arcanine" },
+          { name: "Raichu", species: "Raichu" },
+        ],
+      },
+      [
+        { name: "Raichu", set: { species: "Raichu" }, fainted: false },
+        { name: "Arcanine", set: { species: "Arcanine" }, fainted: true },
+        { name: "Vaporeon", set: { species: "Vaporeon" }, fainted: false },
+      ]
+    ),
     ["arcanine"]
   );
 
-  const currentRecord = { ...legacyRecord, playerTeamIds: ["vaporeon", "arcanine", "raichu"] };
-  assert.deepEqual(faintedPlayerIds(currentRecord, [{ fainted: true }, { fainted: false }, { fainted: true }]), ["vaporeon", "raichu"]);
+  const currentRecord = {
+    ...legacyRecord,
+    playerTeamIds: ["vaporeon", "arcanine", "raichu"],
+    playerTeam: [
+      { name: "Vaporeon", species: "Vaporeon" },
+      { name: "Arcanine", species: "Arcanine" },
+      { name: "Raichu", species: "Raichu" },
+    ],
+  };
+  assert.deepEqual(faintedPlayerIds(currentRecord, [
+    { name: "Raichu", set: { species: "Raichu" }, fainted: true },
+    { name: "Vaporeon", set: { species: "Vaporeon" }, fainted: true },
+    { name: "Arcanine", set: { species: "Arcanine" }, fainted: false },
+  ]), ["raichu", "vaporeon"]);
 });
 
 test("Showdown advances a real turn and rejects stale choices", async () => {
