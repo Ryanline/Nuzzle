@@ -3,7 +3,7 @@ import { mkdtemp } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { acquisitionFromProtocol, BattleService } from "../battle-service.js";
+import { acquisitionFromProtocol, BattleService, faintedPlayerIds, playerTeamIds } from "../battle-service.js";
 import { BattleStore } from "../battle-store.js";
 import { buildBrockTeam, buildPlayerTeam, PLAYER_IDS } from "../teams.js";
 
@@ -39,7 +39,8 @@ test("Brock has six itemless Pokémon with four moves each", () => {
 
 test("item-transfer protocol only records acquisitions by initially itemless player Pokémon", () => {
   const record = {
-    partyIds: ["delphox", "scizor"],
+    partyIds: ["scizor", "delphox"],
+    leadId: "delphox",
     playerTeam: [
       { name: "Delphox", species: "Delphox", item: "" },
       { name: "Scizor", species: "Scizor", item: "Leftovers" },
@@ -55,6 +56,21 @@ test("item-transfer protocol only records acquisitions by initially itemless pla
   );
   assert.equal(acquisitionFromProtocol("|-item|p1a: Scizor|Choice Band|[from] move: Trick", record), null);
   assert.equal(acquisitionFromProtocol("|-item|p1a: Delphox|Sitrus Berry|[from] ability: Frisk", record), null);
+});
+
+test("battle slots map back to roster IDs after the selected lead is reordered", () => {
+  const legacyRecord = {
+    partyIds: ["arcanine", "raichu", "vaporeon"],
+    leadId: "vaporeon",
+  };
+  assert.deepEqual(playerTeamIds(legacyRecord), ["vaporeon", "arcanine", "raichu"]);
+  assert.deepEqual(
+    faintedPlayerIds(legacyRecord, [{ fainted: false }, { fainted: true }, { fainted: false }]),
+    ["arcanine"]
+  );
+
+  const currentRecord = { ...legacyRecord, playerTeamIds: ["vaporeon", "arcanine", "raichu"] };
+  assert.deepEqual(faintedPlayerIds(currentRecord, [{ fainted: true }, { fainted: false }, { fainted: true }]), ["vaporeon", "raichu"]);
 });
 
 test("Showdown advances a real turn and rejects stale choices", async () => {

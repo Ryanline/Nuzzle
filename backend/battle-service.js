@@ -152,11 +152,22 @@ export function acquisitionFromProtocol(line, record) {
   const source = annotations.find((entry) => entry.startsWith("[from] "))?.slice(7).toLowerCase();
   if (!permanentItemTransferSources.has(source)) return null;
   const pokemonName = displayName(subject);
-  const original = record.playerTeam.find((set) => toID(set.name || set.species) === toID(pokemonName));
+  const teamIndex = record.playerTeam.findIndex((set) => toID(set.name || set.species) === toID(pokemonName));
+  const original = record.playerTeam[teamIndex];
   if (!original || original.item) return null;
-  const pokemonId = record.partyIds.find((id) => toID(id) === toID(original.species || original.name));
+  const pokemonId = playerTeamIds(record)[teamIndex];
   if (!pokemonId) return null;
   return { pokemonId, itemId: toID(itemName), source };
+}
+
+export function playerTeamIds(record) {
+  if (Array.isArray(record.playerTeamIds) && record.playerTeamIds.length) return record.playerTeamIds;
+  return [record.leadId, ...record.partyIds.filter((id) => id !== record.leadId)];
+}
+
+export function faintedPlayerIds(record, pokemon) {
+  const ids = playerTeamIds(record);
+  return pokemon.map((entry, index) => entry.fainted ? ids[index] : null).filter(Boolean);
 }
 
 function eventEntry(line, context) {
@@ -601,9 +612,7 @@ export class BattleController {
     }
     if (!this.settlement) this.settlement = (async () => {
       const finalState = this.state();
-      const faintedPokemonIds = this.stream.battle.p1.pokemon
-        .map((pokemon, index) => pokemon.fainted ? this.record.partyIds[index] : null)
-        .filter(Boolean);
+      const faintedPokemonIds = faintedPlayerIds(this.record, this.stream.battle.p1.pokemon);
       this.record.result = {
         winner: finalState.winner,
         playerWiped: Boolean(this.record.forfeited) || (finalState.player.team.length > 0 && finalState.player.team.every((pokemon) => pokemon.fainted)),
@@ -806,6 +815,7 @@ export class BattleService {
       seed: seed(),
       partyIds: [...partyIds],
       leadId,
+      playerTeamIds: [leadId, ...partyIds.filter((id) => id !== leadId)],
       playerTeam: structuredClone(teamSnapshot),
       opponentTeam: structuredClone(opponentTeam || buildBrockTeam()),
       trainerName,
