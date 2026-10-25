@@ -7,8 +7,6 @@ function localParts(now, timeZone = defaultTimeZone) {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-    hour: "2-digit",
-    hourCycle: "h23",
   }).formatToParts(now);
   return Object.fromEntries(parts.map((part) => [part.type, part.value]));
 }
@@ -21,8 +19,7 @@ function shiftDate(date, days) {
 
 export function gameDate(now = new Date(), timeZone = defaultTimeZone) {
   const value = localParts(now, timeZone);
-  const localDate = `${value.year}-${value.month}-${value.day}`;
-  return Number(value.hour) < 11 ? shiftDate(localDate, -1) : localDate;
+  return `${value.year}-${value.month}-${value.day}`;
 }
 
 export function nextGameDate(date) {

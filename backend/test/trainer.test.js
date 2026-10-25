@@ -23,12 +23,12 @@ Level: 100
 - Moonblast
 - Sleep Powder`;
 
-test("the Nuzzle day rolls over at 11:00 AM America/New_York", () => {
-  assert.equal(gameDate(new Date("2026-10-23T14:59:59Z")), "2026-10-22");
-  assert.equal(gameDate(new Date("2026-10-23T15:00:00Z")), "2026-10-23");
-  assert.equal(gameDate(new Date("2026-12-10T15:59:59Z")), "2026-12-09");
-  assert.equal(gameDate(new Date("2026-12-10T16:00:00Z")), "2026-12-10");
-  assert.equal(nextRolloverAt(new Date("2026-10-23T14:00:00Z")), "2026-10-23T15:00:00.000Z");
+test("the Nuzzle day rolls over at midnight America/New_York", () => {
+  assert.equal(gameDate(new Date("2026-10-24T03:59:59Z")), "2026-10-23");
+  assert.equal(gameDate(new Date("2026-10-24T04:00:00Z")), "2026-10-24");
+  assert.equal(gameDate(new Date("2026-12-10T04:59:59Z")), "2026-12-09");
+  assert.equal(gameDate(new Date("2026-12-10T05:00:00Z")), "2026-12-10");
+  assert.equal(nextRolloverAt(new Date("2026-10-23T14:00:00Z")), "2026-10-24T04:00:00.000Z");
   assert.equal(gameNumber("2026-10-23"), 2);
 });
 
