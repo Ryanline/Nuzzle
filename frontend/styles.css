@@ -45,9 +45,9 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .theme-toggle[aria-checked="true"] .theme-sun { opacity: 1; }
 .theme-toggle[aria-checked="true"] .theme-moon { opacity: 0; }
 .account-button { position: relative; display: grid; width: 40px; height: 40px; place-items: center; padding: 0; border: 1px solid #8d949a; border-radius: 50%; background: linear-gradient(#fff, #e2e5e7); color: #56616a; box-shadow: 0 2px 3px rgba(0,0,0,.18); cursor: pointer; }
-.account-button.signed-in { border-color: #58646d; background: #506776; color: #fff; font-size: 17px; font-weight: 700; }
+.account-button.signed-in { overflow: hidden; border-color: #58646d; background: #dfe5e7; color: #fff; }
 .account-glyph { position: relative; display: grid; width: 25px; height: 25px; overflow: hidden; place-items: center; border-radius: 50%; }
-.account-glyph img { width: 100%; height: 100%; object-fit: cover; }
+.account-glyph img { width: 100%; height: 100%; object-fit: contain; }
 .account-head { position: absolute; top: 2px; left: 8px; width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
 .account-shoulders { position: absolute; right: 3px; bottom: 2px; left: 3px; height: 10px; border-radius: 10px 10px 5px 5px; background: currentColor; }
 
@@ -70,7 +70,8 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .auth-mode-link { display: block; margin: 9px auto 0; padding: 4px; border: 0; background: transparent; color: #245e86; cursor: pointer; font-size: 13px; text-decoration: underline; }
 .account-card { text-align: left; }
 .account-profile { display: flex; align-items: center; flex-direction: column; gap: 6px; text-align: center; }
-.account-avatar { display: grid; width: 66px; height: 66px; overflow: hidden; place-items: center; border: 1px solid #626b71; border-radius: 50%; background: #65727a; color: #fff; box-shadow: inset 0 1px rgba(255,255,255,.28), 0 1px 2px rgba(0,0,0,.2); font-size: 29px; font-weight: 700; }
+.account-avatar { display: grid; width: 76px; height: 86px; overflow: hidden; place-items: center; border: 1px solid #9aa2a7; border-radius: 6px; background: #d9e0e2; box-shadow: inset 0 1px rgba(255,255,255,.5), 0 1px 2px rgba(0,0,0,.18); }
+.account-avatar img { width: 70px; height: 82px; }
 .account-name { display: block; max-width: 100%; overflow: hidden; font-size: 20px; text-overflow: ellipsis; white-space: nowrap; }
 .profile-link { padding: 2px 0; border: 0; background: transparent; color: #245e86; cursor: pointer; font-size: 13px; text-decoration: underline; }
 .account-card .auth-kicker, .account-card h2 { margin-right: 36px; }
@@ -81,6 +82,19 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .profile-button.remove { color: #852f32; }
 .profile-button:disabled { opacity: .55; cursor: default; }
 .profile-link { margin: 0 5px; }
+.avatar-picker-card { width: min(390px, 100%); padding-right: 12px; padding-left: 12px; }
+.avatar-picker-head { display: flex; align-items: baseline; gap: 7px; padding-right: 32px; }
+.avatar-picker-head h2 { margin-right: 0; }
+.avatar-picker-head button { padding: 2px 5px; border: 1px solid #a7adb1; border-radius: 4px; background: linear-gradient(#fff, #d8dcde); color: #333; cursor: pointer; font-size: 12px; }
+.avatar-search { display: grid; gap: 3px; margin-bottom: 8px; color: #555; font-size: 11px; }
+.avatar-search input { height: 34px; font-size: 14px; }
+.avatar-grid { display: grid; max-height: min(520px, 59dvh); grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; padding: 3px; overflow-y: auto; overscroll-behavior: contain; border: 1px solid #aab1b5; border-radius: 5px; background: #dfe5e6; }
+.avatar-choice { display: grid; min-width: 0; height: 80px; place-items: center; padding: 2px; border: 1px solid transparent; border-radius: 4px; background: transparent; cursor: pointer; }
+.avatar-choice:hover, .avatar-choice:focus-visible { border-color: #87959e; background: rgba(255,255,255,.46); }
+.avatar-choice.selected { border-color: #4a7fa4; background: #c8dce9; box-shadow: inset 0 0 0 1px #7aa4c0; }
+.avatar-choice img { width: 68px; max-width: 100%; height: 74px; }
+.avatar-choice.mystery img { width: 53px; }
+.avatar-empty { grid-column: 1 / -1; margin: 22px 6px; color: #59646b; font-size: 12px; text-align: center; }
 
 .gloss-button { min-height: 48px; padding: 5px 14px 7px; border: 2px solid rgba(65,40,30,.55); border-radius: 8px; color: white; box-shadow: inset 0 2px rgba(255,255,255,.45), inset 0 -2px rgba(0,0,0,.15), 0 2px 2px rgba(0,0,0,.22); cursor: pointer; font-size: 20px; text-shadow: 0 1px 1px rgba(0,0,0,.35); }
 .gloss-button:hover { filter: brightness(1.07); }
@@ -549,11 +563,13 @@ button.encounter-card:active { background: #eef5ef; transform: translateY(1px); 
 .leaderboard-list { margin: 0; padding: 0; list-style: none; }
 .leaderboard-row { display: grid; grid-template-columns: 32px minmax(0, 1fr); align-items: center; gap: 7px; min-height: 76px; padding: 7px 4px; border-bottom: 1px solid #d4d8dd; }
 .leaderboard-rank { color: #526474; font-size: 20px; font-weight: 700; text-align: center; }
+.leaderboard-identity { display: flex; min-width: 0; align-items: center; gap: 7px; }
+.leaderboard-avatar { display: grid; width: 42px; height: 50px; flex: 0 0 auto; place-items: center; }
+.leaderboard-avatar img { width: 40px; height: 48px; }
 .leaderboard-entry { min-width: 0; }
-.leaderboard-entry > strong { display: block; margin-bottom: 4px; overflow: hidden; font-size: 14px; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
-.leaderboard-entry > strong small { margin-left: 6px; color: #a34449; font-size: 10px; font-weight: 700; text-transform: uppercase; }
-.streak-row { grid-template-columns: 32px minmax(0, 1fr) auto; min-height: 58px; }
-.streak-row .leaderboard-entry > strong { margin-bottom: 0; }
+.leaderboard-identity > strong { display: block; min-width: 0; overflow: hidden; font-size: 14px; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
+.leaderboard-identity > strong small { margin-left: 6px; color: #a34449; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+.streak-row { grid-template-columns: 32px minmax(0, 1fr) auto; min-height: 62px; }
 .streak-count { color: #397443; font-size: 14px; font-weight: 700; white-space: nowrap; }
 .leaderboard-team { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
 .leaderboard-mon { display: grid; min-width: 0; height: 43px; overflow: hidden; place-items: center; border: 1px solid; border-radius: 5px; }
@@ -662,6 +678,13 @@ html[data-theme="dark"] body { background: #121212; }
 html[data-theme="dark"] .gloss-button { border-color: rgba(15,18,21,.78); box-shadow: inset 0 1px rgba(255,255,255,.18), inset 0 -2px rgba(0,0,0,.22), 0 2px 2px rgba(0,0,0,.42); }
 html[data-theme="dark"] .gloss-button.neutral { border-color: #59636c; background: linear-gradient(#454c53, #30363c); color: var(--ink); }
 html[data-theme="dark"] .account-button { border-color: #68747d; background: linear-gradient(#3a4249, #252b31); color: #d4dce2; }
+html[data-theme="dark"] .account-button.signed-in,
+html[data-theme="dark"] .account-avatar,
+html[data-theme="dark"] .avatar-grid { border-color: #59636c; background: #30363d; }
+html[data-theme="dark"] .avatar-choice:hover,
+html[data-theme="dark"] .avatar-choice:focus-visible { border-color: #71808a; background: rgba(255,255,255,.08); }
+html[data-theme="dark"] .avatar-choice.selected { border-color: #70a9d3; background: #294357; box-shadow: inset 0 0 0 1px #4f8fbe; }
+html[data-theme="dark"] .avatar-empty { color: #aab3bb; }
 html[data-theme="dark"] .lead-choice,
 html[data-theme="dark"] .switch-choice,
 html[data-theme="dark"] .party-slot,
@@ -837,7 +860,7 @@ html[data-theme="dark"] .auth-error { color: #ff9297; }
   .leaderboard-stage > h2 { margin-top: 1px; font-size: 19px; }
   .leaderboard-tabs { margin-top: 4px; }
   .leaderboard-row { grid-template-columns: 28px minmax(0, 1fr); min-height: 69px; padding: 6px 2px; }
-  .streak-row { grid-template-columns: 28px minmax(0, 1fr) auto; min-height: 55px; }
+  .streak-row { grid-template-columns: 28px minmax(0, 1fr) auto; min-height: 58px; }
   .leaderboard-rank { font-size: 18px; }
   .leaderboard-mon { height: 39px; }
   .leaderboard-mon img { width: 38px; height: 37px; }

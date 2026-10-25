@@ -21,7 +21,7 @@ This JSON-backed account store is suitable for local development and can be
 replaced by a hosted database before deployment; it is not the final production
 account system and currently has no email recovery flow.
 
-Profiles use a circular avatar containing the first letter of the username.
+Profiles default to the mystery trainer avatar. Players can choose any trainer sprite from their account card, and the selected avatar appears on leaderboards.
 
 The current battle slice uses Generation 9 Custom Game mechanics. Generated
 player Pokémon are level 100 with random IVs, zero EVs, a random nature, and a

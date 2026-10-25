@@ -232,7 +232,7 @@ test("daily leaderboard ranks winners by survivors and then completion time", as
   addBattle({ id: "one-loss", userId: "one", winner: "Player", completedAt: "2026-10-24T13:00:00.000Z", fainted: 1 });
   addBattle({ id: "defeat", userId: "lost", winner: "Brock", completedAt: "2026-10-24T12:00:00.000Z", fainted: 6 });
   const usernames = { clean: "Clean", early: "Early", one: "One", lost: "Lost" };
-  const entries = service.dailyLeaderboard("2026-10-24", (id) => ({ username: usernames[id] }));
+  const entries = service.dailyLeaderboard("2026-10-24", (id) => ({ username: usernames[id], avatarSpriteId: id === "early" ? "misty" : null }));
   assert.deepEqual(entries.map(({ rank, username, fainted }) => ({ rank, username, fainted })), [
     { rank: 1, username: "Early", fainted: 0 },
     { rank: 2, username: "Clean", fainted: 0 },
@@ -240,6 +240,7 @@ test("daily leaderboard ranks winners by survivors and then completion time", as
     { rank: 4, username: "Lost", fainted: 6 },
   ]);
   assert.equal(entries[0].team.length, 6);
+  assert.equal(entries[0].avatarSpriteId, "misty");
 });
 
 test("streak leaderboard counts consecutive wins ending today", async () => {
@@ -257,13 +258,14 @@ test("streak leaderboard counts consecutive wins ending today", async () => {
   addBattle({ id: "missed-24", userId: "missed", date: "2026-10-24", completedAt: "2026-10-24T13:00:00.000Z" });
   addBattle({ id: "lost-23", userId: "lost", date: "2026-10-23", completedAt: "2026-10-23T12:00:00.000Z" });
   addBattle({ id: "lost-24", userId: "lost", date: "2026-10-24", winner: "Brock", completedAt: "2026-10-24T12:30:00.000Z" });
-  const entries = service.streakLeaderboard("2026-10-24", (id) => ({ username: id }));
+  const entries = service.streakLeaderboard("2026-10-24", (id) => ({ username: id, avatarSpriteId: id === "alpha" ? "red" : null }));
   assert.deepEqual(entries.map(({ rank, username, streak }) => ({ rank, username, streak })), [
     { rank: 1, username: "alpha", streak: 3 },
     { rank: 2, username: "beta", streak: 2 },
     { rank: 3, username: "missed", streak: 1 },
     { rank: 4, username: "lost", streak: 0 },
   ]);
+  assert.equal(entries[0].avatarSpriteId, "red");
 });
 
 test("a six-on-six battle can be played through to a real result", async () => {

@@ -709,6 +709,7 @@ export class BattleService {
         }));
         return {
           username: user.username,
+          avatarSpriteId: user.avatarSpriteId || null,
           won: state.winner === "Player",
           completedAt: battle.record.completedAt || battle.record.createdAt,
           fainted: team.filter((pokemon) => pokemon.fainted).length,
@@ -753,6 +754,7 @@ export class BattleService {
       }
       entries.push({
         username: user.username,
+        avatarSpriteId: user.avatarSpriteId || null,
         streak,
         completedAt: today.record.completedAt || today.record.createdAt,
       });

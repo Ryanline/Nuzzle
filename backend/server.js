@@ -6,7 +6,7 @@ import { BattleService } from "./battle-service.js";
 import { BattleStore } from "./battle-store.js";
 import { AuthStore, SESSION_LIFETIME_MS } from "./auth-store.js";
 import { GameStore, publicContent } from "./game-store.js";
-import { TrainerStore } from "./trainer-store.js";
+import { trainerSprites, TrainerStore } from "./trainer-store.js";
 
 const backendDirectory = path.dirname(fileURLToPath(import.meta.url));
 const projectDirectory = path.dirname(backendDirectory);
@@ -149,6 +149,17 @@ async function api(request, response, pathname) {
   if (request.method === "POST" && pathname === "/api/auth/logout") {
     await auth.logout(sessionToken(request));
     json(response, 200, { ok: true }, { "Set-Cookie": sessionHeader("", 0) });
+    return true;
+  }
+  if (request.method === "GET" && pathname === "/api/account/avatars") {
+    requireUser(request);
+    json(response, 200, { sprites: trainerSprites });
+    return true;
+  }
+  if (request.method === "PUT" && pathname === "/api/account/avatar") {
+    const user = requireUser(request);
+    const body = await requestBody(request);
+    json(response, 200, { user: await auth.updateAvatar(user.id, body.spriteId) });
     return true;
   }
   if (request.method === "GET" && pathname === "/api/roster") {

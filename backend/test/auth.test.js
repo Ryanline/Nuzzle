@@ -19,6 +19,7 @@ test("registration stores a password hash and creates a persistent session", asy
   const registration = await auth.register("NuzzleFan", password);
 
   assert.equal(registration.user.username, "NuzzleFan");
+  assert.equal(registration.user.avatarSpriteId, null);
   assert.equal(registration.user.passwordHash, undefined);
   assert.equal(auth.userForToken(registration.token)?.id, registration.user.id);
   assert.doesNotMatch(await readFile(filename, "utf8"), new RegExp(password));
@@ -26,6 +27,19 @@ test("registration stores a password hash and creates a persistent session", asy
   const restored = new AuthStore(filename);
   await restored.initialize();
   assert.deepEqual(restored.userForToken(registration.token), registration.user);
+});
+
+test("trainer avatars persist and reject unknown sprite ids", async () => {
+  const { auth, filename } = await authFixture();
+  const registration = await auth.register("AvatarFan", "correct horse battery staple");
+  const updated = await auth.updateAvatar(registration.user.id, "misty");
+  assert.equal(updated.avatarSpriteId, "misty");
+
+  const restored = new AuthStore(filename);
+  await restored.initialize();
+  assert.equal(restored.userForToken(registration.token)?.avatarSpriteId, "misty");
+  await assert.rejects(auth.updateAvatar(registration.user.id, "not-a-real-trainer"), /trainer sprite list/);
+  assert.equal((await auth.updateAvatar(registration.user.id, null)).avatarSpriteId, null);
 });
 
 test("login is case-insensitive and rejects an incorrect password", async () => {
