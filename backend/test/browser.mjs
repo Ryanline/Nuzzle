@@ -43,9 +43,12 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 375, height: 667 }
       opponentButtonOverflow: getComputedStyle(opponentButton).overflow,
       opponentSpriteTranslation: new DOMMatrix(opponentSpriteStyle.transform).m41,
       titleTop: titleRect.top,
+      titleBottom: titleRect.bottom,
       toolsBottom: toolsRect.bottom,
       titleClipped: title.scrollWidth > title.clientWidth + 1 || title.scrollHeight > title.clientHeight + 1,
+      titlePosition: titleStyle.position,
       metaText: meta.textContent || "",
+      metaTop: meta.getBoundingClientRect().top,
       titleFontSize: titleStyle.fontSize,
       metaFontSize: metaStyle.fontSize,
       metaHeight: meta.getBoundingClientRect().height,
@@ -57,7 +60,8 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 375, height: 667 }
   if (Math.abs(landingBounds.appCenter - landingBounds.opponentTeamCenter) > 1) throw new Error(`The opponent team is not centered at ${viewport.width}x${viewport.height}.`);
   if (landingBounds.opponentTeamOverflow !== "visible" || landingBounds.opponentButtonOverflow !== "visible") throw new Error(`Wide opponent sprites can be clipped at ${viewport.width}x${viewport.height}.`);
   if (Math.abs(landingBounds.opponentSpriteTranslation + 20) > .1) throw new Error(`Opponent team sprites were not shifted left 20px at ${viewport.width}x${viewport.height}.`);
-  if (landingBounds.titleTop < landingBounds.toolsBottom - 1 || landingBounds.titleClipped) throw new Error(`The daily title overlaps the header controls or is clipped at ${viewport.width}x${viewport.height}.`);
+  if (landingBounds.titlePosition !== "static" || landingBounds.titleTop < landingBounds.toolsBottom - 1 || landingBounds.titleClipped) throw new Error(`The daily title overlaps the header controls or is clipped at ${viewport.width}x${viewport.height}.`);
+  if (landingBounds.metaTop < landingBounds.titleBottom) throw new Error(`The daily title overlaps its countdown at ${viewport.width}x${viewport.height}.`);
   if (!/next trainer in \d{2}:\d{2}:\d{2}/i.test(landingBounds.metaText)) throw new Error(`The daily countdown is missing at ${viewport.width}x${viewport.height}.`);
   if (!landingBounds.metaText.includes(" - ") || landingBounds.titleFontSize !== landingBounds.metaFontSize) throw new Error(`The date and countdown line does not match the title typography at ${viewport.width}x${viewport.height}.`);
   if (landingBounds.metaHeight > landingBounds.metaLineHeight * 1.5) throw new Error(`The date and countdown wrapped at ${viewport.width}x${viewport.height}.`);

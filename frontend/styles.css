@@ -832,6 +832,7 @@ html[data-theme="dark"] .auth-error { color: #ff9297; }
   .home-header { height: 104px; padding-bottom: 0; }
   .home-header .header-tools { top: 4px; }
   .home-header .header-title-group { position: absolute; right: 0; bottom: 8px; left: 0; width: auto; }
+  .home-header .screen-title { position: static; right: auto; left: auto; }
   .home-header .screen-title, .home-header .screen-meta { font-size: clamp(12px, 3.55vw, 14px); }
   .home-header .screen-meta { white-space: nowrap; }
   .theme-toggle { width: 60px; height: 38px; border-radius: 19px; }
