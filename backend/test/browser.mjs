@@ -269,6 +269,13 @@ if (await page.locator(".team-mark, .pc-help").count()) throw new Error("The obs
 if (await page.locator(".party-section [data-quick-team-remove]").count() !== generatedGame.teamIds.length || await page.locator(".box-section [data-quick-team-add]").count() !== generatedGame.roster.length - generatedGame.teamIds.length) throw new Error("The PC cards did not expose the expected quick team controls.");
 if (await page.locator(".trainer-reference-section .pc-quick-action").count()) throw new Error("The trainer reference cards incorrectly exposed team controls.");
 if (!await page.locator(`[data-quick-team-remove="${outgoingId}"].remove[aria-label="Remove ${outgoingPokemon.name} from team"]`).count() || !await page.locator(`[data-quick-team-add="${replacementId}"].add[aria-label="Add ${replacementName} to team"]`).count()) throw new Error("The quick team controls did not use the requested action styling or accessible labels.");
+const quickActionAppearance = await page.locator(".pc-quick-action").evaluateAll((buttons) => buttons.slice(0, 2).map((button) => {
+  const bounds = button.getBoundingClientRect();
+  const card = button.parentElement.getBoundingClientRect();
+  const style = getComputedStyle(button);
+  return { width: bounds.width, height: bounds.height, topOffset: bounds.top - card.top, rightOffset: bounds.right - card.right, backgroundImage: style.backgroundImage, boxShadow: style.boxShadow, textShadow: style.textShadow };
+}));
+if (quickActionAppearance.some((button) => button.width > 18.5 || button.height > 18.5 || Math.abs(button.topOffset) > 3.5 || Math.abs(button.rightOffset) > 3.5 || button.backgroundImage !== "none" || button.boxShadow !== "none" || button.textShadow !== "none")) throw new Error("The PC quick controls were not compact, flat, and anchored to the card corner.");
 let quickTeamResponse = page.waitForResponse((response) => response.url().endsWith("/api/game/team") && response.request().method() === "PUT");
 await page.click(`[data-quick-team-remove="${outgoingId}"]`);
 if (!(await quickTeamResponse).ok()) throw new Error("Quick-removing a Pokémon from the team failed.");

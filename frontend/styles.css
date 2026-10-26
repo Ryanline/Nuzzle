@@ -373,10 +373,10 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .pc-mon-name { width: 100%; overflow: hidden; font-size: 10px; line-height: 15px; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
 .pc-mon.dragging { opacity: .35; cursor: grabbing; }
 .pc-mon.drag-over { border-radius: 8px; background: rgba(255,255,255,.35); }
-.pc-quick-action { position: absolute; z-index: 2; top: 3px; right: 3px; display: grid; width: 26px; height: 26px; place-items: center; padding: 0 0 2px; border: 1px solid rgba(40,35,32,.72); border-radius: 50%; color: #fff; box-shadow: inset 0 1px rgba(255,255,255,.45), inset 0 -1px rgba(0,0,0,.16), 0 1px 2px rgba(0,0,0,.28); cursor: pointer; font-size: 20px; font-weight: 700; line-height: 1; text-shadow: 0 1px rgba(0,0,0,.3); }
-.pc-quick-action.remove { background: linear-gradient(var(--red-a), var(--red-b)); }
-.pc-quick-action.add { background: linear-gradient(var(--green-a), var(--green-b)); }
-.pc-quick-action:hover { filter: brightness(1.08); }
+.pc-quick-action { position: absolute; z-index: 2; top: -3px; right: -3px; display: grid; width: 18px; height: 18px; place-items: center; padding: 0 0 1px; border: 1px solid var(--page); border-radius: 50%; color: #fff; cursor: pointer; font-size: 14px; font-weight: 700; line-height: 1; }
+.pc-quick-action.remove { background: var(--red-b); }
+.pc-quick-action.add { background: var(--green-b); }
+.pc-quick-action:hover { filter: brightness(1.12); }
 .pc-quick-action:active { transform: translateY(1px); }
 .page-back { width: calc(100% - 58px); margin: 24px 29px 0; }
 .pc-stage .page-back { margin-top: auto; margin-bottom: 12px; }
@@ -982,7 +982,6 @@ html[data-theme="dark"] .auth-error { color: #ff9297; }
   .pc-box { gap: 3px; padding: 5px; }
   .pc-mon { height: 76px; }
   .pc-mon img { width: 60px; height: 57px; }
-  .pc-quick-action { top: 2px; right: 2px; width: 24px; height: 24px; font-size: 18px; }
   .pokemon-sheet { align-self: flex-end; width: 100%; height: min(590px, calc(100dvh - 8px)); max-height: calc(100dvh - 8px); padding: 10px 12px 8px; border-radius: 13px 13px 0 0; }
   .sheet-backdrop { align-items: flex-end; padding: 0; }
   .pokemon-summary { min-height: 54px; gap: 8px; }
