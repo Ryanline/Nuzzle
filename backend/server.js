@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { readFile, stat } from "node:fs/promises";
+import { readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { BattleService } from "./battle-service.js";
@@ -36,6 +36,22 @@ await auth.initialize();
 await game.initialize();
 await trainers.initialize();
 await service.initialize();
+
+// One-time production repair. The marker makes restarts idempotent until this
+// temporary block is removed after the deployment has completed.
+const franResetMarker = path.join(dataDirectory, "maintenance-fran-daily-reset-2026-10-26.done");
+try {
+  await stat(franResetMarker);
+} catch (error) {
+  if (error.code !== "ENOENT") throw error;
+  const fran = auth.userByUsername("fran");
+  if (fran) {
+    const state = await game.get(fran.id);
+    await service.resetDailyAttempt(fran.id, state.date);
+    await writeFile(franResetMarker, `${new Date().toISOString()} ${state.date}\n`, { encoding: "utf8", flag: "wx" });
+    console.log(`Reset ${fran.username}'s daily battle attempt for ${state.date}.`);
+  }
+}
 
 const loginAttempts = new Map();
 const sessionCookie = "nuzzle_session";
