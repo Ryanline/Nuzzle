@@ -646,8 +646,10 @@ if (battleHealth.some(({ text, separated }) => !/^\d+%$/.test(text) || !separate
 const switchHealth = await page.locator(".switch-choice:not(.fainted)").evaluateAll((buttons) => buttons.map((button) => ({
   label: button.querySelector("small").textContent.trim(),
   width: button.querySelector(".switch-hp b").style.width,
+  nameBottom: button.querySelector(":scope > span").getBoundingClientRect().bottom,
+  labelTop: button.querySelector("small").getBoundingClientRect().top,
 })));
-if (switchHealth.some(({ label, width }) => label !== width)) throw new Error(`Switch HP bars did not match their percentage labels: ${JSON.stringify(switchHealth)}`);
+if (switchHealth.some(({ label, width, nameBottom, labelTop }) => label !== width || nameBottom > labelTop + .5)) throw new Error(`Switch HP names, labels, or bars overlapped or disagreed: ${JSON.stringify(switchHealth)}`);
 if (await page.locator("[data-battle-move]").count() !== 4) throw new Error("The engine did not provide four moves.");
 if (await page.locator(".battle-platform").count() !== 2) throw new Error("The CSS battlefield platforms were not rendered.");
 if (await page.locator(".battle-platform").first().evaluate((element) => getComputedStyle(element).backgroundImage) !== "none") throw new Error("The battle still shows an oval platform.");
