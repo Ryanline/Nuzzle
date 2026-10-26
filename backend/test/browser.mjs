@@ -383,7 +383,7 @@ if (await page.locator('[data-shop-group="TMs"], [data-shop-group="Training Item
 if ((await page.locator("[data-shop-group]").allTextContents()).join(",") !== "Held items,Key items") throw new Error("The Mart did not show the Held items and Key items segments.");
 if (await page.locator(".shop-item").count() !== 139) throw new Error("The Mart did not render every approved held item.");
 if (await page.locator(".shop-item .held-item-sprite").count() !== 139) throw new Error("The Mart did not render sprites for every approved held item.");
-if (!(await page.locator('[data-open-purchase="leftovers"]').locator("xpath=ancestor::div[contains(@class, 'shop-item')]").locator(".held-item-sprite").getAttribute("style"))?.includes("background-position")) throw new Error("The held-item sprite did not use its Showdown sheet position.");
+if ((await page.locator('[data-open-purchase="leftovers"]').locator("xpath=ancestor::div[contains(@class, 'shop-item')]").locator(".held-item-sprite").getAttribute("style")) !== "background-position:-48px -360px") throw new Error("The held-item sprite did not use its 24px Showdown sheet position.");
 if (!await page.locator("[data-mart-search]").count()) throw new Error("The Mart did not expose item search.");
 await page.locator("[data-mart-search]").evaluate((input) => { input.dataset.identity = "original"; });
 await page.locator("[data-mart-search]").pressSequentially("leftovers", { delay: 10 });

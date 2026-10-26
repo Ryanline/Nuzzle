@@ -886,7 +886,7 @@
   function itemIcon(item) {
     const iconClass = item.group === "Held Items" ? "held" : item.group === "TMs" ? "tm" : "training";
     const sprite = item.group === "Held Items" && Number.isInteger(item.spriteNumber)
-      ? `<i class="held-item-sprite" style="background-position:-${(item.spriteNumber % 16) * 40}px -${Math.floor(item.spriteNumber / 16) * 30}px"></i>`
+      ? `<i class="held-item-sprite" style="background-position:-${(item.spriteNumber % 16) * 24}px -${Math.floor(item.spriteNumber / 16) * 24}px"></i>`
       : escapeHtml(item.icon);
     return `<span class="item-icon ${iconClass}" aria-hidden="true">${sprite}</span>`;
   }
