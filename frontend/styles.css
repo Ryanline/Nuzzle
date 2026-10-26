@@ -693,7 +693,6 @@ button.encounter-card:active { background: #eef5ef; transform: translateY(1px); 
 .schedule-reset { margin-top: 9px !important; font-weight: 700; text-align: center; }
 .more-card-affiliation .more-card-content { font-size: 12px; line-height: 1.32; }
 .more-card-affiliation .more-card-content p { margin-bottom: 7px; }
-.legal-copy { font-size: 11px; }
 .more-card-back { width: 100%; min-height: 40px; margin-top: 13px; font-size: 17px; }
 
 .config-screen { padding-bottom: 0; }

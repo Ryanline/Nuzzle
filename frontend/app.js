@@ -1018,7 +1018,7 @@
     const cards = {
       "how-to-play": {
         title: "How to play",
-        content: `<ol class="more-card-steps"><li><strong>Claim encounters.</strong> Each one joins your PC.</li><li><strong>Build a team.</strong> Choose up to six Pokémon, then adjust their training, moves, and held items.</li><li><strong>Challenge the daily Trainer.</strong> Pick your lead and play out the simulated battle.</li><li><strong>Protect your run.</strong> A win earns money and encounters. A loss wipes your run, but you can start fresh.</li></ol>`,
+        content: `<ol class="more-card-steps"><li><strong>Claim encounters.</strong> Each one joins your PC.</li><li><strong>Build a team.</strong> Choose up to six Pokémon, then adjust their training, moves, and held items.</li><li><strong>Challenge the daily trainer.</strong> Pick your lead and play out the simulated battle.</li><li><strong>Protect your run.</strong> A win earns money and encounters. A loss wipes your run, but you can start fresh tomorrow!</li></ol>`,
       },
       nuzlocke: {
         title: "What a Nuzlocke is",
@@ -1026,11 +1026,11 @@
       },
       schedule: {
         title: "Battle schedule",
-        content: `<dl class="battle-schedule"><div><dt>Sunday</dt><dd>Theme teams</dd></div><div><dt>Monday</dt><dd>Regular Trainers</dd></div><div><dt>Tuesday</dt><dd>Ace Trainers</dd></div><div><dt>Wednesday</dt><dd>Rival battles</dd></div><div><dt>Thursday</dt><dd>Gym Leaders</dd></div><div><dt>Friday</dt><dd>Elite Four</dd></div><div><dt>Saturday</dt><dd>Champion battle</dd></div></dl><p class="schedule-reset">Battles reset each day at 12:00 AM Eastern Time (EST).</p>`,
+        content: `<dl class="battle-schedule"><div><dt>Sunday</dt><dd>Theme teams</dd></div><div><dt>Monday</dt><dd>Regular trainers</dd></div><div><dt>Tuesday</dt><dd>Ace trainers</dd></div><div><dt>Wednesday</dt><dd>Rival battles</dd></div><div><dt>Thursday</dt><dd>Gym leaders</dd></div><div><dt>Friday</dt><dd>Elite 4</dd></div><div><dt>Saturday</dt><dd>Champions</dd></div></dl><p class="schedule-reset">Battles reset each day at 12:00 AM Eastern Time (EST).</p>`,
       },
       affiliation: {
         title: "Affiliation",
-        content: `<p><strong>Nuzzle is an unofficial, fan-made daily <a href="https://bulbapedia.bulbagarden.net/wiki/Nuzlocke_Challenge" target="_blank" rel="noopener noreferrer">Nuzlocke</a> battle simulator.</strong></p><p>It turns the fan-created, self-imposed rules of a Nuzlocke into a daily puzzle, similar in spirit to Wordle or Pokédoku but built around a simulated battle.</p><p>Battles use the open-source <a href="https://github.com/smogon/pokemon-showdown" target="_blank" rel="noopener noreferrer">Pokémon Showdown</a> engine. Sprites are used for identification and readability in place of a text-only display.</p><p>Nuzzle is not affiliated with or endorsed by Nintendo, Creatures Inc., GAME FREAK inc., The Pokémon Company, Smogon, or Pokémon Showdown.</p><p class="legal-copy">Pokémon, Pokémon character names, and sprites are © Nintendo, Creatures Inc., and GAME FREAK inc.</p>`,
+        content: `<p><strong>Nuzzle is an unofficial, fan-made daily <a href="https://bulbapedia.bulbagarden.net/wiki/Nuzlocke_Challenge" target="_blank" rel="noopener noreferrer">Nuzlocke</a> battle simulator.</strong></p><p>It turns the fan-created, self-imposed rules of a Nuzlocke into a daily puzzle, similar in spirit to Wordle or Pokédoku but built around a simulated battle.</p><p>Battles use the open-source <a href="https://github.com/smogon/pokemon-showdown" target="_blank" rel="noopener noreferrer">Pokémon Showdown</a> engine. Sprites are used for identification and readability in place of a text-only display.</p><p>Nuzzle is not affiliated with or endorsed by Nintendo, Creatures Inc., GAME FREAK inc., The Pokémon Company, Smogon, or Pokémon Showdown. Pokémon, Pokémon character names, and sprites are © Nintendo, Creatures Inc., and GAME FREAK inc.</p>`,
       },
     };
     const card = cards[moreCardOpen];

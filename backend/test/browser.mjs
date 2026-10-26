@@ -78,7 +78,9 @@ const password = "correct horse battery staple";
 await page.fill('#auth-username', username);
 await page.fill('#auth-password', password);
 await page.fill('#auth-password-confirmation', password);
-await page.click('.auth-primary[type="submit"]');
+const registrationResponse = page.waitForResponse((response) => response.url().endsWith("/api/auth/register") && response.request().method() === "POST");
+await page.locator("[data-auth-form]").evaluate((form) => form.requestSubmit());
+if (!(await registrationResponse).ok()) throw new Error("Registering the browser-test account failed.");
 await page.waitForSelector(".pc-stage");
 await page.waitForSelector(".welcome-card");
 if ((await page.locator(".welcome-card h2").textContent())?.trim() !== "Welcome to Nuzzle!") throw new Error("A new account did not receive the welcome message.");
@@ -117,7 +119,7 @@ for (const [index, color] of ["red", "yellow", "green", "blue", "gold", "slate",
 }
 await page.setViewportSize({ width: 320, height: 568 });
 const moreCardChecks = [
-  ["how-to-play", "How to play", "Claim encounters", null],
+  ["how-to-play", "How to play", "Challenge the daily trainer", null],
   ["nuzlocke", "What a Nuzlocke is", "fainted Pokémon are considered lost", "bulbapedia.bulbagarden.net/wiki/Nuzlocke_Challenge"],
   ["schedule", "Battle schedule", "12:00 AM Eastern Time (EST)", null],
   ["affiliation", "Affiliation", "not affiliated with or endorsed", "github.com/smogon/pokemon-showdown"],
@@ -130,6 +132,9 @@ for (const [cardId, title, copy, link] of moreCardChecks) {
   const cardFit = await card.evaluate((element) => ({ top: element.getBoundingClientRect().top, bottom: element.getBoundingClientRect().bottom, scrollHeight: element.scrollHeight, clientHeight: element.clientHeight }));
   if (cardFit.top < 0 || cardFit.bottom > 568 || cardFit.scrollHeight > cardFit.clientHeight) throw new Error(`${title} did not fit a 320x568 mobile page without scrolling.`);
   if (link && !await card.locator(`a[href*="${link}"]`).count()) throw new Error(`${title} did not include its required source link.`);
+  if (cardId === "how-to-play" && !(await card.textContent())?.includes("but you can start fresh tomorrow!")) throw new Error("How to play did not use the requested run-reset wording.");
+  if (cardId === "schedule" && (await card.locator(".battle-schedule dd").allTextContents()).join(",") !== "Theme teams,Regular trainers,Ace trainers,Rival battles,Gym leaders,Elite 4,Champions") throw new Error("The battle schedule did not use the requested labels and capitalization.");
+  if (cardId === "affiliation" && (await card.locator(".more-card-content > p").count() !== 4 || !(await card.locator(".more-card-content > p").last().textContent())?.includes("sprites are © Nintendo"))) throw new Error("The affiliation and ownership notices were not combined into one paragraph.");
   await card.locator(".more-card-back").click();
   if (await page.locator(".more-card").count()) throw new Error(`${title} remained open after using Back.`);
 }
@@ -368,6 +373,10 @@ if (!await page.locator(".pc-item-chooser").count()) throw new Error("Taking a h
 if (await page.locator(".pc-held-item").count()) throw new Error("The taken held item remained on the Pokémon.");
 if (await page.locator('[data-pc-item="leftovers"]').count() !== 1) throw new Error("The taken held item did not return to the available item list.");
 if (!(await page.locator(".pc-item-feedback").textContent())?.includes("returned to the Bag")) throw new Error("Taking a held item did not show confirmation feedback.");
+await page.waitForFunction(async (pokemonId) => {
+  const game = await fetch("/api/game").then((response) => response.json());
+  return !game.roster.find((pokemon) => pokemon.id === pokemonId)?.heldItemId && game.inventory.leftovers === 1;
+}, outgoingId);
 const unequippedGame = await page.evaluate(() => fetch("/api/game").then((response) => response.json()));
 if (unequippedGame.roster.find((pokemon) => pokemon.id === outgoingId).heldItemId) throw new Error("The Pokémon kept its removed held item.");
 if (unequippedGame.inventory.leftovers !== 1) throw new Error("Removing a held item changed its owned quantity.");
