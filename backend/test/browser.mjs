@@ -379,6 +379,7 @@ if (Number(completedEncounterCopy.fontWeight) > 400) throw new Error("The comple
 await page.click(".page-back");
 await page.click('[data-route="mart"]');
 if (await page.locator('[data-shop-group="TMs"], [data-shop-group="Training Items"]').count()) throw new Error("Training consumables still appeared in the Mart.");
+if ((await page.locator("[data-shop-group]").allTextContents()).join(",") !== "Held items,Key items") throw new Error("The Mart did not show the Held items and Key items segments.");
 if (await page.locator(".shop-item").count() !== 139) throw new Error("The Mart did not render every approved held item.");
 await assertMobileLayout("Mart", [".shop-list"]);
 await page.click('[data-open-purchase="leftovers"]');
@@ -395,6 +396,7 @@ const tmHighlightFits = await page.locator(".shop-segments").evaluate((element) 
 if (!tmHighlightFits) throw new Error("The held-item segment highlight overflowed its control.");
 await page.click(".page-back");
 await page.click('[data-route="bag"]');
+if ((await page.locator("[data-bag-group]").allTextContents()).join(",") !== "Held items,Key items") throw new Error("The Bag did not show the Held items and Key items segments.");
 if (!await page.locator(".bag-list").count()) throw new Error("The Bag did not render its contained item list.");
 await assertMobileLayout("Bag", [".bag-list"]);
 await page.click(".page-back");
@@ -635,6 +637,12 @@ if (battlePanelFallback.overflowY !== "auto" || battlePanelFallback.overflow <= 
 
 if (await page.locator(".battler-slot.player").getAttribute("data-pokemon") !== replacementId) throw new Error("The selected PC Pokémon was not used as the lead.");
 if (!(await page.locator(".battle-hud.enemy").textContent())?.includes("Lv. 100")) throw new Error("Brock's Pokémon is not level 100.");
+const battleHealth = await page.locator(".battle-hud").evaluateAll((huds) => huds.map((hud) => {
+  const bar = hud.querySelector(".hp-bar").getBoundingClientRect();
+  const detail = hud.querySelector(".battle-hud-detail").getBoundingClientRect();
+  return { text: hud.querySelector(".battle-hud-detail small").textContent.trim(), separated: bar.bottom <= detail.top };
+}));
+if (battleHealth.some(({ text, separated }) => !/^\d+%$/.test(text) || !separated)) throw new Error(`Battle HP did not use separated percentage labels: ${JSON.stringify(battleHealth)}`);
 if (await page.locator("[data-battle-move]").count() !== 4) throw new Error("The engine did not provide four moves.");
 if (await page.locator(".battle-platform").count() !== 2) throw new Error("The CSS battlefield platforms were not rendered.");
 if (await page.locator(".battle-platform").first().evaluate((element) => getComputedStyle(element).backgroundImage) !== "none") throw new Error("The battle still shows an oval platform.");
@@ -745,6 +753,8 @@ const leaderboardRowLayout = await page.locator(".leaderboard-row.leaderboard-lo
 });
 if (Math.abs(leaderboardRowLayout.avatarCenter - leaderboardRowLayout.teamCenter) > 2) throw new Error("The leaderboard avatar was not aligned beside the Pokémon team.");
 if (leaderboardRowLayout.height > 85) throw new Error("The daily leaderboard row became too tall.");
+if ((await page.locator(".leaderboard-content").textContent()).toUpperCase().includes("LOSS")) throw new Error("The daily leaderboard still displayed the LOSS label.");
+if (await page.locator(".leaderboard-loss .leaderboard-mon.survived").count()) throw new Error("A forfeited battle showed surviving Pokémon on the leaderboard.");
 await page.click('[data-leaderboard-view="streak"]');
 if (!(await page.locator(".streak-row").textContent())?.includes("0-day streak")) throw new Error("A completed loss did not appear as a zero-day streak.");
 await page.click('.leaderboard-stage [data-route="home"]');
@@ -756,9 +766,10 @@ if (!(await resetResponse).ok()) throw new Error("Resetting the admin's daily ba
 if (!(await page.locator(".more-developer").textContent())?.includes("ready to play again")) throw new Error("The daily battle reset did not report success.");
 await page.click('.more-stage [data-route="home"]');
 const freshBattleButton = page.locator('.home-actions .red[data-route="encounters"]');
-if ((await freshBattleButton.textContent())?.trim() !== "Battle") throw new Error("A forfeit did not route the fresh run through opening encounters.");
+if ((await freshBattleButton.textContent())?.trim() !== "Battle") throw new Error("A forfeit did not route the empty fresh run through encounters.");
 await freshBattleButton.click();
-if (await page.locator("[data-encounter]").count() !== 12) throw new Error("A forfeit did not create twelve fresh-run encounters.");
+if (await page.locator("[data-encounter]").count()) throw new Error("A forfeit granted fresh-run encounters before the next day.");
+if (!(await page.locator(".encounter-empty").textContent())?.includes("New encounters in")) throw new Error("The post-wipe encounter screen did not show the next-day countdown.");
 
 const imageFailures = await page.locator("img").evaluateAll((images) => images.filter((image) => !image.complete || image.naturalWidth === 0).map((image) => image.src));
 await browser.close();

@@ -239,7 +239,8 @@ test("forfeit produces a Brock win", async () => {
   assert.equal(result.ended, true);
   assert.equal(result.winner, "Brock");
   assert.equal(result.forfeited, true);
-  assert.deepEqual(service.get(initial.id).record.result, { winner: "Brock", playerWiped: true, faintedPokemonIds: [] });
+  assert.deepEqual(new Set(service.get(initial.id).record.result.faintedPokemonIds), new Set(defaultParty));
+  assert.equal(service.get(initial.id).record.result.playerWiped, true);
 });
 
 test("trainer AI prefers a guaranteed KO over a status move", async () => {
@@ -278,8 +279,8 @@ test("trainer AI prefers materially higher ordinary damage", async () => {
 test("daily leaderboard ranks winners by survivors and then completion time", async () => {
   const { service } = await serviceFixture();
   const pokemon = (id, fainted) => ({ id, name: id, spriteId: id, fainted });
-  const addBattle = ({ id, userId, winner, completedAt, fainted }) => service.battles.set(id, {
-    record: { id, userId, challengeDate: "2026-10-24", completedAt, createdAt: completedAt },
+  const addBattle = ({ id, userId, winner, completedAt, fainted, forfeited = false }) => service.battles.set(id, {
+    record: { id, userId, challengeDate: "2026-10-24", completedAt, createdAt: completedAt, forfeited },
     state: () => ({
       ended: true,
       winner,
@@ -290,16 +291,19 @@ test("daily leaderboard ranks winners by survivors and then completion time", as
   addBattle({ id: "early-clean", userId: "early", winner: "Player", completedAt: "2026-10-24T14:00:00.000Z", fainted: 0 });
   addBattle({ id: "one-loss", userId: "one", winner: "Player", completedAt: "2026-10-24T13:00:00.000Z", fainted: 1 });
   addBattle({ id: "defeat", userId: "lost", winner: "Brock", completedAt: "2026-10-24T12:00:00.000Z", fainted: 6 });
-  const usernames = { clean: "Clean", early: "Early", one: "One", lost: "Lost" };
+  addBattle({ id: "forfeit", userId: "quit", winner: "Brock", completedAt: "2026-10-24T13:00:00.000Z", fainted: 1, forfeited: true });
+  const usernames = { clean: "Clean", early: "Early", one: "One", lost: "Lost", quit: "Quit" };
   const entries = service.dailyLeaderboard("2026-10-24", (id) => ({ username: usernames[id], avatarSpriteId: id === "early" ? "misty" : null }));
   assert.deepEqual(entries.map(({ rank, username, fainted }) => ({ rank, username, fainted })), [
     { rank: 1, username: "Early", fainted: 0 },
     { rank: 2, username: "Clean", fainted: 0 },
     { rank: 3, username: "One", fainted: 1 },
     { rank: 4, username: "Lost", fainted: 6 },
+    { rank: 5, username: "Quit", fainted: 6 },
   ]);
   assert.equal(entries[0].team.length, 6);
   assert.equal(entries[0].avatarSpriteId, "misty");
+  assert.equal(entries.find((entry) => entry.username === "Quit").team.every((pokemon) => pokemon.fainted), true);
 });
 
 test("streak leaderboard counts consecutive wins ending today", async () => {

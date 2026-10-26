@@ -487,7 +487,7 @@ export class GameStore {
       if (run.resetFromBattleId === battleId) return this.publicState(run);
       const replacement = newRun(userId, run.month);
       replacement.resetFromBattleId = battleId;
-      ensureDaily(replacement, run.daily.date);
+      replacement.daily = { date: run.daily.date, encounters: [] };
       this.data.runs[userId] = replacement;
       return this.publicState(replacement);
     });

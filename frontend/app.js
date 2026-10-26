@@ -655,7 +655,7 @@
     return `<section class="screen battle-screen">${header()}<div class="arena battle-arena" aria-label="Grassy battlefield">
       <div class="battle-platform enemy" aria-hidden="true"></div><div class="battle-platform player" aria-hidden="true"></div>
       ${enemy ? `<div class="battler-slot enemy" data-pokemon="${escapeHtml(enemy.id)}"><img class="sprite active-sprite" src="${sprite(enemy.id, false, enemy.spriteId, enemy.shiny)}" alt="${escapeHtml(enemy.name)}" /></div><section class="battle-hud enemy" aria-label="Opponent ${escapeHtml(enemy.name)}"><div class="battle-hud-title"><strong>${escapeHtml(enemy.name)}</strong><span>Lv. ${enemy.level}</span></div><div class="hp-bar ${healthTone(enemy.percent)}"><i style="width:${enemy.percent}%"></i></div><div class="battle-hud-detail"><span>HP</span><small>${enemy.percent}%</small>${enemy.status ? `<b>${escapeHtml(enemy.status.toUpperCase())}</b>` : ""}</div></section>` : ""}
-      ${player ? `<div class="battler-slot player" data-pokemon="${escapeHtml(player.id)}"><img class="sprite active-sprite" src="${sprite(player.id, true, player.spriteId, player.shiny)}" alt="${escapeHtml(player.name)}" /></div><section class="battle-hud player" aria-label="Your ${escapeHtml(player.name)}"><div class="battle-hud-title"><strong>${escapeHtml(player.name)}</strong><span>Lv. ${player.level}</span></div><div class="hp-bar ${healthTone(player.percent)}"><i style="width:${player.percent}%"></i></div><div class="battle-hud-detail"><span>HP</span><small>${player.hp}/${player.maxHp}</small>${player.status ? `<b>${escapeHtml(player.status.toUpperCase())}</b>` : ""}</div></section>` : ""}
+      ${player ? `<div class="battler-slot player" data-pokemon="${escapeHtml(player.id)}"><img class="sprite active-sprite" src="${sprite(player.id, true, player.spriteId, player.shiny)}" alt="${escapeHtml(player.name)}" /></div><section class="battle-hud player" aria-label="Your ${escapeHtml(player.name)}"><div class="battle-hud-title"><strong>${escapeHtml(player.name)}</strong><span>Lv. ${player.level}</span></div><div class="hp-bar ${healthTone(player.percent)}"><i style="width:${player.percent}%"></i></div><div class="battle-hud-detail"><span>HP</span><small>${player.percent}%</small>${player.status ? `<b>${escapeHtml(player.status.toUpperCase())}</b>` : ""}</div></section>` : ""}
     </div><div class="battle-panel${battleLogExpanded ? " log-expanded" : ""}"><section class="battle-log-card${battleLogExpanded ? " expanded" : ""}" aria-labelledby="battle-log-title"><header><h2 id="battle-log-title">Battle log</h2><div>${battleLogHasNew ? '<button type="button" data-battle-log-new>New events</button>' : ""}<button type="button" data-toggle-battle-log aria-expanded="${battleLogExpanded}">${battleLogExpanded ? "Collapse" : "Expand"}</button></div></header><div class="battle-log-body" data-battle-log role="log" aria-label="Battle events" tabindex="0"><div class="battle-log-stack">${logHtml || '<p class="battle-log-empty">The battle is starting…</p>'}</div></div></section><span class="visually-hidden" role="status" aria-live="polite">${escapeHtml(latestAnnouncement)}</span>
       <div class="battle-command-area" ${battleLogExpanded ? 'inert aria-hidden="true"' : ""}><p class="prompt">${prompt} <small>Turn ${battleState.turn}</small></p>${battleState.forcedSwitch || battleState.ended ? "" : `<h2 class="section-label attack">Attack</h2><div class="move-grid">${movesHtml}</div>`}
       <h2 class="section-label">Switch</h2><div class="switch-grid">${switchesHtml}</div>${battleError ? `<p class="battle-error" role="alert">${escapeHtml(battleError)}</p>` : ""}</div>
@@ -869,7 +869,9 @@
   }
 
   let shopItems = [];
-  const itemGroupOrder = ["Held Items"];
+  const itemGroupOrder = ["Held Items", "Key Items"];
+  const pcItemGroupOrder = ["Held Items"];
+  const itemGroupLabel = (group) => group === "Held Items" ? "Held items" : group === "Key Items" ? "Key items" : group;
   const natureOptions = [
     { name: "Adamant", up: "Atk", down: "SpA" }, { name: "Lonely", up: "Atk", down: "Def" }, { name: "Naughty", up: "Atk", down: "SpD" }, { name: "Brave", up: "Atk", down: "Spe" },
     { name: "Bold", up: "Def", down: "Atk" }, { name: "Impish", up: "Def", down: "SpA" }, { name: "Relaxed", up: "Def", down: "Spe" }, { name: "Lax", up: "Def", down: "SpD" },
@@ -906,7 +908,7 @@
       return `<section class="pc-item-chooser training-config" aria-labelledby="pc-item-heading"><h3 id="pc-item-heading">Use ${escapeHtml(item.name)}</h3><p>${escapeHtml(item.detail)}</p><form data-train-form data-item-id="${item.id}">${controls}<button class="gloss-button blue pc-item-confirm" type="submit" ${unusable ? "disabled" : ""}>Confirm</button></form></section>`;
     }
     const ownedItems = shopItems.filter((item) => item.group === activePcItemGroup && inventory[item.id] && item.id !== mon.heldItemId);
-    const activeGroupIndex = itemGroupOrder.indexOf(activePcItemGroup);
+    const activeGroupIndex = pcItemGroupOrder.indexOf(activePcItemGroup);
     const activeTabId = `pc-item-tab-${activePcItemGroup.toLowerCase().replaceAll(" ", "-")}`;
     const heldItem = mon.heldItemId ? shopItems.find((item) => item.id === mon.heldItemId) : null;
     const heldItemControl = heldItem ? `<div class="pc-held-item"><span><small>Currently holding</small><strong>${escapeHtml(heldItem.name)}</strong></span><button class="item-action take" type="button" data-pc-unequip>Take</button></div>` : "";
@@ -915,11 +917,13 @@
       const incompatible = item.group === "TMs" && !mon.learnableMoveIds?.includes(item.moveId);
       return `<div class="pc-item-row${incompatible ? " incompatible" : ""}">${itemIcon(item)}<span class="item-copy"><strong>${escapeHtml(item.name)}</strong><small>${incompatible ? `Cannot be learned by ${escapeHtml(mon.name)}` : escapeHtml(item.detail)}</small></span><span class="item-quantity">×${inventory[item.id]}</span><button class="item-action" type="button" data-pc-item="${item.id}" ${incompatible ? "disabled" : ""}>${action}</button></div>`;
     }).join("") : `<div class="pc-item-empty"><strong>No items</strong><span>This category is empty.</span></div>`;
-    return `<section class="pc-item-chooser" aria-labelledby="pc-item-heading"><h3 id="pc-item-heading">Use item on ${mon.name}</h3>${pcItemMessage ? `<p class="pc-item-feedback" role="status">${escapeHtml(pcItemMessage)}</p>` : ""}${heldItemControl}<div class="shop-segments pc-item-segments" data-active-index="${activeGroupIndex}" role="tablist" aria-label="Item categories">${itemGroupOrder.map((group) => { const selected = group === activePcItemGroup; return `<button id="pc-item-tab-${group.toLowerCase().replaceAll(" ", "-")}" type="button" role="tab" aria-selected="${selected}" data-pc-item-group="${group}" class="${selected ? "selected" : ""}">${group}</button>`; }).join("")}</div><div class="pc-item-list" role="tabpanel" aria-labelledby="${activeTabId}">${rows}</div></section>`;
+    return `<section class="pc-item-chooser" aria-labelledby="pc-item-heading"><h3 id="pc-item-heading">Use item on ${mon.name}</h3>${pcItemMessage ? `<p class="pc-item-feedback" role="status">${escapeHtml(pcItemMessage)}</p>` : ""}${heldItemControl}<div class="shop-segments pc-item-segments" data-active-index="${activeGroupIndex}" role="tablist" aria-label="Item categories">${pcItemGroupOrder.map((group) => { const selected = group === activePcItemGroup; return `<button id="pc-item-tab-${group.toLowerCase().replaceAll(" ", "-")}" type="button" role="tab" aria-selected="${selected}" data-pc-item-group="${group}" class="${selected ? "selected" : ""}">${itemGroupLabel(group)}</button>`; }).join("")}</div><div class="pc-item-list" role="tabpanel" aria-labelledby="${activeTabId}">${rows}</div></section>`;
   }
 
   function shopRows() {
-    return shopItems.filter((item) => item.group === activeShopGroup).map((item) => {
+    const items = shopItems.filter((item) => item.group === activeShopGroup);
+    if (!items.length) return '<div class="shop-empty"><strong>No items</strong><span>Nothing is available in this category yet.</span></div>';
+    return items.map((item) => {
       const owned = inventory[item.id] || 0;
       const soldOut = item.purchaseLimit === 1 && gameState?.purchasedUnique.includes(item.id);
       return `<div class="shop-item">${itemIcon(item)}<span class="item-copy"><strong>${escapeHtml(item.name)}</strong>${owned ? `<small>Owned: ${owned}</small>` : ""}</span><button class="item-about-button" type="button" data-item-about="${item.id}" aria-label="About ${escapeHtml(item.name)}">?</button><button class="price-button" type="button" data-open-purchase="${item.id}" ${balance < item.price || soldOut ? "disabled" : ""}>${soldOut ? "Bought" : `₽${item.price.toLocaleString()}`}</button></div>`;
@@ -966,7 +970,7 @@
     const activeGroupIndex = itemGroupOrder.indexOf(activeShopGroup);
     const activeTabId = `shop-tab-${activeShopGroup.toLowerCase().replaceAll(" ", "-")}`;
     return `<section class="screen">${header()}<div class="mart-stage"><div class="mart-summary"><p class="purchase-message" aria-live="polite">${purchaseMessage}</p><p class="balance">Balance: <strong>₽${balance.toLocaleString()}</strong></p></div>
-      <div class="shop-segments" data-active-index="${activeGroupIndex}" role="tablist" aria-label="Mart categories">${itemGroupOrder.map((group) => { const selected = group === activeShopGroup; return `<button id="shop-tab-${group.toLowerCase().replaceAll(" ", "-")}" type="button" role="tab" aria-selected="${selected}" data-shop-group="${group}" class="${selected ? "selected" : ""}">${group}</button>`; }).join("")}</div>
+      <div class="shop-segments mart-segments" data-active-index="${activeGroupIndex}" role="tablist" aria-label="Mart categories">${itemGroupOrder.map((group) => { const selected = group === activeShopGroup; return `<button id="shop-tab-${group.toLowerCase().replaceAll(" ", "-")}" type="button" role="tab" aria-selected="${selected}" data-shop-group="${group}" class="${selected ? "selected" : ""}">${itemGroupLabel(group)}</button>`; }).join("")}</div>
       <div class="shop-list" id="shop-items" role="tabpanel" aria-labelledby="${activeTabId}">${shopRows()}</div>${backButton()}</div>${martSheet()}</section>`;
   }
 
@@ -983,7 +987,7 @@
     const activeGroupIndex = itemGroupOrder.indexOf(activeBagGroup);
     const activeTabId = `bag-tab-${activeBagGroup.toLowerCase().replaceAll(" ", "-")}`;
     return `<section class="screen">${header()}<div class="bag-stage"><div class="bag-summary"><span>${total} item${total === 1 ? "" : "s"}</span><span>₽${balance.toLocaleString()}</span></div>
-      <div class="shop-segments bag-segments" data-active-index="${activeGroupIndex}" role="tablist" aria-label="Bag categories">${itemGroupOrder.map((group) => { const selected = group === activeBagGroup; return `<button id="bag-tab-${group.toLowerCase().replaceAll(" ", "-")}" type="button" role="tab" aria-selected="${selected}" data-bag-group="${group}" class="${selected ? "selected" : ""}">${group}</button>`; }).join("")}</div>
+      <div class="shop-segments bag-segments" data-active-index="${activeGroupIndex}" role="tablist" aria-label="Bag categories">${itemGroupOrder.map((group) => { const selected = group === activeBagGroup; return `<button id="bag-tab-${group.toLowerCase().replaceAll(" ", "-")}" type="button" role="tab" aria-selected="${selected}" data-bag-group="${group}" class="${selected ? "selected" : ""}">${itemGroupLabel(group)}</button>`; }).join("")}</div>
       <div class="bag-contents" role="tabpanel" aria-labelledby="${activeTabId}">${bagContents()}</div>${backButton()}</div></section>`;
   }
 
@@ -995,7 +999,7 @@
       : leaderboardError
         ? `<div class="leaderboard-empty"><strong>Could not load leaderboard</strong><span>${escapeHtml(leaderboardError)}</span></div>`
         : entries.length
-          ? `<ol class="leaderboard-list">${entries.map((entry) => `<li class="leaderboard-row${entry.won ? "" : " leaderboard-loss"}"><span class="leaderboard-rank" aria-label="Rank ${entry.rank}">${entry.rank}</span><div class="leaderboard-entry"><strong class="leaderboard-player-name">${escapeHtml(entry.username)}${entry.won ? "" : '<small>loss</small>'}</strong><div class="leaderboard-roster"><span class="leaderboard-avatar" aria-hidden="true">${avatarContent(entry)}</span><div class="leaderboard-team" aria-label="${entry.team.length - entry.fainted} surviving Pokémon and ${entry.fainted} fainted Pokémon">${entry.team.map((pokemon) => `<span class="leaderboard-mon ${pokemon.fainted ? "fainted" : "survived"}" title="${escapeHtml(pokemon.name)} — ${pokemon.fainted ? "fainted" : "survived"}"><img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId, pokemon.shiny)}" alt="${escapeHtml(pokemon.name)}"></span>`).join("")}</div></div></div></li>`).join("")}</ol>`
+          ? `<ol class="leaderboard-list">${entries.map((entry) => `<li class="leaderboard-row${entry.won ? "" : " leaderboard-loss"}"><span class="leaderboard-rank" aria-label="Rank ${entry.rank}">${entry.rank}</span><div class="leaderboard-entry"><strong class="leaderboard-player-name">${escapeHtml(entry.username)}</strong><div class="leaderboard-roster"><span class="leaderboard-avatar" aria-hidden="true">${avatarContent(entry)}</span><div class="leaderboard-team" aria-label="${entry.team.length - entry.fainted} surviving Pokémon and ${entry.fainted} fainted Pokémon">${entry.team.map((pokemon) => `<span class="leaderboard-mon ${pokemon.fainted ? "fainted" : "survived"}" title="${escapeHtml(pokemon.name)} — ${pokemon.fainted ? "fainted" : "survived"}"><img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId, pokemon.shiny)}" alt="${escapeHtml(pokemon.name)}"></span>`).join("")}</div></div></div></li>`).join("")}</ol>`
           : '<div class="leaderboard-empty"><strong>No results yet</strong><span>Today’s first completed battle will appear here.</span></div>';
     const streakContent = leaderboardLoading
       ? '<div class="leaderboard-empty"><strong>Loading leaderboard…</strong></div>'

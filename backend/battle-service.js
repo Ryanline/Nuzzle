@@ -643,7 +643,9 @@ export class BattleController {
     }
     if (!this.settlement) this.settlement = (async () => {
       const finalState = this.state();
-      const faintedPokemonIds = faintedPlayerIds(this.record, this.stream.battle.p1.pokemon);
+      const faintedPokemonIds = this.record.forfeited
+        ? playerTeamIds(this.record)
+        : faintedPlayerIds(this.record, this.stream.battle.p1.pokemon);
       this.record.result = {
         winner: finalState.winner,
         playerWiped: Boolean(this.record.forfeited) || (finalState.player.team.length > 0 && finalState.player.team.every((pokemon) => pokemon.fainted)),
@@ -745,7 +747,7 @@ export class BattleService {
           name: pokemon.name,
           spriteId: pokemon.spriteId,
           shiny: pokemon.shiny,
-          fainted: pokemon.fainted,
+          fainted: Boolean(battle.record.forfeited) || pokemon.fainted,
         }));
         return {
           username: user.username,

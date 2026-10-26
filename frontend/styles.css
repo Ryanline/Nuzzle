@@ -254,11 +254,11 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .battle-hud-title { display: flex; min-width: 0; align-items: baseline; justify-content: space-between; gap: 6px; }
 .battle-hud-title strong { min-width: 0; overflow: hidden; font-size: 15px; line-height: 1.15; text-overflow: ellipsis; white-space: nowrap; }
 .battle-hud-title span { flex: 0 0 auto; font-size: 11px; font-weight: 700; }
-.battle-hud .hp-bar { height: 10px; margin-top: 5px; padding: 1px; border: 1px solid #49443b; border-radius: 6px; background: #6c685f; }
-.battle-hud .hp-bar i { display: block; height: 100%; border-radius: 4px; background: #22bb61; transition: width .25s, background-color .25s; }
+.battle-hud .hp-bar { box-sizing: border-box; width: 100%; height: 10px; margin-top: 5px; padding: 1px; overflow: hidden; border: 1px solid #49443b; border-radius: 6px; background: #6c685f; }
+.battle-hud .hp-bar i { display: block; max-width: 100%; height: 100%; border-radius: 4px; background: #22bb61; transition: width .25s, background-color .25s; }
 .battle-hud .hp-bar.warning i { background: #e7b62c; }
 .battle-hud .hp-bar.critical i { background: #d54c43; }
-.battle-hud-detail { display: flex; min-height: 15px; align-items: center; justify-content: flex-end; gap: 5px; margin-top: 2px; font-size: 10px; }
+.battle-hud-detail { display: flex; min-height: 15px; align-items: center; justify-content: flex-end; gap: 5px; margin-top: 3px; font-size: 10px; line-height: 1.2; }
 .battle-hud-detail > span { margin-right: auto; color: #6d6555; font-size: 8px; font-weight: 800; letter-spacing: .08em; }
 .battle-hud-detail small { font-size: 10px; }
 .battle-hud-detail b { padding: 1px 4px; border-radius: 3px; background: #75668b; color: #fff; font-size: 8px; }
@@ -588,16 +588,21 @@ button.encounter-card:active { background: #eef5ef; transform: translateY(1px); 
 .mart-summary, .bag-summary { display: flex; min-height: 26px; align-items: center; justify-content: space-between; gap: 10px; color: var(--muted); font-size: 13px; }
 .balance { margin: 0; color: var(--ink); text-align: right; }
 .purchase-message { margin: 0; overflow: hidden; color: #397443; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
-.shop-segments { position: relative; display: grid; grid-template-columns: 1fr; gap: 3px; margin: 3px 0 7px; padding: 3px; border: 1px solid #b9b9b9; border-radius: 8px; background: #e8e8e5; }
-.shop-segments::before { position: absolute; z-index: 0; top: 3px; bottom: 3px; left: 3px; box-sizing: border-box; width: calc(100% - 6px); border: 1px solid #6da4ce; border-radius: 5px; background: #e9f4fc; box-shadow: 0 1px 2px rgba(0,0,0,.12); content: ""; transition: transform 180ms cubic-bezier(.25,.8,.25,1); }
+.shop-segments { position: relative; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px; margin: 3px 0 7px; padding: 3px; border: 1px solid #b9b9b9; border-radius: 8px; background: #e8e8e5; }
+.shop-segments::before { position: absolute; z-index: 0; top: 3px; bottom: 3px; left: 3px; box-sizing: border-box; width: calc((100% - 9px) / 2); border: 1px solid #6da4ce; border-radius: 5px; background: #e9f4fc; box-shadow: 0 1px 2px rgba(0,0,0,.12); content: ""; transition: transform 180ms cubic-bezier(.25,.8,.25,1); }
 .shop-segments[data-active-index="1"]::before { transform: translateX(calc(100% + 3px)); }
 .shop-segments[data-active-index="2"]::before { transform: translateX(calc(200% + 6px)); }
+.pc-item-segments { grid-template-columns: 1fr; }
+.pc-item-segments::before { width: calc(100% - 6px); }
 .shop-segments button { position: relative; z-index: 1; min-width: 0; min-height: 36px; padding: 4px 6px; border: 1px solid transparent; border-radius: 5px; background: transparent; color: #555; cursor: pointer; font-size: 13px; font-weight: 700; }
 .shop-segments button:hover:not(.selected) { background: rgba(255,255,255,.55); }
 .shop-segments button.selected { color: #185f98; }
 @media (prefers-reduced-motion: reduce) { .shop-segments::before { transition: none; } }
 .shop-list, .bag-list { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .shop-list { flex: 1; }
+.shop-empty { display: grid; min-height: 100%; place-content: center; gap: 3px; color: var(--muted); text-align: center; }
+.shop-empty strong { color: var(--ink); font-size: 18px; font-weight: 400; }
+.shop-empty span { font-size: 12px; }
 .bag-contents { display: flex; min-height: 0; flex: 1; }
 .bag-list { width: 100%; flex: 1; }
 .shop-list h2, .bag-list h2, .simple-stage h2 { margin: 6px 0 3px; border-bottom: 1px solid #c2cad4; color: #2d5d9c; font-size: 21px; font-style: italic; }

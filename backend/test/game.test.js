@@ -14,7 +14,7 @@ const { Dex } = require("pokemon-showdown");
 async function fixture(now = new Date("2026-10-20T16:00:00Z")) {
   const directory = await mkdtemp(path.join(os.tmpdir(), "nuzzle-game-"));
   const filename = path.join(directory, "game.json");
-  const store = new GameStore(filename, { timeZone: "America/New_York", now: () => now });
+  const store = new GameStore(filename, { timeZone: "America/New_York", now: typeof now === "function" ? now : () => now });
   await store.initialize();
   return { filename, store };
 }
@@ -124,8 +124,9 @@ test("a new run starts empty and offers twelve individually claimed encounters",
   }
 });
 
-test("a wipe immediately starts a fresh run without changing the game date", async () => {
-  const { store } = await fixture();
+test("a wipe defers twelve fresh-run encounters until the next day without adding daily encounters", async () => {
+  let now = new Date("2026-10-20T16:00:00Z");
+  const { store } = await fixture(() => now);
   let state = await store.get("wipe-user");
   for (let slot = 0; slot < 12; slot++) state = await store.claimEncounter("wipe-user", slot);
   state = await store.buy("wipe-user", "leftovers", 1);
@@ -140,12 +141,26 @@ test("a wipe immediately starts a fresh run without changing the game date", asy
   assert.deepEqual(reset.inventory, {});
   assert.deepEqual(reset.purchasedUnique, []);
   assert.equal(reset.battleUnlocked, false);
-  assert.equal(reset.encounters.length, 12);
-  assert.equal(reset.encounters.every((encounter) => encounter.kind === "opening" && !encounter.claimed), true);
+  assert.equal(reset.encounters.length, 0);
 
   const repeated = await store.resetAfterWipe("wipe-user", "lost-battle");
   assert.equal(repeated.runId, reset.runId);
   assert.deepEqual(repeated.encounters, reset.encounters);
+
+  const sameDay = await store.get("wipe-user");
+  assert.equal(sameDay.encounters.length, 0);
+  now = new Date("2026-10-21T16:00:00Z");
+  let nextDay = await store.get("wipe-user");
+  assert.equal(nextDay.encounters.length, 12);
+  assert.equal(nextDay.encounters.every((encounter) => encounter.kind === "opening" && !encounter.claimed), true);
+  for (let slot = 0; slot < 12; slot++) nextDay = await store.claimEncounter("wipe-user", slot);
+  assert.equal(nextDay.encounters.length, 12);
+  assert.equal(nextDay.encounters.every((encounter) => encounter.claimed), true);
+
+  now = new Date("2026-10-22T16:00:00Z");
+  const followingDay = await store.get("wipe-user");
+  assert.equal(followingDay.encounters.length, 3);
+  assert.equal(followingDay.encounters.every((encounter) => encounter.kind === "single" && !encounter.claimed), true);
 });
 
 test("Sunday provides four persisted encounters and restoring the store does not reroll them", async () => {
