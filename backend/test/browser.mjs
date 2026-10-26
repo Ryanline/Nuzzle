@@ -389,9 +389,6 @@ const itemControlAppearance = await page.locator(".shop-item").first().evaluate(
   const hadTheme = root.hasAttribute("data-theme");
   const previousTheme = root.getAttribute("data-theme");
   const tile = row.querySelector(".item-icon.held");
-  const info = row.querySelector(".item-about-button");
-  const infoMark = info.querySelector("span");
-  const price = row.querySelector(".price-button");
   root.dataset.theme = "light";
   const lightTile = getComputedStyle(tile).backgroundColor;
   root.dataset.theme = "dark";
@@ -399,16 +396,12 @@ const itemControlAppearance = await page.locator(".shop-item").first().evaluate(
   if (hadTheme) root.setAttribute("data-theme", previousTheme);
   else root.removeAttribute("data-theme");
   return {
-    infoText: info.textContent.trim(),
-    visualGap: price.getBoundingClientRect().left - infoMark.getBoundingClientRect().right,
-    tapWidth: info.getBoundingClientRect().width,
-    markWidth: infoMark.getBoundingClientRect().width,
     lightTile,
     darkTile,
   };
 });
-if (itemControlAppearance.infoText !== "i" || itemControlAppearance.tapWidth <= itemControlAppearance.markWidth || itemControlAppearance.visualGap < 8) throw new Error(`The Mart info controls were not distinct and comfortably spaced: ${JSON.stringify(itemControlAppearance)}`);
 if (itemControlAppearance.lightTile === itemControlAppearance.darkTile) throw new Error("Held-item tiles did not adapt to dark mode.");
+if (await page.locator(".item-about-button, [data-item-about]").count()) throw new Error("The Mart retained a separate item-info control.");
 if (!await page.locator("[data-mart-search]").count()) throw new Error("The Mart did not expose item search.");
 await page.locator("[data-mart-search]").evaluate((input) => { input.dataset.identity = "original"; });
 await page.locator("[data-mart-search]").pressSequentially("leftovers", { delay: 10 });
@@ -418,22 +411,26 @@ await page.fill("[data-mart-search]", "");
 await assertMobileLayout("Mart", [".shop-list"]);
 await page.click('[data-open-purchase="leftovers"]');
 await assertMobileLayout("Mart purchase drawer", [".mart-sheet"]);
+const purchaseDrawer = await page.locator(".mart-sheet").evaluate((sheet) => ({
+  title: sheet.querySelector("h2")?.textContent.trim(),
+  description: sheet.querySelector(".mart-item-description")?.textContent.trim(),
+  labels: [...sheet.querySelectorAll(".purchase-ledger p > span:first-child")].map((label) => label.textContent.trim()),
+  values: [...sheet.querySelectorAll(".purchase-ledger .purchase-value")].map((value) => value.textContent.trim()),
+  actions: [...sheet.querySelectorAll(".mart-sheet-actions button")].map((button) => button.textContent.trim()),
+  hasSprite: Boolean(sheet.querySelector(".held-item-sprite")),
+  hasCloseButton: Boolean(sheet.querySelector(".sheet-close[data-close-mart-sheet]")),
+  hasQuantityUi: Boolean(sheet.querySelector("#purchase-quantity, [data-purchase-quantity-output], .purchase-slider")),
+}));
+if (purchaseDrawer.title !== "Leftovers" || !purchaseDrawer.description || !purchaseDrawer.hasSprite || !purchaseDrawer.hasCloseButton) throw new Error(`The unified held-item drawer was incomplete: ${JSON.stringify(purchaseDrawer)}`);
+if (purchaseDrawer.labels.join(",") !== "Money,Price,Remaining after" || purchaseDrawer.actions.join(",") !== "Buy,Close" || purchaseDrawer.hasQuantityUi) throw new Error(`The held-item drawer retained obsolete purchase controls: ${JSON.stringify(purchaseDrawer)}`);
+if (!purchaseDrawer.values[0].includes("50,000") || !purchaseDrawer.values[1].includes("2,500") || !purchaseDrawer.values[2].includes("47,500")) throw new Error(`The held-item purchase totals were incorrect: ${JSON.stringify(purchaseDrawer.values)}`);
 const heldItemPurchaseResponse = page.waitForResponse((response) => response.url().includes("/api/game/shop/leftovers") && response.request().method() === "POST");
 await page.click('[data-purchase-form="leftovers"] button[type="submit"]');
 if (!(await heldItemPurchaseResponse).ok()) throw new Error("Purchasing a held item failed.");
-const keyItemTab = page.locator('[data-shop-group="Key Items"]');
-await keyItemTab.evaluate((button) => { button.dataset.shopGroup = "Training Items"; });
-await page.click('[data-shop-group="Training Items"]');
-await page.click('[data-open-purchase="abilitycapsule"]');
-const purchaseSlider = page.locator("#purchase-quantity");
-if (await purchaseSlider.isDisabled()) throw new Error("A repeatable Mart purchase did not expose an enabled quantity slider.");
-await purchaseSlider.fill("3");
-if (!(await page.locator("[data-purchase-quantity-output]").textContent())?.includes("3") || !(await page.locator("[data-purchase-price]").textContent())?.includes("6,000")) throw new Error("The Mart quantity slider did not update its quantity and price.");
-const purchaseSliderBackgroundSize = await purchaseSlider.evaluate((input) => getComputedStyle(input).backgroundSize);
-if (!purchaseSliderBackgroundSize.includes("16px")) throw new Error(`The Mart slider track did not stop beneath its thumb: ${purchaseSliderBackgroundSize}`);
-if (await page.locator('[data-purchase-form="abilitycapsule"]').evaluate((form) => new FormData(form).get("quantity")) !== "3") throw new Error("The Mart purchase form did not retain the quantity selected with its slider.");
-await page.click(".mart-sheet-cancel");
-await page.click('[data-shop-group="Held Items"]');
+await page.waitForFunction(() => {
+  const button = document.querySelector('[data-open-purchase="leftovers"]');
+  return button?.disabled && button.textContent.trim() === "Bought";
+});
 const tmHighlightFits = await page.locator(".shop-segments").evaluate((element) => {
   const style = getComputedStyle(element, "::before");
   const translation = style.transform === "none" ? 0 : new DOMMatrixReadOnly(style.transform).m41;
@@ -564,7 +561,7 @@ if (trainingLayout.unusedGap > 10) throw new Error("The Training drawer retained
 if (trainingLayout.maxButtonText !== "Max IV" || trainingLayout.maxButtonWidth > 30) throw new Error("The compact IV shortcut did not read Max IV at its original width.");
 if (trainingLayout.footerButtonLabels.join(",") !== "Apply changes,Close" || new Set(trainingLayout.footerButtonHeights).size !== 1) throw new Error("The Training footer did not expose normalized Apply and Close actions.");
 if (trainingLayout.sliderHeight > 20) throw new Error("The Training EV slider remained too thick for the compact layout.");
-if (trainingLayout.sliderBackgroundSize !== purchaseSliderBackgroundSize) throw new Error("Training and Mart did not share the same inset slider track.");
+if (!trainingLayout.sliderBackgroundSize.includes("16px")) throw new Error("The Training EV slider track did not stop beneath its thumb.");
 await page.fill('[data-training-ev-input="hp"]', "7");
 if (await page.locator('[data-training-ev="hp"]').inputValue() !== "7") throw new Error("Typing an EV did not synchronize its slider.");
 await page.locator('[data-training-ev="hp"]').evaluate((input) => { input.value = "5"; input.dispatchEvent(new Event("input", { bubbles: true })); input.dispatchEvent(new Event("change", { bubbles: true })); });

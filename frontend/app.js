@@ -111,7 +111,6 @@
   let martSearch = "";
   let martSheetItemId = null;
   let martSheetMode = null;
-  let martPurchaseQuantity = 1;
   let martListScrollTop = 0;
   let activeBagGroup = "Held Items";
   let bagSearch = "";
@@ -932,10 +931,9 @@
     const matches = (item) => !query || `${item.name} ${item.detail} ${item.description || ""}`.toLowerCase().includes(query);
     const matchCount = items.filter(matches).length;
     return items.map((item) => {
-      const owned = inventory[item.id] || 0;
       const soldOut = item.purchaseLimit === 1 && gameState?.purchasedUnique.includes(item.id);
       const searchText = `${item.name} ${item.detail} ${item.description || ""}`.toLowerCase();
-      return `<div class="shop-item" data-mart-search-text="${escapeHtml(searchText)}" ${matches(item) ? "" : "hidden"}>${itemIcon(item)}<span class="item-copy"><strong>${escapeHtml(item.name)}</strong>${owned ? `<small>Owned: ${owned}</small>` : ""}</span><button class="item-about-button" type="button" data-item-about="${item.id}" aria-label="About ${escapeHtml(item.name)}"><span aria-hidden="true">i</span></button><button class="price-button" type="button" data-open-purchase="${item.id}" ${balance < item.price || soldOut ? "disabled" : ""}>${soldOut ? "Bought" : `₽${item.price.toLocaleString()}`}</button></div>`;
+      return `<div class="shop-item" data-mart-search-text="${escapeHtml(searchText)}" ${matches(item) ? "" : "hidden"}>${itemIcon(item)}<span class="item-copy"><strong>${escapeHtml(item.name)}</strong></span><button class="price-button" type="button" data-open-purchase="${item.id}" ${balance < item.price || soldOut ? "disabled" : ""}>${soldOut ? "Bought" : `₽${item.price.toLocaleString()}`}</button></div>`;
     }).join("") + `<p class="item-search-empty" data-mart-search-empty ${matchCount ? "hidden" : ""}>No matching items.</p>`;
   }
 
@@ -949,29 +947,16 @@
   function martSheet() {
     const item = shopItems.find((candidate) => candidate.id === martSheetItemId);
     if (!item || !martSheetMode) return "";
-    const owned = inventory[item.id] || 0;
     const maxQuantity = maxPurchaseQuantity(item);
     const summary = `<div class="mart-sheet-summary">${itemIcon(item)}<h2 id="mart-sheet-title">${escapeHtml(item.name)}</h2></div>`;
-    if (martSheetMode === "info") {
-      const purchaseRule = item.purchaseLimit === 1 ? "Once per run" : "Repeatable purchase";
-      return `<div class="sheet-backdrop mart-sheet-backdrop" data-close-mart-sheet><section class="mart-sheet" role="dialog" aria-modal="true" aria-labelledby="mart-sheet-title">
-        <button class="sheet-close" type="button" data-close-mart-sheet aria-label="Close item information">×</button>${summary}
-        <p class="mart-item-description">${escapeHtml(item.description || item.detail)}</p>
-        <div class="mart-item-facts"><span><small>Price</small><strong>₽${item.price.toLocaleString()}</strong></span><span><small>Owned</small><strong>${owned}</strong></span><span><small>Limit</small><strong>${purchaseRule}</strong></span></div>
-        <div class="mart-sheet-actions">${maxQuantity ? `<button class="gloss-button blue" type="button" data-sheet-buy="${item.id}">Buy</button>` : ""}<button class="plain-button" type="button" data-close-mart-sheet>Close</button></div>
-      </section></div>`;
-    }
-    const quantity = Math.max(1, Math.min(maxQuantity || 1, martPurchaseQuantity));
-    const total = item.price * quantity;
-    return `<div class="sheet-backdrop mart-sheet-backdrop" data-close-mart-sheet><section class="mart-sheet purchase-sheet" role="dialog" aria-modal="true" aria-labelledby="mart-sheet-title">
+    const remaining = Math.max(0, balance - item.price);
+    return `<div class="sheet-backdrop mart-sheet-backdrop" data-close-mart-sheet><section class="mart-sheet" role="dialog" aria-modal="true" aria-labelledby="mart-sheet-title">
       <button class="sheet-close" type="button" data-close-mart-sheet aria-label="Close purchase">×</button>${summary}
+      <p class="mart-item-description">${escapeHtml(item.description || item.detail)}</p>
       <form data-purchase-form="${item.id}">
-        <div class="purchase-ledger"><p><span>Money</span><span class="purchase-value">₽${balance.toLocaleString()}</span></p><p><span>In bag</span><span class="purchase-value">${owned}</span></p><p><span>Quantity</span><span class="purchase-value" data-purchase-quantity-output>×${quantity}</span></p><p><span>Price</span><span class="purchase-value" data-purchase-price>₽${total.toLocaleString()}</span></p></div>
-        <label class="purchase-slider-label" for="purchase-quantity"><span>Slide to choose quantity</span><small>1–${maxQuantity}</small></label>
-        <input class="purchase-slider" id="purchase-quantity" name="quantity" type="range" min="1" max="${Math.max(1, maxQuantity)}" value="${quantity}" ${maxQuantity <= 1 ? "disabled" : ""}>
-        <button class="gloss-button blue purchase-confirm" type="submit" ${maxQuantity ? "" : "disabled"}>Buy</button>
+        <div class="purchase-ledger"><p><span>Money</span><span class="purchase-value">₽${balance.toLocaleString()}</span></p><p><span>Price</span><span class="purchase-value">₽${item.price.toLocaleString()}</span></p><p><span>Remaining after</span><span class="purchase-value purchase-remaining">₽${remaining.toLocaleString()}</span></p></div>
+        <div class="mart-sheet-actions"><button class="gloss-button blue" type="submit" ${maxQuantity ? "" : "disabled"}>Buy</button><button class="plain-button" type="button" data-close-mart-sheet>Close</button></div>
       </form>
-      <button class="plain-button mart-sheet-cancel" type="button" data-close-mart-sheet>Cancel</button>
     </section></div>`;
   }
 
@@ -1286,28 +1271,12 @@
       purchaseMessage = `${quantity === 1 ? item.name : `${quantity} ${item.name}`} added to your bag.`;
       martSheetItemId = null;
       martSheetMode = null;
-      martPurchaseQuantity = 1;
     } catch (error) {
       purchaseMessage = error.message;
     } finally {
       gameBusy = false;
       render();
     }
-  }
-
-  function updateMartPurchaseQuantity(value) {
-    const item = shopItems.find((candidate) => candidate.id === martSheetItemId);
-    const input = document.querySelector("#purchase-quantity");
-    if (!item || !input) return;
-    const maximum = maxPurchaseQuantity(item);
-    const quantity = Math.max(1, Math.min(maximum || 1, Math.floor(Number(value) || 1)));
-    martPurchaseQuantity = quantity;
-    input.value = String(quantity);
-    const total = item.price * quantity;
-    const quantityLabel = document.querySelector("[data-purchase-quantity-output]");
-    const priceLabel = document.querySelector("[data-purchase-price]");
-    if (quantityLabel) quantityLabel.textContent = `×${quantity}`;
-    if (priceLabel) priceLabel.textContent = `₽${total.toLocaleString()}`;
   }
 
   async function persistTeam(teamIds) {
@@ -1533,7 +1502,6 @@
       if (route === "mart" && nextRoute !== "mart") {
         martSheetItemId = null;
         martSheetMode = null;
-        martPurchaseQuantity = 1;
         martListScrollTop = 0;
       }
       if (nextRoute !== "settings") moreCardOpen = null;
@@ -1702,17 +1670,11 @@
     });
     document.querySelectorAll("[data-encounter]").forEach((button) => button.addEventListener("click", () => void claimEncounter(Number(button.dataset.encounter))));
     const bindShopRows = () => {
-      document.querySelectorAll("[data-item-about]").forEach((button) => button.addEventListener("click", () => {
-        martSheetItemId = button.dataset.itemAbout;
-        martSheetMode = "info";
-        render();
-      }));
       document.querySelectorAll("[data-open-purchase]").forEach((button) => button.addEventListener("click", () => {
         martSheetItemId = button.dataset.openPurchase;
         martSheetMode = "buy";
-        martPurchaseQuantity = 1;
         render();
-        requestAnimationFrame(() => document.querySelector("#purchase-quantity")?.focus({ preventScroll: true }));
+        requestAnimationFrame(() => document.querySelector("[data-purchase-form] button[type='submit']")?.focus({ preventScroll: true }));
       }));
     };
     document.querySelectorAll("[data-shop-group]").forEach((button) => button.addEventListener("click", () => {
@@ -1758,26 +1720,12 @@
       if (element.classList.contains("mart-sheet-backdrop") && event.target !== element) return;
       martSheetItemId = null;
       martSheetMode = null;
-      martPurchaseQuantity = 1;
       render();
     }));
-    document.querySelector("[data-sheet-buy]")?.addEventListener("click", (event) => {
-      martSheetItemId = event.currentTarget.dataset.sheetBuy;
-      martSheetMode = "buy";
-      martPurchaseQuantity = 1;
-      render();
-      requestAnimationFrame(() => document.querySelector("#purchase-quantity")?.focus({ preventScroll: true }));
-    });
-    const purchaseSlider = document.querySelector("#purchase-quantity");
-    const syncPurchaseSlider = (event) => updateMartPurchaseQuantity(event.currentTarget.value);
-    purchaseSlider?.addEventListener("input", syncPurchaseSlider);
-    purchaseSlider?.addEventListener("change", syncPurchaseSlider);
     document.querySelector("[data-purchase-form]")?.addEventListener("submit", (event) => {
       event.preventDefault();
       const item = shopItems.find((candidate) => candidate.id === event.currentTarget.dataset.purchaseForm);
-      const formQuantity = new FormData(event.currentTarget).get("quantity");
-      const submittedQuantity = formQuantity === null ? martPurchaseQuantity : Number(formQuantity);
-      if (item) void purchaseItem(item, submittedQuantity);
+      if (item) void purchaseItem(item);
     });
     const bindVisitMart = () => document.querySelector("[data-visit-mart]")?.addEventListener("click", (event) => {
       activeShopGroup = event.currentTarget.dataset.visitMart;
