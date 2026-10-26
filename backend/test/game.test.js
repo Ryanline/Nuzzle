@@ -27,6 +27,7 @@ test("the approvals snapshot resolves to canonical Pokémon, item, and complete 
   assert.equal(pokemonById.has("smeargle"), false);
   assert.equal(publicContent().startingMoney, 50000);
   assert.equal(itemCatalog.filter((item) => item.group === "Held Items").every((item) => item.purchaseLimit === 1), true);
+  assert.equal(itemCatalog.filter((item) => item.group === "Held Items").every((item) => Number.isInteger(item.spriteNumber)), true);
   const formChangers = itemCatalog.filter((item) => ["form", "rotom"].includes(item.effect));
   assert.equal(formChangers.length, 8);
   assert.equal(formChangers.every((item) => item.consumable && item.purchaseLimit === null), true);

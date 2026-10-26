@@ -405,6 +405,7 @@ export const itemCatalog = [
       consumable: false,
       battleConsumable: Boolean(item.isBerry || heldConsumables.has(item.id)),
       purchaseLimit: 1,
+      spriteNumber: item.spritenum,
       icon: item.name.split(/\s+/).map((word) => word[0]).join("").slice(0, 3).toUpperCase(),
     });
   }),
