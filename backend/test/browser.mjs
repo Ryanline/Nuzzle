@@ -105,9 +105,21 @@ await page.click('[data-avatar-sprite="misty"]');
 if (!(await avatarUpdateResponse).ok()) throw new Error("Saving an account avatar failed.");
 if (!(await page.locator(".account-profile .account-avatar img").getAttribute("src"))?.includes("/trainers/misty.png")) throw new Error("The saved account avatar did not appear in the account card.");
 await page.click(".auth-close");
+const lightToggle = await page.locator(".theme-toggle").evaluate((toggle) => ({
+  offset: new DOMMatrix(getComputedStyle(toggle.querySelector("i")).transform).m41,
+  moonOpacity: getComputedStyle(toggle.querySelector(".theme-moon")).opacity,
+  sunOpacity: getComputedStyle(toggle.querySelector(".theme-sun")).opacity,
+}));
+if (Math.abs(lightToggle.offset) > .1 || lightToggle.moonOpacity !== "1" || lightToggle.sunOpacity !== "0") throw new Error("Light mode did not show the moon on the left side of the theme switch.");
 await page.click("[data-toggle-theme]");
 if (await page.locator("html").getAttribute("data-theme") !== "dark") throw new Error("The theme switch did not activate dark mode.");
 if (await page.evaluate(() => localStorage.getItem("nuzzleTheme")) !== "dark") throw new Error("The selected theme was not remembered on the device.");
+await page.waitForFunction(() => new DOMMatrix(getComputedStyle(document.querySelector(".theme-toggle i")).transform).m41 > 23.9);
+const darkToggle = await page.locator(".theme-toggle").evaluate((toggle) => ({
+  sunOpacity: getComputedStyle(toggle.querySelector(".theme-sun")).opacity,
+  moonOpacity: getComputedStyle(toggle.querySelector(".theme-moon")).opacity,
+}));
+if (darkToggle.sunOpacity !== "1" || darkToggle.moonOpacity !== "0") throw new Error("Dark mode did not show the sun on the right side of the theme switch.");
 await page.click("[data-toggle-theme]");
 await page.click(".page-back");
 await page.click('[data-route="settings"]');

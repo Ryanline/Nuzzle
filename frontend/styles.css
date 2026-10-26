@@ -44,12 +44,12 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .screen-meta { margin: 3px 0 0; color: var(--muted); font-size: clamp(19px, 4.3vw, 30px); line-height: 1.12; }
 .screen-meta b { font-variant-numeric: tabular-nums; font-weight: 400; }
 .theme-toggle { position: relative; width: 62px; height: 40px; padding: 0; border: 1px solid #c4c8cb; border-radius: 20px; background: #fff; box-shadow: 0 2px 3px rgba(0,0,0,.18); cursor: pointer; }
-.theme-toggle i { position: absolute; top: 3px; left: 3px; display: grid; width: 32px; height: 32px; place-items: center; border-radius: 50%; background: #17191b; color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.28); transform: translateX(24px); transition: transform 170ms ease, background-color 170ms ease, color 170ms ease; }
+.theme-toggle i { position: absolute; top: 3px; left: 3px; display: grid; width: 32px; height: 32px; place-items: center; border-radius: 50%; background: #17191b; color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.28); transform: none; transition: transform 170ms ease, background-color 170ms ease, color 170ms ease; }
 .theme-toggle svg { position: absolute; width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: opacity 100ms ease; }
 .theme-toggle .theme-sun { opacity: 0; }
 .theme-toggle .theme-moon { fill: currentColor; stroke: none; opacity: 1; }
 .theme-toggle[aria-checked="true"] { border-color: #303438; background: #303438; }
-.theme-toggle[aria-checked="true"] i { transform: none; background: #fff; color: #17191b; }
+.theme-toggle[aria-checked="true"] i { transform: translateX(24px); background: #fff; color: #17191b; }
 .theme-toggle[aria-checked="true"] .theme-sun { opacity: 1; }
 .theme-toggle[aria-checked="true"] .theme-moon { opacity: 0; }
 .account-button { position: relative; display: grid; width: 40px; height: 40px; place-items: center; padding: 0; border: 1px solid #8d949a; border-radius: 50%; background: linear-gradient(#fff, #e2e5e7); color: #56616a; box-shadow: 0 2px 3px rgba(0,0,0,.18); cursor: pointer; }
@@ -946,7 +946,7 @@ html[data-theme="dark"] .auth-error { color: #ff9297; }
   .home-header .screen-meta { white-space: nowrap; }
   .theme-toggle { width: 60px; height: 38px; border-radius: 19px; }
   .theme-toggle i { width: 30px; height: 30px; }
-  .theme-toggle[aria-checked="true"] i { transform: none; }
+  .theme-toggle[aria-checked="true"] i { transform: translateX(24px); }
   .account-button { width: 38px; height: 38px; }
   .landing, .encounter-stage, .pc-stage, .mart-stage, .bag-stage, .simple-stage, .config-stage, .leaderboard-stage { min-height: 0; height: calc(100% - 62px); }
   .home-screen .landing { display: grid; height: auto; min-height: 0; flex: 1; grid-template-rows: minmax(52px, .7fr) minmax(100px, 1fr) auto; overflow: hidden; }
