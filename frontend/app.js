@@ -935,7 +935,7 @@
       const owned = inventory[item.id] || 0;
       const soldOut = item.purchaseLimit === 1 && gameState?.purchasedUnique.includes(item.id);
       const searchText = `${item.name} ${item.detail} ${item.description || ""}`.toLowerCase();
-      return `<div class="shop-item" data-mart-search-text="${escapeHtml(searchText)}" ${matches(item) ? "" : "hidden"}>${itemIcon(item)}<span class="item-copy"><strong>${escapeHtml(item.name)}</strong>${owned ? `<small>Owned: ${owned}</small>` : ""}</span><button class="item-about-button" type="button" data-item-about="${item.id}" aria-label="About ${escapeHtml(item.name)}">?</button><button class="price-button" type="button" data-open-purchase="${item.id}" ${balance < item.price || soldOut ? "disabled" : ""}>${soldOut ? "Bought" : `₽${item.price.toLocaleString()}`}</button></div>`;
+      return `<div class="shop-item" data-mart-search-text="${escapeHtml(searchText)}" ${matches(item) ? "" : "hidden"}>${itemIcon(item)}<span class="item-copy"><strong>${escapeHtml(item.name)}</strong>${owned ? `<small>Owned: ${owned}</small>` : ""}</span><button class="item-about-button" type="button" data-item-about="${item.id}" aria-label="About ${escapeHtml(item.name)}"><span aria-hidden="true">i</span></button><button class="price-button" type="button" data-open-purchase="${item.id}" ${balance < item.price || soldOut ? "disabled" : ""}>${soldOut ? "Bought" : `₽${item.price.toLocaleString()}`}</button></div>`;
     }).join("") + `<p class="item-search-empty" data-mart-search-empty ${matchCount ? "hidden" : ""}>No matching items.</p>`;
   }
 
@@ -1768,11 +1768,16 @@
       render();
       requestAnimationFrame(() => document.querySelector("#purchase-quantity")?.focus({ preventScroll: true }));
     });
-    document.querySelector("#purchase-quantity")?.addEventListener("input", (event) => updateMartPurchaseQuantity(event.currentTarget.value));
+    const purchaseSlider = document.querySelector("#purchase-quantity");
+    const syncPurchaseSlider = (event) => updateMartPurchaseQuantity(event.currentTarget.value);
+    purchaseSlider?.addEventListener("input", syncPurchaseSlider);
+    purchaseSlider?.addEventListener("change", syncPurchaseSlider);
     document.querySelector("[data-purchase-form]")?.addEventListener("submit", (event) => {
       event.preventDefault();
       const item = shopItems.find((candidate) => candidate.id === event.currentTarget.dataset.purchaseForm);
-      if (item) void purchaseItem(item, martPurchaseQuantity);
+      const formQuantity = new FormData(event.currentTarget).get("quantity");
+      const submittedQuantity = formQuantity === null ? martPurchaseQuantity : Number(formQuantity);
+      if (item) void purchaseItem(item, submittedQuantity);
     });
     const bindVisitMart = () => document.querySelector("[data-visit-mart]")?.addEventListener("click", (event) => {
       activeShopGroup = event.currentTarget.dataset.visitMart;

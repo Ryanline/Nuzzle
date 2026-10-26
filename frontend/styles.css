@@ -449,12 +449,13 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .training-ev-input::-webkit-inner-spin-button, .training-ev-input::-webkit-outer-spin-button,
 .training-iv-input::-webkit-inner-spin-button, .training-iv-input::-webkit-outer-spin-button { margin: 0; appearance: none; }
 .training-iv-max { width: 100%; min-width: 0; min-height: 22px; padding: 1px 0; border: 1px solid #a9b2b9; border-radius: 3px; background: var(--surface); color: #27658f; cursor: pointer; font-size: 7px; letter-spacing: -.02em; white-space: nowrap; }
-.training-ev-slider { width: 100%; min-width: 0; height: 18px; margin: 0; padding: 0; appearance: none; background: transparent; cursor: pointer; }
-.training-ev-slider::-webkit-slider-runnable-track { height: 3px; border: 1px solid #aeb4b8; border-radius: 2px; background: #d9dddf; box-shadow: inset 0 1px rgba(255,255,255,.7); }
-.training-ev-slider::-webkit-slider-thumb { width: 16px; height: 16px; margin-top: -7.5px; border: 1px solid #9da4a9; border-radius: 50%; background: linear-gradient(#fff, #e4e7e9); box-shadow: 0 1px 2px rgba(0,0,0,.16); appearance: none; }
-.training-ev-slider::-moz-range-track { height: 1px; border: 1px solid #aeb4b8; border-radius: 2px; background: #d9dddf; }
-.training-ev-slider::-moz-range-thumb { width: 14px; height: 14px; border: 1px solid #9da4a9; border-radius: 50%; background: linear-gradient(#fff, #e4e7e9); box-shadow: 0 1px 2px rgba(0,0,0,.16); }
-.training-ev-slider:focus-visible { outline: 2px solid #276fe6; outline-offset: 1px; }
+.training-ev-slider, .purchase-slider { --range-track: #c3cbd0; --range-thumb-border: #9da4a9; --range-thumb-top: #fff; --range-thumb-bottom: #e4e7e9; width: 100%; min-width: 0; padding: 0; appearance: none; background: linear-gradient(var(--range-track), var(--range-track)) center / calc(100% - 16px) 3px no-repeat; cursor: pointer; }
+.training-ev-slider { height: 18px; margin: 0; }
+.training-ev-slider::-webkit-slider-runnable-track, .purchase-slider::-webkit-slider-runnable-track { height: 3px; border: 0; background: transparent; }
+.training-ev-slider::-webkit-slider-thumb, .purchase-slider::-webkit-slider-thumb { width: 16px; height: 16px; margin-top: -6.5px; border: 1px solid var(--range-thumb-border); border-radius: 50%; background: linear-gradient(var(--range-thumb-top), var(--range-thumb-bottom)); box-shadow: 0 1px 2px rgba(0,0,0,.16); appearance: none; }
+.training-ev-slider::-moz-range-track, .purchase-slider::-moz-range-track { height: 3px; border: 0; background: transparent; }
+.training-ev-slider::-moz-range-thumb, .purchase-slider::-moz-range-thumb { width: 14px; height: 14px; border: 1px solid var(--range-thumb-border); border-radius: 50%; background: linear-gradient(var(--range-thumb-top), var(--range-thumb-bottom)); box-shadow: 0 1px 2px rgba(0,0,0,.16); }
+.training-ev-slider:focus-visible, .purchase-slider:focus-visible { outline: 2px solid #276fe6; outline-offset: 1px; }
 .training-remaining { display: flex; align-items: center; justify-content: space-between; min-height: 20px; padding: 0 2px; border-top: 1px solid #d8dcdf; color: var(--muted); font-size: 9px; }
 .training-remaining button, .training-footer button[data-reset-training] { padding: 2px 4px; border: 0; background: transparent; color: #27658f; cursor: pointer; font-size: inherit; text-decoration: underline; }
 .training-selects { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; margin-top: 2px; }
@@ -613,17 +614,18 @@ button.encounter-card:active { background: #eef5ef; transform: translateY(1px); 
 .bag-contents { display: flex; min-height: 0; flex: 1; }
 .bag-list { width: 100%; flex: 1; }
 .shop-list h2, .bag-list h2, .simple-stage h2 { margin: 6px 0 3px; border-bottom: 1px solid #c2cad4; color: #2d5d9c; font-size: 21px; font-style: italic; }
-.shop-item { display: grid; grid-template-columns: 48px minmax(0, 1fr) 30px auto; min-height: 58px; align-items: center; gap: 8px; border-bottom: 1px solid #d4d8dd; }
+.shop-item { display: grid; grid-template-columns: 48px minmax(0, 1fr) 32px auto; min-height: 58px; align-items: center; gap: 8px; border-bottom: 1px solid #d4d8dd; }
 .item-icon { display: grid; width: 44px; height: 44px; place-items: center; border: 1px solid #aeb4ba; border-radius: 5px; color: #38536d; font-size: 10px; font-weight: 700; letter-spacing: -.02em; }
 .item-icon.training { background: #edf4fa; }
-.item-icon.held { border-color: #c5ad72; background: #faf3df; color: #776023; }
+.item-icon.held { border-color: #bbc4ca; background: #f1f4f6; color: #526474; }
 .held-item-sprite { display: block; width: 24px; height: 24px; background: transparent url("https://play.pokemonshowdown.com/sprites/itemicons-sheet.png") no-repeat; image-rendering: pixelated; transform: scale(1.35); transform-origin: center; }
 .item-icon.tm { border-color: #aaa1c9; background: #f0edf8; color: #554a7b; }
 .item-copy { display: grid; }
 .item-copy strong { overflow: hidden; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
 .item-copy small { color: #656565; }
-.item-about-button { width: 29px; height: 29px; padding: 0; border: 1px solid #9aa3aa; border-radius: 50%; background: #f4f6f7; color: #526474; cursor: pointer; font-size: 14px; font-weight: 700; }
-.item-about-button:hover { border-color: #60717e; background: #fff; }
+.item-about-button { display: grid; width: 32px; height: 38px; place-items: center; padding: 0; border: 0; background: transparent; color: #526474; cursor: pointer; }
+.item-about-button span { display: grid; width: 22px; height: 22px; place-items: center; border: 1px solid #a7b1b9; border-radius: 50%; background: #f7f9fa; font: 700 14px/1 Georgia, serif; }
+.item-about-button:hover span { border-color: #60717e; background: #fff; }
 .price-button { min-width: 111px; min-height: 38px; border: 2px solid #1d5f99; border-radius: 6px; background: linear-gradient(#6eb7ed, #287bc5); color: white; box-shadow: inset 0 1px rgba(255,255,255,.55), 0 1px 2px rgba(0,0,0,.22); cursor: pointer; text-shadow: 0 1px rgba(0,0,0,.3); }
 .price-button:disabled { opacity: .48; cursor: default; }
 .mart-sheet { position: relative; width: min(390px, 100%); padding: 15px 16px 14px; border: 1px solid #777; border-radius: 10px; background: var(--raised); box-shadow: 0 14px 45px rgba(0,0,0,.32); }
@@ -648,11 +650,7 @@ button.encounter-card:active { background: #eef5ef; transform: translateY(1px); 
 .purchase-ledger p:last-child .purchase-value { font-size: 17px; }
 .purchase-slider-label { display: flex; justify-content: space-between; gap: 10px; color: var(--muted); font-size: 10px; }
 .purchase-slider-label small { font-size: inherit; }
-.purchase-slider { width: 100%; height: 34px; margin: 0 0 8px; padding: 0; appearance: none; background: transparent; cursor: pointer; }
-.purchase-slider::-webkit-slider-runnable-track { height: 7px; border: 1px solid #7797af; border-radius: 4px; background: linear-gradient(#dcecf7, #b9d4e7); box-shadow: inset 0 1px 2px rgba(0,0,0,.18); }
-.purchase-slider::-webkit-slider-thumb { width: 25px; height: 25px; margin-top: -10px; border: 2px solid #1d5f99; border-radius: 50%; background: linear-gradient(#76bced, #287bc5); box-shadow: inset 0 1px rgba(255,255,255,.6), 0 1px 2px rgba(0,0,0,.3); appearance: none; }
-.purchase-slider::-moz-range-track { height: 7px; border: 1px solid #7797af; border-radius: 4px; background: linear-gradient(#dcecf7, #b9d4e7); }
-.purchase-slider::-moz-range-thumb { width: 22px; height: 22px; border: 2px solid #1d5f99; border-radius: 50%; background: #3d91cf; }
+.purchase-slider { height: 34px; margin: 0 0 8px; }
 .purchase-slider:disabled { opacity: .45; cursor: default; }
 .purchase-confirm { width: 100%; min-height: 42px; font-size: 18px; }
 .mart-sheet-cancel { width: 100%; min-height: 36px; margin-top: 6px; }
@@ -848,10 +846,8 @@ html[data-theme="dark"] .move-search input { border-color: #59636c; background: 
 html[data-theme="dark"] .training-iv-max,
 html[data-theme="dark"] .training-moves button,
 html[data-theme="dark"] .training-move-picker > header button { border-color: #59636c; background: #30363d; color: var(--ink); }
-html[data-theme="dark"] .training-ev-slider::-webkit-slider-runnable-track { border-color: #656d74; background: #4e555b; box-shadow: inset 0 1px rgba(0,0,0,.35); }
-html[data-theme="dark"] .training-ev-slider::-webkit-slider-thumb { border-color: #747c83; background: linear-gradient(#d8dcdf, #b7bdc2); box-shadow: 0 1px 2px rgba(0,0,0,.45); }
-html[data-theme="dark"] .training-ev-slider::-moz-range-track { border-color: #656d74; background: #4e555b; }
-html[data-theme="dark"] .training-ev-slider::-moz-range-thumb { border-color: #747c83; background: #c6cbd0; box-shadow: 0 1px 2px rgba(0,0,0,.45); }
+html[data-theme="dark"] .training-ev-slider,
+html[data-theme="dark"] .purchase-slider { --range-track: #565e64; --range-thumb-border: #747c83; --range-thumb-top: #d8dcdf; --range-thumb-bottom: #b7bdc2; }
 html[data-theme="dark"] .training-footer { background: var(--surface); }
 html[data-theme="dark"] .lead-choice:hover,
 html[data-theme="dark"] .switch-choice:hover,
@@ -920,8 +916,11 @@ html[data-theme="dark"] .battle-log-entry { color: #e3e8ec; }
 html[data-theme="dark"] .battle-log-entry.player { background: #253542; }
 html[data-theme="dark"] .battle-log-entry.opponent { background: #3b292c; }
 html[data-theme="dark"] .battle-log-card header button,
-html[data-theme="dark"] .item-action,
-html[data-theme="dark"] .item-about-button { border-color: #6c7a85; background: #292f35; color: #b9daf4; }
+html[data-theme="dark"] .item-action { border-color: #6c7a85; background: #292f35; color: #b9daf4; }
+html[data-theme="dark"] .item-icon.held { border-color: #56616a; background: #282e33; color: #c7d0d7; }
+html[data-theme="dark"] .item-about-button { color: #b9c8d3; }
+html[data-theme="dark"] .item-about-button span { border-color: #66747e; background: #252b30; }
+html[data-theme="dark"] .item-about-button:hover span { border-color: #8997a1; background: #30383e; }
 html[data-theme="dark"] .item-quantity { border-color: #66717a; background: #292f35; color: #eef3f6; }
 html[data-theme="dark"] .pokemon-facts p,
 html[data-theme="dark"] .shop-item,
@@ -938,8 +937,6 @@ html[data-theme="dark"] .mart-item-facts span,
 html[data-theme="dark"] .purchase-ledger,
 html[data-theme="dark"] .purchase-ledger p { border-color: #4f5961; }
 html[data-theme="dark"] .purchase-ledger p:nth-child(3) .purchase-value { color: #91bfea; }
-html[data-theme="dark"] .purchase-slider::-webkit-slider-runnable-track { border-color: #536f83; background: linear-gradient(#31495b, #253b4b); }
-html[data-theme="dark"] .purchase-slider::-moz-range-track { border-color: #536f83; background: #2b4355; }
 html[data-theme="dark"] .prompt,
 html[data-theme="dark"] .switch-choice small,
 html[data-theme="dark"] .item-copy small { color: #b2bbc2; }
@@ -1046,12 +1043,11 @@ html[data-theme="dark"] .auth-error { color: #ff9297; }
   .shop-segments { margin-top: 2px; margin-bottom: 5px; }
   .shop-segments button { min-height: 33px; padding-right: 3px; padding-left: 3px; font-size: 12px; }
   .shop-list h2, .bag-list h2 { margin-top: 3px; font-size: 18px; }
-  .shop-item { grid-template-columns: 42px minmax(0, 1fr) 28px auto; min-height: 52px; gap: 6px; font-size: 14px; }
+  .shop-item { grid-template-columns: 42px minmax(0, 1fr) 32px auto; min-height: 52px; gap: 6px; font-size: 14px; }
   .bag-item { grid-template-columns: 42px minmax(0, 1fr) auto auto; min-height: 52px; gap: 6px; font-size: 14px; }
   .item-icon { width: 39px; height: 39px; }
   .held-item-sprite { transform: scale(1.2); }
   .price-button { min-width: 105px; min-height: 34px; }
-  .item-about-button { width: 27px; height: 27px; }
   .mart-sheet { align-self: flex-end; width: 100%; max-height: 100%; padding: 14px; overflow-y: auto; overscroll-behavior: contain; border-radius: 13px 13px 0 0; }
   .item-quantity { min-width: 39px; }
   .item-action { min-width: 52px; min-height: 32px; padding-right: 7px; padding-left: 7px; }
