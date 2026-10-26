@@ -803,8 +803,10 @@
     const form = trainingForm(mon);
     const query = trainingMoveSearch.trim().toLowerCase();
     const selectedElsewhere = new Set(trainingDraft.moves.filter((_, slot) => slot !== trainingMoveSlot).map(toId));
-    const moves = shopItems.filter((item) => item.group === "TMs" && form.learnableMoveIds.includes(item.moveId) && !selectedElsewhere.has(item.moveId) && (!query || `${item.name} ${item.type} ${item.category}`.toLowerCase().includes(query)));
-    return `<section class="training-move-picker"><header><button type="button" data-close-move-picker aria-label="Back to training">←</button><div><small>Replace move ${trainingMoveSlot + 1}</small><h3>${escapeHtml(trainingDraft.moves[trainingMoveSlot])}</h3></div></header><label class="move-search"><span>Search available moves</span><input type="search" value="${escapeHtml(trainingMoveSearch)}" placeholder="Search by name, type, or category" data-training-move-search autofocus><small aria-live="polite">${moves.length} matching move${moves.length === 1 ? "" : "s"}</small></label><div class="training-move-list">${moves.map((item) => `<button type="button" data-select-training-move="${item.id}"><span><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.detail)}</small></span><b>₽${item.price.toLocaleString()}</b></button>`).join("") || `<p class="training-empty">No matching moves.</p>`}</div></section>`;
+    const moves = shopItems.filter((item) => item.group === "TMs" && form.learnableMoveIds.includes(item.moveId) && !selectedElsewhere.has(item.moveId));
+    const matches = (item) => !query || `${item.name} ${item.type} ${item.category}`.toLowerCase().includes(query);
+    const matchCount = moves.filter(matches).length;
+    return `<section class="training-move-picker"><header><button type="button" data-close-move-picker aria-label="Back to training">←</button><div><small>Replace move ${trainingMoveSlot + 1}</small><h3>${escapeHtml(trainingDraft.moves[trainingMoveSlot])}</h3></div></header><label class="move-search"><span>Search available moves</span><input type="search" value="${escapeHtml(trainingMoveSearch)}" placeholder="Search by name, type, or category" data-training-move-search autofocus><small aria-live="polite" data-training-move-count>${matchCount} matching move${matchCount === 1 ? "" : "s"}</small></label><div class="training-move-list">${moves.map((item) => `<button type="button" data-select-training-move="${item.id}" data-move-search-text="${escapeHtml(`${item.name} ${item.type} ${item.category}`.toLowerCase())}" ${matches(item) ? "" : "hidden"}><span><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.detail)}</small></span><b>₽${item.price.toLocaleString()}</b></button>`).join("")}<p class="training-empty" ${matchCount ? "hidden" : ""}>No matching moves.</p></div></section>`;
   }
 
   function trainingEditor(mon) {
@@ -1861,12 +1863,18 @@
     document.querySelector("[data-close-move-picker]")?.addEventListener("click", () => { trainingMoveSlot = null; trainingMoveSearch = ""; render(); });
     document.querySelector("[data-training-move-search]")?.addEventListener("input", (event) => {
       trainingMoveSearch = event.currentTarget.value;
-      render();
-      requestAnimationFrame(() => {
-        const search = document.querySelector("[data-training-move-search]");
-        search?.focus();
-        search?.setSelectionRange(search.value.length, search.value.length);
+      const query = trainingMoveSearch.trim().toLowerCase();
+      const picker = event.currentTarget.closest(".training-move-picker");
+      let matchCount = 0;
+      picker?.querySelectorAll("[data-select-training-move]").forEach((button) => {
+        const matches = !query || button.dataset.moveSearchText.includes(query);
+        button.hidden = !matches;
+        if (matches) matchCount += 1;
       });
+      const count = picker?.querySelector("[data-training-move-count]");
+      if (count) count.textContent = `${matchCount} matching move${matchCount === 1 ? "" : "s"}`;
+      const empty = picker?.querySelector(".training-empty");
+      if (empty) empty.hidden = Boolean(matchCount);
     });
     document.querySelectorAll("[data-select-training-move]").forEach((button) => button.addEventListener("click", () => {
       const item = shopItems.find((candidate) => candidate.id === button.dataset.selectTrainingMove);

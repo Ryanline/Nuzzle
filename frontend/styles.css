@@ -374,7 +374,7 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .pc-stage .page-back { margin-top: auto; margin-bottom: 12px; }
 
 .sheet-backdrop { position: fixed; z-index: 200; inset: 0; display: flex; align-items: center; justify-content: center; padding: 18px; background: rgba(0,0,0,.38); }
-.pokemon-sheet { position: relative; display: flex; width: min(520px, 100%); height: min(570px, calc(100vh - 36px)); height: min(570px, calc(100dvh - 36px)); max-height: calc(100vh - 36px); max-height: calc(100dvh - 36px); flex-direction: column; padding: 18px; overflow-y: auto; border: 1px solid #777; border-radius: 12px; background: #fff; box-shadow: 0 14px 45px rgba(0,0,0,.3); }
+.pokemon-sheet { position: relative; display: flex; width: min(520px, 100%); height: min(570px, calc(100vh - 36px)); height: min(570px, calc(100dvh - 36px)); max-height: calc(100vh - 36px); max-height: calc(100dvh - 36px); flex-direction: column; padding: 12px; overflow-y: auto; border: 1px solid #777; border-radius: 12px; background: #fff; box-shadow: 0 14px 45px rgba(0,0,0,.3); }
 .sheet-close { position: absolute; z-index: 1; top: 9px; right: 10px; width: 38px; height: 38px; padding: 0; border: 0; border-radius: 50%; background: transparent; cursor: pointer; font-size: 30px; line-height: 34px; }
 .sheet-close:hover { background: #eee; }
 .pokemon-summary { display: flex; min-height: 54px; align-items: center; gap: 8px; padding-right: 38px; }
@@ -974,12 +974,11 @@ html[data-theme="dark"] .auth-error { color: #ff9297; }
   .pc-box { gap: 3px; padding: 5px; }
   .pc-mon { height: 76px; }
   .pc-mon img { width: 60px; height: 57px; }
-  .pokemon-sheet { align-self: flex-end; width: 100%; height: min(590px, calc(100dvh - 8px)); max-height: calc(100dvh - 8px); padding: 15px 14px 12px; border-radius: 13px 13px 0 0; }
+  .pokemon-sheet { align-self: flex-end; width: 100%; height: min(590px, calc(100dvh - 8px)); max-height: calc(100dvh - 8px); padding: 10px 12px 8px; border-radius: 13px 13px 0 0; }
   .sheet-backdrop { align-items: flex-end; padding: 0; }
   .pokemon-summary { min-height: 54px; gap: 8px; }
   .pokemon-summary > img { flex-basis: 54px; width: 54px; height: 50px; }
   .pokemon-summary h2 { font-size: 20px; }
-  .training-sheet { padding: 10px 12px 8px; }
   .pokemon-facts p { padding: 5px 2px; }
   .sheet-section h3 { margin-top: 10px; }
   .sheet-moves span { padding: 6px; }

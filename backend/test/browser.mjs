@@ -326,8 +326,12 @@ const trainingLayout = await page.locator(".training-sheet").evaluate((sheet) =>
     trainingScrollOverflow: trainingContent.scrollHeight - trainingContent.clientHeight,
     unusedGap: footerBounds.top - movesBounds.bottom,
     summaryHeight: summaryBounds.height,
+    summaryTop: summaryBounds.top,
+    summaryLeft: summaryBounds.left,
     spriteWidth: spriteBounds.width,
+    spriteTop: spriteBounds.top,
     nameFontSize: nameStyle.fontSize,
+    nameTop: sheet.querySelector(".pokemon-summary h2").getBoundingClientRect().top,
     maxButtonText: maxButton.textContent,
     maxButtonWidth: maxButton.getBoundingClientRect().width,
     footerButtonLabels: footerButtons.map((button) => button.textContent.trim()),
@@ -345,10 +349,14 @@ if (await page.locator('[data-training-ev="hp"]').inputValue() !== "7") throw ne
 await page.locator('[data-training-ev="hp"]').evaluate((input) => { input.value = "5"; input.dispatchEvent(new Event("input", { bubbles: true })); input.dispatchEvent(new Event("change", { bubbles: true })); });
 await page.click('[data-edit-training-move="0"]');
 if (!await page.locator("[data-training-move-search]").count()) throw new Error("The Training move picker did not expose search.");
+await page.locator("[data-training-move-search]").evaluate((input) => { input.dataset.identity = "original"; });
+await page.locator("[data-training-move-search]").pressSequentially("th", { delay: 20 });
+const stableSearch = await page.locator("[data-training-move-search]").evaluate((input) => ({ identity: input.dataset.identity, focused: document.activeElement === input }));
+if (stableSearch.identity !== "original" || !stableSearch.focused) throw new Error("Typing in move search replaced or unfocused the input.");
 await page.fill("[data-training-move-search]", "definitely-no-such-move");
-if (await page.locator("[data-select-training-move]").count() || !await page.locator(".training-empty").count()) throw new Error("Move search did not filter nonmatching moves.");
+if (await page.locator("[data-select-training-move]:visible").count() || !await page.locator(".training-empty:visible").count()) throw new Error("Move search did not filter nonmatching moves.");
 await page.fill("[data-training-move-search]", teachableTm.move);
-if (!await page.locator(`[data-select-training-move="${teachableTm.id}"]`).count()) throw new Error("Move search did not find a compatible move by name.");
+if (!await page.locator(`[data-select-training-move="${teachableTm.id}"]:visible`).count()) throw new Error("Move search did not find a compatible move by name.");
 await page.click(`[data-select-training-move="${teachableTm.id}"]`);
 if (!(await page.locator(".training-footer-line").textContent())?.includes(`Total ₽${(50 + teachableTm.price).toLocaleString()}`)) throw new Error("Training did not show the staged build total in its compact footer.");
 const trainingResponse = page.waitForResponse((response) => response.url().includes(`/api/game/pokemon/${outgoingId}/training/apply`) && response.request().method() === "POST");
@@ -361,12 +369,17 @@ await page.click('[data-pc-detail-view="summary"]');
 const summaryHeader = await page.locator(".pokemon-sheet").evaluate((sheet) => ({
   sheetHeight: sheet.getBoundingClientRect().height,
   summaryHeight: sheet.querySelector(".pokemon-summary").getBoundingClientRect().height,
+  summaryTop: sheet.querySelector(".pokemon-summary").getBoundingClientRect().top,
+  summaryLeft: sheet.querySelector(".pokemon-summary").getBoundingClientRect().left,
   spriteWidth: sheet.querySelector(".pokemon-summary > img").getBoundingClientRect().width,
+  spriteTop: sheet.querySelector(".pokemon-summary > img").getBoundingClientRect().top,
   nameFontSize: getComputedStyle(sheet.querySelector(".pokemon-summary h2")).fontSize,
+  nameTop: sheet.querySelector(".pokemon-summary h2").getBoundingClientRect().top,
   actionButtonHeight: sheet.querySelector(".sheet-actions .gloss-button").getBoundingClientRect().height,
 }));
 if (summaryHeader.sheetHeight !== trainingLayout.sheetHeight) throw new Error("Summary and Training drawers did not share the same height.");
 if (summaryHeader.summaryHeight !== trainingLayout.summaryHeight || summaryHeader.spriteWidth !== trainingLayout.spriteWidth || summaryHeader.nameFontSize !== trainingLayout.nameFontSize) throw new Error("Summary and Training did not share the same Pokémon header sizing.");
+if (summaryHeader.summaryTop !== trainingLayout.summaryTop || summaryHeader.summaryLeft !== trainingLayout.summaryLeft || summaryHeader.spriteTop !== trainingLayout.spriteTop || summaryHeader.nameTop !== trainingLayout.nameTop) throw new Error("Summary and Training did not keep the Pokémon header in the same position.");
 if (summaryHeader.actionButtonHeight !== trainingLayout.footerButtonHeights[0]) throw new Error("Summary and Training actions did not share the same button height.");
 await page.setViewportSize({ width: 390, height: 844 });
 await page.click("[data-open-pc-items]");
