@@ -122,6 +122,7 @@
   let configError = "";
   let battleResetBusy = false;
   let battleResetMessage = "";
+  let moreCardOpen = null;
   let leaderboardView = "daily";
   let leaderboardData = null;
   let leaderboardLoading = false;
@@ -1007,9 +1008,34 @@
 
   function settingsScreen() {
     const adminActions = currentUser?.isAdmin
-      ? `<section class="more-developer" aria-labelledby="developer-actions-title"><h3 id="developer-actions-title">Developer</h3><div class="more-actions"><button class="gloss-button orange" type="button" data-route="config">Scheduler</button><button class="gloss-button red" type="button" data-reset-daily-battle ${battleResetBusy || !gameState?.dailyBattleAttempted ? "disabled" : ""}>${battleResetBusy ? "Resetting…" : "Battle reset"}</button></div><small class="more-status" role="status" aria-live="polite">${escapeHtml(battleResetMessage)}</small></section>`
+      ? `<section class="more-developer" aria-labelledby="developer-actions-title"><h3 id="developer-actions-title">Developer</h3><div class="more-actions"><button class="gloss-button gold" type="button" data-route="config">Scheduler</button><button class="gloss-button slate" type="button" data-reset-daily-battle ${battleResetBusy || !gameState?.dailyBattleAttempted ? "disabled" : ""}>${battleResetBusy ? "Resetting…" : "Battle reset"}</button></div><small class="more-status" role="status" aria-live="polite">${escapeHtml(battleResetMessage)}</small></section>`
       : "";
-    return `<section class="screen">${header()}<div class="simple-stage more-stage"><h2>More</h2><div class="more-actions"><button class="gloss-button blue" type="button" disabled>How to play</button><button class="gloss-button purple" type="button" disabled>Affiliation</button></div>${adminActions}${backButton()}</div></section>`;
+    return `<section class="screen">${header()}<div class="simple-stage more-stage"><h2>More</h2><div class="more-actions"><button class="gloss-button red" type="button" data-open-more-card="how-to-play">How to play</button><button class="gloss-button yellow" type="button" data-open-more-card="nuzlocke">What a Nuzlocke is</button><button class="gloss-button green" type="button" data-open-more-card="schedule">Schedule</button><button class="gloss-button blue" type="button" data-open-more-card="affiliation">Affiliation</button></div>${adminActions}${backButton()}</div>${moreCard()}</section>`;
+  }
+
+  function moreCard() {
+    if (!moreCardOpen) return "";
+    const cards = {
+      "how-to-play": {
+        title: "How to play",
+        content: `<ol class="more-card-steps"><li><strong>Claim encounters.</strong> Each one joins your PC.</li><li><strong>Build a team.</strong> Choose up to six Pokémon, then adjust their training, moves, and held items.</li><li><strong>Challenge the daily Trainer.</strong> Pick your lead and play out the simulated battle.</li><li><strong>Protect your run.</strong> A win earns money and encounters. A loss wipes your run, but you can start fresh.</li></ol>`,
+      },
+      nuzlocke: {
+        title: "What a Nuzlocke is",
+        content: `<p>A <a href="https://bulbapedia.bulbagarden.net/wiki/Nuzlocke_Challenge" target="_blank" rel="noopener noreferrer">Nuzlocke</a> is a fan-created way to make Pokémon more challenging. Its core idea is that fainted Pokémon are considered lost, while encounters are limited.</p><p>Traditional versions usually allow only the first encounter in each area and encourage nicknames. Nuzzle adapts those stakes: encounters are limited, fainted team members are lost, and losing the daily battle wipes the run.</p>`,
+      },
+      schedule: {
+        title: "Battle schedule",
+        content: `<dl class="battle-schedule"><div><dt>Sunday</dt><dd>Theme teams</dd></div><div><dt>Monday</dt><dd>Regular Trainers</dd></div><div><dt>Tuesday</dt><dd>Ace Trainers</dd></div><div><dt>Wednesday</dt><dd>Rival battles</dd></div><div><dt>Thursday</dt><dd>Gym Leaders</dd></div><div><dt>Friday</dt><dd>Elite Four</dd></div><div><dt>Saturday</dt><dd>Champion battle</dd></div></dl><p class="schedule-reset">Battles reset each day at 12:00 AM Eastern Time (EST).</p>`,
+      },
+      affiliation: {
+        title: "Affiliation",
+        content: `<p><strong>Nuzzle is an unofficial, fan-made daily <a href="https://bulbapedia.bulbagarden.net/wiki/Nuzlocke_Challenge" target="_blank" rel="noopener noreferrer">Nuzlocke</a> battle simulator.</strong></p><p>It turns the fan-created, self-imposed rules of a Nuzlocke into a daily puzzle, similar in spirit to Wordle or Pokédoku but built around a simulated battle.</p><p>Battles use the open-source <a href="https://github.com/smogon/pokemon-showdown" target="_blank" rel="noopener noreferrer">Pokémon Showdown</a> engine. Sprites are used for identification and readability in place of a text-only display.</p><p>Nuzzle is not affiliated with or endorsed by Nintendo, Creatures Inc., GAME FREAK inc., The Pokémon Company, Smogon, or Pokémon Showdown.</p><p class="legal-copy">Pokémon, Pokémon character names, and sprites are © Nintendo, Creatures Inc., and GAME FREAK inc.</p>`,
+      },
+    };
+    const card = cards[moreCardOpen];
+    if (!card) return "";
+    return `<div class="auth-backdrop more-card-backdrop" data-close-more-card><section class="auth-card more-card more-card-${moreCardOpen}" role="dialog" aria-modal="true" aria-labelledby="more-card-title"><button class="auth-close" type="button" aria-label="Close ${card.title}" data-close-more-card>×</button><h2 id="more-card-title">${card.title}</h2><div class="more-card-content">${card.content}</div><button class="gloss-button purple more-card-back" type="button" data-close-more-card>Back</button></section></div>`;
   }
 
   async function resetDailyBattle() {
@@ -1489,6 +1515,7 @@
         martPurchaseQuantity = 1;
         martListScrollTop = 0;
       }
+      if (nextRoute !== "settings") moreCardOpen = null;
       route = nextRoute;
       if (route === "battle" && battleState?.ended) resultOverlayOpen = true;
       if (route === "lead") selectedLeadId = null;
@@ -1501,6 +1528,18 @@
     document.querySelectorAll("[data-leaderboard-view]").forEach((button) => button.addEventListener("click", () => {
       leaderboardView = button.dataset.leaderboardView;
       render();
+    }));
+    document.querySelectorAll("[data-open-more-card]").forEach((button) => button.addEventListener("click", () => {
+      moreCardOpen = button.dataset.openMoreCard;
+      render();
+      requestAnimationFrame(() => document.querySelector(".more-card .auth-close")?.focus({ preventScroll: true }));
+    }));
+    document.querySelectorAll("[data-close-more-card]").forEach((element) => element.addEventListener("click", (event) => {
+      if (element.classList.contains("more-card-backdrop") && event.target !== element) return;
+      const trigger = moreCardOpen;
+      moreCardOpen = null;
+      render();
+      requestAnimationFrame(() => document.querySelector(`[data-open-more-card="${trigger}"]`)?.focus({ preventScroll: true }));
     }));
     document.querySelector("[data-open-trainer-form]")?.addEventListener("click", () => {
       trainerFormOpen = true;
@@ -1879,7 +1918,12 @@
     document.querySelectorAll("[data-move-tip]").forEach((element) => addInfoInteractions(element, () => moveTip(element.dataset.moveTip)));
     document.querySelectorAll("[data-battle-move-tip]").forEach((element) => addInfoInteractions(element, () => battleMoveTip(element.dataset.battleMoveTip)));
     document.onkeydown = (event) => {
-      if (event.key === "Escape" && authOpen) {
+      if (event.key === "Escape" && moreCardOpen) {
+        const trigger = moreCardOpen;
+        moreCardOpen = null;
+        render();
+        requestAnimationFrame(() => document.querySelector(`[data-open-more-card="${trigger}"]`)?.focus());
+      } else if (event.key === "Escape" && authOpen) {
         authOpen = false;
         resetAuthDialog();
         pendingRoute = null;

@@ -110,7 +110,30 @@ await page.click("[data-toggle-theme]");
 await page.click(".page-back");
 await page.click('[data-route="settings"]');
 if ((await page.locator(".more-stage h2").textContent())?.trim() !== "More") throw new Error("The Settings destination was not replaced by More.");
-if (await page.locator('.more-actions button:has-text("How to play"):disabled').count() !== 1 || await page.locator('.more-actions button:has-text("Affiliation"):disabled').count() !== 1) throw new Error("The unfinished More destinations were not rendered as placeholders.");
+const moreButtons = await page.locator(".more-stage button").evaluateAll((buttons) => buttons.map((button) => ({ label: button.textContent.trim(), classes: button.className })));
+if (moreButtons.map(({ label }) => label).join(",") !== "How to play,What a Nuzlocke is,Schedule,Affiliation,Scheduler,Battle reset,Back") throw new Error("The More actions were not rendered in the requested order.");
+for (const [index, color] of ["red", "yellow", "green", "blue", "gold", "slate", "purple"].entries()) {
+  if (!moreButtons[index].classes.includes(color)) throw new Error(`${moreButtons[index].label} did not use the requested ${color} palette.`);
+}
+await page.setViewportSize({ width: 320, height: 568 });
+const moreCardChecks = [
+  ["how-to-play", "How to play", "Claim encounters", null],
+  ["nuzlocke", "What a Nuzlocke is", "fainted Pokémon are considered lost", "bulbapedia.bulbagarden.net/wiki/Nuzlocke_Challenge"],
+  ["schedule", "Battle schedule", "12:00 AM Eastern Time (EST)", null],
+  ["affiliation", "Affiliation", "not affiliated with or endorsed", "github.com/smogon/pokemon-showdown"],
+];
+for (const [cardId, title, copy, link] of moreCardChecks) {
+  await page.click(`[data-open-more-card="${cardId}"]`);
+  const card = page.locator(".more-card");
+  if ((await card.locator("h2").textContent())?.trim() !== title || !(await card.textContent())?.includes(copy)) throw new Error(`${title} did not show its expected concise copy.`);
+  if (await card.locator(".auth-close").count() !== 1 || await card.locator(".more-card-back", { hasText: "Back" }).count() !== 1) throw new Error(`${title} did not provide both close controls.`);
+  const cardFit = await card.evaluate((element) => ({ top: element.getBoundingClientRect().top, bottom: element.getBoundingClientRect().bottom, scrollHeight: element.scrollHeight, clientHeight: element.clientHeight }));
+  if (cardFit.top < 0 || cardFit.bottom > 568 || cardFit.scrollHeight > cardFit.clientHeight) throw new Error(`${title} did not fit a 320x568 mobile page without scrolling.`);
+  if (link && !await card.locator(`a[href*="${link}"]`).count()) throw new Error(`${title} did not include its required source link.`);
+  await card.locator(".more-card-back").click();
+  if (await page.locator(".more-card").count()) throw new Error(`${title} remained open after using Back.`);
+}
+await page.setViewportSize({ width: 390, height: 844 });
 if (!await page.locator('[data-route="config"]', { hasText: "Scheduler" }).count()) throw new Error("The ryanline account did not receive the Scheduler entry point.");
 await page.click('[data-route="config"]');
 await page.waitForSelector(".config-current");
