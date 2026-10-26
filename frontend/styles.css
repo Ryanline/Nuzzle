@@ -633,7 +633,7 @@ button.encounter-card:active { background: #eef5ef; transform: translateY(1px); 
 .mart-sheet-actions > :only-child { grid-column: 1 / -1; }
 .mart-sheet-actions .gloss-button { min-height: 39px; font-size: 17px; }
 .mart-sheet-actions .plain-button { min-height: 39px; }
-.purchase-ledger { margin: 12px 0 9px; border-top: 1px solid #bcc2c6; border-bottom: 1px solid #bcc2c6; }
+.purchase-ledger { margin: 12px 0 9px; border-bottom: 1px solid #bcc2c6; }
 .purchase-ledger p { display: flex; align-items: center; justify-content: space-between; gap: 14px; min-height: 31px; margin: 0; padding: 4px 3px; border-bottom: 1px solid #dde0e2; }
 .purchase-ledger p:last-child { border-bottom: 0; }
 .purchase-ledger p > span:first-child { color: var(--muted); font-size: 11px; font-weight: 700; text-transform: uppercase; }
