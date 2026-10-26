@@ -285,9 +285,12 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .switch-choice.selected { opacity: .55; }
 .switch-choice:disabled { cursor: default; }
 .switch-choice.fainted { opacity: .4; filter: grayscale(1); }
-.switch-choice small { position: absolute; right: 5px; bottom: 1px; color: #555; font-size: 9px; }
-.switch-choice::after { content: ""; position: absolute; right: 4px; bottom: 3px; left: 4px; height: 3px; background: #28bd65; }
-.switch-choice.fainted::after { background: #777; }
+.switch-choice small { position: absolute; right: 5px; bottom: 7px; color: #555; font-size: 9px; line-height: 1; }
+.switch-hp { position: absolute; right: 4px; bottom: 2px; left: 4px; height: 3px; overflow: hidden; border-radius: 2px; background: #777; }
+.switch-hp b { display: block; max-width: 100%; height: 100%; background: #28bd65; }
+.switch-hp.warning b { background: #e7b62c; }
+.switch-hp.critical b { background: #d54c43; }
+.switch-choice.fainted .switch-hp b { width: 0 !important; }
 .battle-panel { position: relative; display: flex; min-height: 0; flex: 1; flex-direction: column; }
 .battle-command-area { flex: 0 0 auto; }
 .give-up { position: relative; z-index: 6; width: calc(100% - 58px); margin: auto 29px 12px; }
