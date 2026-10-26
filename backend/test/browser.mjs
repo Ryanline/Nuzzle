@@ -326,6 +326,7 @@ if (await page.locator("[data-trainer-row]").count() !== 2) throw new Error("The
 const reorderResponse = page.waitForResponse((candidate) => candidate.url().endsWith("/api/admin/trainers/order") && candidate.request().method() === "PUT");
 await page.locator('[data-move-trainer][data-direction="up"]').nth(1).click();
 if (!(await reorderResponse).ok()) throw new Error("Reordering the daily trainer queue failed.");
+await page.waitForFunction(() => document.querySelector("[data-trainer-row] .trainer-queue-copy strong")?.textContent?.trim() === "Red");
 if (!(await page.locator("[data-trainer-row]").first().textContent())?.includes("Red")) throw new Error("The daily trainer queue did not retain its reordered position.");
 if (!(await page.locator("[data-trainer-row]").first().locator(".trainer-queue-copy img").getAttribute("src"))?.includes("/gen5-shiny/mew.png")) throw new Error("A queued shiny trainer Pokémon did not use its shiny sprite.");
 await page.click('.config-back[data-route="settings"]');
