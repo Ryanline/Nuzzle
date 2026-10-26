@@ -20,6 +20,7 @@ const representativeMobileViewports = [
   { name: "standard Android", ...devices["Pixel 7"].viewport },
   { name: "Galaxy S24", ...devices["Galaxy S24"].viewport },
   { name: "large Android", ...devices["Galaxy A55"].viewport },
+  { name: "wide Android", width: 512, height: 960 },
   { name: "compact stress case", width: 320, height: 568 },
 ];
 
@@ -607,9 +608,30 @@ const trainerAnchorError = await page.locator(".lead-arena").evaluate((arena) =>
 if (trainerAnchorError > 1) throw new Error(`The daily trainer was not centered on the shared opponent anchor (${trainerAnchorError}px off).`);
 await page.click("[data-start-battle]");
 await page.waitForSelector('.battle-screen [data-battle-move="1"]');
-await assertMobileLayout("active battle", [".battle-log-body"]);
+await assertMobileLayout("active battle", [".battle-panel", ".battle-log-body"]);
 await assertContainedLandscape("active battle", ".battle-panel");
 await page.waitForSelector(".battler-slot.enemy.is-aligned");
+
+const battlePanelFallback = await page.locator(".battle-panel").evaluate((panel) => {
+  const originalStyle = panel.getAttribute("style");
+  panel.style.height = "220px";
+  panel.style.flex = "0 0 220px";
+  const overflowY = getComputedStyle(panel).overflowY;
+  const overflow = panel.scrollHeight - panel.clientHeight;
+  panel.scrollTop = panel.scrollHeight;
+  const panelBounds = panel.getBoundingClientRect();
+  const giveUpBounds = panel.querySelector(".give-up").getBoundingClientRect();
+  const result = {
+    overflowY,
+    overflow,
+    scrollTop: panel.scrollTop,
+    giveUpVisible: giveUpBounds.top >= panelBounds.top - 1 && giveUpBounds.bottom <= panelBounds.bottom + 1,
+  };
+  if (originalStyle === null) panel.removeAttribute("style");
+  else panel.setAttribute("style", originalStyle);
+  return result;
+});
+if (battlePanelFallback.overflowY !== "auto" || battlePanelFallback.overflow <= 1 || battlePanelFallback.scrollTop <= 1 || !battlePanelFallback.giveUpVisible) throw new Error(`The compact battle controls could not scroll to the final action: ${JSON.stringify(battlePanelFallback)}`);
 
 if (await page.locator(".battler-slot.player").getAttribute("data-pokemon") !== replacementId) throw new Error("The selected PC Pokémon was not used as the lead.");
 if (!(await page.locator(".battle-hud.enemy").textContent())?.includes("Lv. 100")) throw new Error("Brock's Pokémon is not level 100.");

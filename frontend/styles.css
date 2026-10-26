@@ -1045,7 +1045,9 @@ html[data-theme="dark"] .auth-error { color: #ff9297; }
   .move-button strong { font-size: 16px; }
   .lead-screen .screen-header, .battle-screen .screen-header { flex: 0 0 62px; }
   .battle-unavailable { overflow-y: auto; overscroll-behavior: contain; }
-  .battle-panel { overflow: hidden; }
+  .battle-arena { height: clamp(205px, 30dvh, 320px); }
+  .battle-panel { overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; }
+  .battle-panel.log-expanded { overflow: hidden; touch-action: none; }
   .battle-hud { width: min(43%, 205px); padding: 5px 7px 4px; border-width: 1px; box-shadow: 2px 3px 0 rgba(67,53,35,.2), inset 0 0 0 1px rgba(255,255,255,.6); }
   .battle-hud-title strong { font-size: 13px; }
   .battle-hud-title span { font-size: 9px; }
