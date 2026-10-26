@@ -1,5 +1,10 @@
 :root {
   color-scheme: light;
+  --viewport-height: 100vh;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
   --ink: #111;
   --muted: #666;
   --line: #aaa;
@@ -22,6 +27,10 @@
   --slate-b: #77879a;
   --purple-a: #d4a2ea;
   --purple-b: #8d43ad;
+}
+
+@supports (height: 100dvh) {
+  :root { --viewport-height: 100dvh; }
 }
 
 * { box-sizing: border-box; }
@@ -59,8 +68,8 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .account-head { position: absolute; top: 2px; left: 8px; width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
 .account-shoulders { position: absolute; right: 3px; bottom: 2px; left: 3px; height: 10px; border-radius: 10px 10px 5px 5px; background: currentColor; }
 
-.auth-backdrop { position: fixed; z-index: 300; inset: 0; display: flex; align-items: flex-start; justify-content: center; padding: max(68px, 9dvh) 14px 20px; overflow-y: auto; background: rgba(15,18,21,.38); }
-.auth-card { position: relative; width: min(350px, 100%); padding: 15px 16px 14px; border: 1px solid #92999d; border-radius: 7px; background: #e4e9ea; box-shadow: 0 4px 10px rgba(0,0,0,.3); color: #111; }
+.auth-backdrop { position: fixed; z-index: 300; inset: 0; display: flex; align-items: flex-start; justify-content: center; padding: max(68px, 9dvh, var(--safe-top)) max(14px, var(--safe-right)) max(20px, var(--safe-bottom)) max(14px, var(--safe-left)); overflow-y: auto; overscroll-behavior: contain; scroll-padding-block: max(12px, var(--safe-top)) max(12px, var(--safe-bottom)); background: rgba(15,18,21,.38); }
+.auth-card { position: relative; width: min(350px, 100%); max-height: 100%; padding: 15px 16px 14px; overflow-y: auto; overscroll-behavior: contain; border: 1px solid #92999d; border-radius: 7px; background: #e4e9ea; box-shadow: 0 4px 10px rgba(0,0,0,.3); color: #111; }
 .auth-close { position: absolute; top: 5px; right: 6px; width: 30px; height: 30px; padding: 0; border: 0; background: transparent; color: #555; cursor: pointer; font-size: 25px; line-height: 28px; }
 .auth-close:hover { color: #111; }
 .auth-kicker { margin: 0 36px 1px 0; color: #555; font-size: 12px; font-weight: 700; }
@@ -283,8 +292,8 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .battle-command-area { flex: 0 0 auto; }
 .give-up { position: relative; z-index: 6; width: calc(100% - 58px); margin: auto 29px 12px; }
 .battle-result-actions { display: grid; position: relative; z-index: 6; flex: 0 0 auto; gap: 7px; margin: auto 29px 12px; }
-.result-backdrop { position: fixed; z-index: 250; inset: 0; display: flex; align-items: center; justify-content: center; padding: max(14px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left)); overflow-y: auto; background: rgba(15,18,21,.52); }
-.result-modal { position: relative; width: min(680px, 100%); max-height: calc(100dvh - 28px); padding: 17px 18px 18px; overflow-y: auto; border: 1px solid #92999d; border-radius: 8px; background: #e4e9ea; box-shadow: 0 6px 16px rgba(0,0,0,.32); color: #2f363c; }
+.result-backdrop { position: fixed; z-index: 250; inset: 0; display: flex; align-items: center; justify-content: center; padding: max(14px, var(--safe-top)) max(14px, var(--safe-right)) max(14px, var(--safe-bottom)) max(14px, var(--safe-left)); overflow-y: auto; overscroll-behavior: contain; background: rgba(15,18,21,.52); }
+.result-modal { position: relative; width: min(680px, 100%); max-height: 100%; padding: 17px 18px 18px; overflow-y: auto; overscroll-behavior: contain; border: 1px solid #92999d; border-radius: 8px; background: #e4e9ea; box-shadow: 0 6px 16px rgba(0,0,0,.32); color: #2f363c; }
 .result-modal > header { text-align: center; }
 .result-modal > header span { color: #68737b; font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
 .result-modal h2 { margin: 2px 0 0; color: #2f6d42; font-size: clamp(28px, 5vw, 38px); line-height: 1; }
@@ -381,7 +390,7 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .page-back { width: calc(100% - 58px); margin: 24px 29px 0; }
 .pc-stage .page-back { margin-top: auto; margin-bottom: 12px; }
 
-.sheet-backdrop { position: fixed; z-index: 200; inset: 0; display: flex; align-items: center; justify-content: center; padding: 18px; background: rgba(0,0,0,.38); }
+.sheet-backdrop { position: fixed; z-index: 200; inset: 0; display: flex; align-items: center; justify-content: center; padding: max(18px, var(--safe-top)) max(18px, var(--safe-right)) max(18px, var(--safe-bottom)) max(18px, var(--safe-left)); background: rgba(0,0,0,.38); }
 .pokemon-sheet { position: relative; display: flex; width: min(520px, 100%); height: min(570px, calc(100vh - 36px)); height: min(570px, calc(100dvh - 36px)); max-height: calc(100vh - 36px); max-height: calc(100dvh - 36px); flex-direction: column; padding: 12px; overflow-y: auto; border: 1px solid #777; border-radius: 12px; background: #fff; box-shadow: 0 14px 45px rgba(0,0,0,.3); }
 .sheet-close { position: absolute; z-index: 1; top: 9px; right: 10px; width: 38px; height: 38px; padding: 0; border: 0; border-radius: 50%; background: transparent; cursor: pointer; font-size: 30px; line-height: 34px; }
 .sheet-close:hover { background: #eee; }
@@ -688,7 +697,7 @@ button.encounter-card:active { background: #eef5ef; transform: translateY(1px); 
 .more-card-backdrop { align-items: center; padding: 12px; }
 .more-card { display: flex; width: min(420px, 100%); max-height: calc(100dvh - 24px); flex-direction: column; padding: 17px 17px 15px; text-align: left; }
 .more-card h2 { margin-bottom: 9px; }
-.more-card-content { font-size: 13px; line-height: 1.38; }
+.more-card-content { min-height: 0; overflow-y: auto; overscroll-behavior: contain; font-size: 13px; line-height: 1.38; }
 .more-card-content p { margin: 0 0 9px; color: inherit; }
 .more-card-content p:last-child { margin-bottom: 0; }
 .more-card-content a { color: #1e659f; font-weight: 700; }
@@ -936,13 +945,13 @@ html[data-theme="dark"] .auth-mode-link,
 html[data-theme="dark"] .profile-link { color: #8fc5ee; }
 html[data-theme="dark"] .auth-error { color: #ff9297; }
 
-@media (max-width: 520px) {
-  html, body { height: 100%; overflow: hidden; }
+@media (max-width: 520px), (max-width: 1000px) and (max-height: 520px) {
+  html, body { width: 100%; height: 100%; overflow: hidden; overscroll-behavior: none; }
   body { background: var(--page); }
-  .app { width: 100%; height: 100vh; height: 100dvh; min-height: 0; box-shadow: none; }
-  .screen { height: 100vh; height: 100dvh; min-height: 0; padding: 0 14px 8px; overflow: hidden; }
-  .home-screen { display: flex; padding-top: env(safe-area-inset-top); padding-right: max(14px, env(safe-area-inset-right)); padding-bottom: max(8px, env(safe-area-inset-bottom)); padding-left: max(14px, env(safe-area-inset-left)); flex-direction: column; overscroll-behavior: none; }
-  .screen-header { height: 62px; }
+  .app { width: 100%; height: var(--viewport-height); min-height: 0; box-shadow: none; }
+  .screen { display: flex; height: 100%; min-height: 0; padding-top: var(--safe-top); padding-right: max(14px, var(--safe-right)); padding-bottom: max(8px, var(--safe-bottom)); padding-left: max(14px, var(--safe-left)); overflow: hidden; flex-direction: column; }
+  .home-screen { overscroll-behavior: none; }
+  .screen-header { height: 62px; flex: 0 0 62px; }
   .home-screen .screen-header { flex: 0 0 104px; }
   .screen-title { position: absolute; right: 112px; left: 0; max-width: none; font-size: 16px; }
   .header-tools { top: 10px; right: -2px; gap: 6px; }
@@ -956,7 +965,7 @@ html[data-theme="dark"] .auth-error { color: #ff9297; }
   .theme-toggle i { width: 30px; height: 30px; }
   .theme-toggle[aria-checked="true"] i { transform: translateX(24px); }
   .account-button { width: 38px; height: 38px; }
-  .landing, .encounter-stage, .pc-stage, .mart-stage, .bag-stage, .simple-stage, .config-stage, .leaderboard-stage { min-height: 0; height: calc(100% - 62px); }
+  .landing, .encounter-stage, .pc-stage, .mart-stage, .bag-stage, .simple-stage, .config-stage, .leaderboard-stage, .battle-unavailable { min-height: 0; height: auto; flex: 1 1 auto; }
   .home-screen .landing { display: grid; height: auto; min-height: 0; flex: 1; grid-template-rows: minmax(52px, .7fr) minmax(100px, 1fr) auto; overflow: hidden; }
   .home-actions { gap: 4px; }
   .home-actions .gloss-button { min-height: 37px; padding: 2px 10px 4px; border-radius: 6px; font-size: 17px; }
@@ -973,17 +982,21 @@ html[data-theme="dark"] .auth-error { color: #ff9297; }
   .home-screen .opponent-team img { width: min(126px, 34vw); height: 100%; max-height: 104px; transform: translateX(-20px) scale(1.14); }
   .home-screen .home-actions { margin-top: 0; padding-top: 4px; }
   .pc-section-head { height: 29px; padding: 0 8px; }
+  .pc-stage { overflow: hidden; }
+  .pc-section-head { flex: 0 0 29px; }
   .pc-section-head h2 { font-size: 15px; }
   .party-strip { gap: 3px; padding: 5px; }
   .party-slot { height: 67px; }
   .party-slot img { width: 51px; height: 48px; }
   .party-slot span { font-size: 9px; }
   .pc-section + .pc-section { margin-top: 7px; }
+  .box-section { display: flex; min-height: 0; flex: 1 1 auto; flex-direction: column; }
   .pc-box { gap: 3px; padding: 5px; }
+  .box-section .pc-box { min-height: 0; flex: 1 1 auto; align-content: start; overflow-y: auto; overscroll-behavior: contain; }
   .pc-mon { height: 76px; }
   .pc-mon img { width: 60px; height: 57px; }
-  .pokemon-sheet { align-self: flex-end; width: 100%; height: min(590px, calc(100dvh - 8px)); max-height: calc(100dvh - 8px); padding: 10px 12px 8px; border-radius: 13px 13px 0 0; }
-  .sheet-backdrop { align-items: flex-end; padding: 0; }
+  .pokemon-sheet { align-self: flex-end; width: 100%; height: min(590px, calc(var(--viewport-height) - max(8px, var(--safe-top)) - var(--safe-bottom))); max-height: calc(var(--viewport-height) - max(8px, var(--safe-top)) - var(--safe-bottom)); padding: 10px 12px 8px; border-radius: 13px 13px 0 0; }
+  .sheet-backdrop { align-items: flex-end; padding: max(8px, var(--safe-top)) var(--safe-right) var(--safe-bottom) var(--safe-left); }
   .pokemon-summary { min-height: 54px; gap: 8px; }
   .pokemon-summary > img { flex-basis: 54px; width: 54px; height: 50px; }
   .pokemon-summary h2 { font-size: 20px; }
@@ -999,6 +1012,7 @@ html[data-theme="dark"] .auth-error { color: #ff9297; }
   .leaderboard-mon { height: 39px; }
   .leaderboard-mon img { width: 38px; height: 37px; }
   .leaderboard-stage .page-back { margin-bottom: 0; }
+  .simple-stage { overflow-y: auto; overscroll-behavior: contain; }
 
   .encounter-count { min-height: 22px; font-size: 12px; }
   .encounter-list { gap: 7px; }
@@ -1020,7 +1034,7 @@ html[data-theme="dark"] .auth-error { color: #ff9297; }
   .item-icon { width: 39px; height: 39px; }
   .price-button { min-width: 105px; min-height: 34px; }
   .item-about-button { width: 27px; height: 27px; }
-  .mart-sheet { align-self: flex-end; width: 100%; padding: 14px; border-radius: 13px 13px 0 0; }
+  .mart-sheet { align-self: flex-end; width: 100%; max-height: 100%; padding: 14px; overflow-y: auto; overscroll-behavior: contain; border-radius: 13px 13px 0 0; }
   .item-quantity { min-width: 39px; }
   .item-action { min-width: 52px; min-height: 32px; padding-right: 7px; padding-left: 7px; }
   .lead-choice, .switch-choice { padding: 2px; }
@@ -1029,8 +1043,8 @@ html[data-theme="dark"] .auth-error { color: #ff9297; }
   .lead-choice img { width: 52px; height: 52px; }
   .switch-choice img { width: 36px; height: 36px; flex-basis: 36px; }
   .move-button strong { font-size: 16px; }
-  .lead-screen, .battle-screen { padding-top: env(safe-area-inset-top); padding-right: max(14px, env(safe-area-inset-right)); padding-bottom: max(8px, env(safe-area-inset-bottom)); padding-left: max(14px, env(safe-area-inset-left)); }
   .lead-screen .screen-header, .battle-screen .screen-header { flex: 0 0 62px; }
+  .battle-unavailable { overflow-y: auto; overscroll-behavior: contain; }
   .battle-panel { overflow: hidden; }
   .battle-hud { width: min(43%, 205px); padding: 5px 7px 4px; border-width: 1px; box-shadow: 2px 3px 0 rgba(67,53,35,.2), inset 0 0 0 1px rgba(255,255,255,.6); }
   .battle-hud-title strong { font-size: 13px; }
@@ -1042,8 +1056,8 @@ html[data-theme="dark"] .auth-error { color: #ff9297; }
   .battle-command-area { flex: 0 0 auto; }
   .give-up { flex: 0 0 38px; min-height: 38px; }
   .battle-result-actions { margin-right: 0; margin-left: 0; }
-  .result-backdrop { align-items: center; padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
-  .result-modal { max-height: calc(100dvh - 16px); padding: 13px 10px 12px; }
+  .result-backdrop { align-items: center; padding: max(8px, var(--safe-top)) max(8px, var(--safe-right)) max(8px, var(--safe-bottom)) max(8px, var(--safe-left)); }
+  .result-modal { max-height: 100%; padding: 13px 10px 12px; }
   .result-grid { gap: 5px; }
   .result-mon-card { grid-template-rows: 39px 91px 39px; }
   .result-opponent img { width: 64px; height: 64px; }
@@ -1058,7 +1072,7 @@ html[data-theme="dark"] .auth-error { color: #ff9297; }
   .opponent-team img { transform: translateX(-20px) scale(1.1); }
 }
 
-@media (max-width: 520px) and (max-height: 860px) {
+@media (max-width: 520px) and (max-height: 860px), (min-width: 521px) and (max-width: 1000px) and (max-height: 520px) {
   .arena { height: 235px; }
   .battle-arena { height: min(205px, 27dvh); }
   .lead-arena { height: min(235px, 31dvh); }
@@ -1078,7 +1092,7 @@ html[data-theme="dark"] .auth-error { color: #ff9297; }
   .lead-actions, .give-up { margin-bottom: 0; }
 }
 
-@media (max-width: 520px) and (max-height: 700px) {
+@media (max-width: 520px) and (max-height: 700px), (min-width: 521px) and (max-width: 1000px) and (max-height: 520px) {
   .home-screen .screen-header { flex-basis: 100px; }
   .home-screen .header-tools { top: 2px; }
   .home-header { height: 100px; }
@@ -1088,6 +1102,29 @@ html[data-theme="dark"] .auth-error { color: #ff9297; }
   .lead-arena { height: 240px; }
   .lead-choice { height: 50px; }
   .lead-choice img { height: 48px; }
+  .battle-screen .screen-header { flex-basis: 56px; }
+  .battle-screen .battle-arena { height: min(160px, 24dvh); }
+  .battle-screen .battle-panel { padding-top: 3px; }
+  .battle-screen .battle-log-card { height: 72px; flex-basis: 72px; margin-bottom: 4px; }
+  .battle-screen .prompt { min-height: 17px; font-size: 14px; line-height: 1.15; }
+  .battle-screen .section-label { font-size: 16px; line-height: 1.1; }
+  .battle-screen .move-grid { gap: 3px; }
+  .battle-screen .move-button { min-height: 44px; padding-bottom: 15px; }
+  .battle-screen .move-button strong { font-size: 15px; }
+  .battle-screen .move-button span, .battle-screen .move-button small { font-size: 10px; }
+  .battle-screen .switch-grid { gap: 3px; }
+  .battle-screen .switch-choice { height: 35px; }
+  .battle-screen .switch-choice img { width: 31px; height: 31px; flex-basis: 31px; }
+  .battle-screen .give-up { min-height: 36px; flex-basis: 36px; }
+}
+
+@media (min-width: 521px) and (max-width: 1000px) and (max-height: 520px) {
+  .app { width: min(100%, 590px); }
+  .home-screen .landing { display: grid; grid-template-rows: 90px 150px auto; overflow-y: auto; overscroll-behavior: contain; }
+  .home-screen .trainer-wrap { min-height: 0; }
+  .home-screen .opponent-team { height: 150px; min-height: 150px; }
+  .battle-panel { overflow-y: auto; overscroll-behavior: contain; }
+  .battle-log-card.expanded { position: relative; top: auto; right: auto; bottom: auto; left: auto; height: min(210px, 55dvh); flex-basis: min(210px, 55dvh); margin-bottom: 4px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

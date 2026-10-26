@@ -1,4 +1,4 @@
-import { chromium } from "playwright-core";
+import { chromium, devices } from "playwright-core";
 
 const baseUrl = process.env.NUZZLE_BASE_URL || "http://127.0.0.1:3000";
 const executablePath = process.env.CHROME_PATH || (process.platform === "darwin"
@@ -10,12 +10,135 @@ const executablePath = process.env.CHROME_PATH || (process.platform === "darwin"
 const browser = await chromium.launch({ executablePath, headless: true });
 const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
 const errors = [];
+const representativeMobileViewports = [
+  { name: "compact iPhone", ...devices["iPhone 12 Mini"].viewport },
+  { name: "iPhone 16e", ...devices["iPhone 16e"].viewport },
+  { name: "wide iPhone", ...devices["iPhone 11"].viewport },
+  { name: "large iPhone", ...devices["iPhone 16 Pro Max"].viewport },
+  // The Pixel 10 shares this narrow 20:9 CSS viewport class; Chrome's usable height varies with its toolbar.
+  { name: "Pixel 10 class", ...devices["Pixel 9"].viewport },
+  { name: "standard Android", ...devices["Pixel 7"].viewport },
+  { name: "Galaxy S24", ...devices["Galaxy S24"].viewport },
+  { name: "large Android", ...devices["Galaxy A55"].viewport },
+  { name: "compact stress case", width: 320, height: 568 },
+];
+
+async function assertMobileLayout(label, scrollRegions = []) {
+  const previousViewport = page.viewportSize();
+  for (const viewport of representativeMobileViewports) {
+    await page.setViewportSize(viewport);
+    const safeInsets = viewport.name.includes("iPhone") ? { top: 24, right: 0, bottom: 34, left: 0 } : { top: 0, right: 0, bottom: 0, left: 0 };
+    await page.locator("html").evaluate((root, insets) => {
+      root.style.setProperty("--safe-top", `${insets.top}px`);
+      root.style.setProperty("--safe-right", `${insets.right}px`);
+      root.style.setProperty("--safe-bottom", `${insets.bottom}px`);
+      root.style.setProperty("--safe-left", `${insets.left}px`);
+    }, safeInsets);
+    const layout = await page.locator("body").evaluate(async (body, expectedScrollRegions) => {
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      const root = document.documentElement;
+      const app = document.querySelector(".app");
+      const screen = document.querySelector(".screen");
+      const visible = (element) => element && !element.hidden && getComputedStyle(element).display !== "none" && element.getClientRects().length > 0;
+      const bounds = (element) => {
+        const rect = element.getBoundingClientRect();
+        return { top: rect.top, right: rect.right, bottom: rect.bottom, left: rect.left, width: rect.width, height: rect.height };
+      };
+      const viewportWidth = root.clientWidth;
+      const viewportHeight = window.innerHeight;
+      const trackedSelectors = [".screen-header", ".home-actions", ".lead-actions", ".battle-command-area", ".give-up", ".battle-result-actions", ".page-back"];
+      const tracked = trackedSelectors.flatMap((selector) => [...document.querySelectorAll(selector)]).filter(visible);
+      const outOfBounds = tracked.filter((element) => {
+        const rect = element.getBoundingClientRect();
+        return rect.left < -1 || rect.right > viewportWidth + 1 || rect.top < -1 || rect.bottom > viewportHeight + 1;
+      }).map((element) => element.className || element.tagName);
+      const dialogs = [...document.querySelectorAll('[role="dialog"]')].filter(visible).map(bounds);
+      const invalidDialogs = dialogs.filter((rect) => rect.left < -1 || rect.right > viewportWidth + 1 || rect.top < -1 || rect.bottom > viewportHeight + 1);
+      const scrollChecks = expectedScrollRegions.map((selector) => {
+        const element = document.querySelector(selector);
+        if (!visible(element)) return { selector, missing: true };
+        const style = getComputedStyle(element);
+        return { selector, missing: false, overflowY: style.overflowY, bounds: bounds(element) };
+      });
+      return {
+        viewportWidth,
+        viewportHeight,
+        visualViewportHeight: window.visualViewport?.height || viewportHeight,
+        documentOverflowX: Math.max(root.scrollWidth, body.scrollWidth) - viewportWidth,
+        documentOverflowY: Math.max(root.scrollHeight, body.scrollHeight) - viewportHeight,
+        app: app ? bounds(app) : null,
+        screen: screen ? { ...bounds(screen), overflowX: screen.scrollWidth - screen.clientWidth, overflowY: screen.scrollHeight - screen.clientHeight } : null,
+        outOfBounds,
+        invalidDialogs,
+        scrollChecks,
+      };
+    }, scrollRegions);
+    const context = `${label} at ${viewport.name} (${viewport.width}x${viewport.height}, safe area ${safeInsets.top}/${safeInsets.bottom})`;
+    if (!layout.app || !layout.screen) throw new Error(`${context} did not render the app shell.`);
+    if (layout.documentOverflowX > 1 || layout.documentOverflowY > 1) throw new Error(`${context} caused document scrolling: ${JSON.stringify(layout)}`);
+    if (layout.screen.overflowX > 1 || layout.app.left < -1 || layout.app.right > layout.viewportWidth + 1 || layout.app.top < -1 || layout.app.bottom > layout.viewportHeight + 1) throw new Error(`${context} escaped the viewport: ${JSON.stringify(layout)}`);
+    if (layout.outOfBounds.length || layout.invalidDialogs.length) throw new Error(`${context} clipped a fixed control or dialog: ${JSON.stringify(layout)}`);
+    for (const region of layout.scrollChecks) {
+      if (region.missing || !["auto", "scroll"].includes(region.overflowY)) throw new Error(`${context} did not provide the expected contained scroll region ${region.selector}: ${JSON.stringify(region)}`);
+      if (region.bounds.left < -1 || region.bounds.right > layout.viewportWidth + 1 || region.bounds.top < -1 || region.bounds.bottom > layout.viewportHeight + 1) throw new Error(`${context} placed ${region.selector} outside the viewport: ${JSON.stringify(region)}`);
+    }
+  }
+  await page.locator("html").evaluate((root) => {
+    for (const property of ["--safe-top", "--safe-right", "--safe-bottom", "--safe-left"]) root.style.removeProperty(property);
+  });
+  if (previousViewport) {
+    await page.setViewportSize(previousViewport);
+    await page.locator("body").evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  }
+}
+
+async function assertContainedLandscape(label, scrollRegion) {
+  const previousViewport = page.viewportSize();
+  await page.setViewportSize({ width: 844, height: 390 });
+  await page.locator("html").evaluate((root) => {
+    root.style.setProperty("--safe-top", "0px");
+    root.style.setProperty("--safe-right", "44px");
+    root.style.setProperty("--safe-bottom", "21px");
+    root.style.setProperty("--safe-left", "44px");
+  });
+  const layout = await page.locator("body").evaluate(async (body, selector) => {
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    const root = document.documentElement;
+    const app = document.querySelector(".app");
+    const screen = document.querySelector(".screen");
+    const region = document.querySelector(selector);
+    const appRect = app?.getBoundingClientRect();
+    const screenRect = screen?.getBoundingClientRect();
+    return {
+      documentOverflowX: Math.max(root.scrollWidth, body.scrollWidth) - root.clientWidth,
+      documentOverflowY: Math.max(root.scrollHeight, body.scrollHeight) - window.innerHeight,
+      appWidth: appRect?.width,
+      appTop: appRect?.top,
+      appBottom: appRect?.bottom,
+      screenTop: screenRect?.top,
+      screenBottom: screenRect?.bottom,
+      regionOverflowY: region ? getComputedStyle(region).overflowY : null,
+    };
+  }, scrollRegion);
+  if (layout.documentOverflowX > 1 || layout.documentOverflowY > 1 || layout.appWidth > 591 || layout.appTop < -1 || layout.appBottom > 391 || layout.screenTop < -1 || layout.screenBottom > 391) throw new Error(`${label} escaped the contained landscape shell: ${JSON.stringify(layout)}`);
+  if (!["auto", "scroll"].includes(layout.regionOverflowY)) throw new Error(`${label} did not put landscape overflow in ${scrollRegion}: ${JSON.stringify(layout)}`);
+  await page.locator("html").evaluate((root) => {
+    for (const property of ["--safe-top", "--safe-right", "--safe-bottom", "--safe-left"]) root.style.removeProperty(property);
+  });
+  if (previousViewport) {
+    await page.setViewportSize(previousViewport);
+    await page.locator("body").evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  }
+}
+
 page.on("console", (message) => {
   if (message.type() === "error") errors.push(message.text());
 });
 page.on("pageerror", (error) => errors.push(error.message));
 
 await page.goto(baseUrl, { waitUntil: "networkidle" });
+const viewportMeta = await page.locator('meta[name="viewport"]').getAttribute("content");
+if (!viewportMeta?.includes("width=device-width") || !viewportMeta.includes("viewport-fit=cover") || !viewportMeta.includes("interactive-widget=resizes-content")) throw new Error("The mobile viewport does not cover device cutouts and resize for the virtual keyboard.");
 if (!/^Daily Nuzzle #\d+: /.test((await page.locator(".home-header .screen-title").textContent())?.trim() || "")) throw new Error("The landing title did not identify the Daily Nuzzle.");
 for (const viewport of [{ width: 320, height: 568 }, { width: 375, height: 667 }, { width: 390, height: 844 }, { width: 430, height: 932 }]) {
   await page.setViewportSize(viewport);
@@ -67,12 +190,16 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 375, height: 667 }
   if (!landingBounds.metaText.includes(" - ") || landingBounds.titleFontSize !== landingBounds.metaFontSize) throw new Error(`The date and countdown line does not match the title typography at ${viewport.width}x${viewport.height}.`);
   if (landingBounds.metaHeight > landingBounds.metaLineHeight * 1.5) throw new Error(`The date and countdown wrapped at ${viewport.width}x${viewport.height}.`);
 }
+await assertMobileLayout("landing page");
+await assertContainedLandscape("landing page", ".landing");
 await page.setViewportSize({ width: 390, height: 844 });
 if (await page.locator(".menu-toggle").count()) throw new Error("The obsolete hamburger menu is still rendered.");
 await page.click('[data-route="pc"]');
 await page.waitForSelector(".auth-card");
 if (await page.locator(".pc-stage").count()) throw new Error("A logged-out user reached the PC without authenticating.");
+await assertMobileLayout("login dialog", [".auth-card"]);
 await page.click('[data-auth-mode="register"]');
+await assertMobileLayout("registration dialog", [".auth-card"]);
 const username = "ryanline";
 const password = "correct horse battery staple";
 await page.fill('#auth-username', username);
@@ -124,6 +251,7 @@ await page.click("[data-toggle-theme]");
 await page.click(".page-back");
 await page.click('[data-route="settings"]');
 if ((await page.locator(".more-stage h2").textContent())?.trim() !== "More") throw new Error("The Settings destination was not replaced by More.");
+await assertMobileLayout("More screen");
 const moreButtons = await page.locator(".more-stage button").evaluateAll((buttons) => buttons.map((button) => ({ label: button.textContent.trim(), classes: button.className })));
 if (moreButtons.map(({ label }) => label).join(",") !== "How to play,What a Nuzlocke is,Schedule,Affiliation,Scheduler,Battle reset,Back") throw new Error("The More actions were not rendered in the requested order.");
 for (const [index, color] of ["red", "yellow", "green", "blue", "gold", "slate", "purple"].entries()) {
@@ -154,6 +282,7 @@ await page.setViewportSize({ width: 390, height: 844 });
 if (!await page.locator('[data-route="config"]', { hasText: "Scheduler" }).count()) throw new Error("The ryanline account did not receive the Scheduler entry point.");
 await page.click('[data-route="config"]');
 await page.waitForSelector(".config-current");
+await assertMobileLayout("scheduler", [".config-stage"]);
 await page.click("[data-open-trainer-form]");
 if (await page.locator('[name="spriteId"]').inputValue()) throw new Error("A new trainer draft did not start with an empty sprite choice.");
 if (!(await page.locator("[data-trainer-sprite-preview]").getAttribute("src"))?.includes("mystery.png")) throw new Error("The empty trainer draft did not show the mystery avatar.");
@@ -202,6 +331,7 @@ await page.click(".page-back");
 const emptyRunBattleButton = page.locator('button[data-route="encounters"]', { hasText: /^battle$/i });
 if (await emptyRunBattleButton.count() !== 1) throw new Error("The empty-run Battle button did not retain its normal label and redirect to encounters.");
 await emptyRunBattleButton.click();
+await assertMobileLayout("opening encounters", [".encounter-list"]);
 const encounterScroll = await page.locator(".encounter-list").evaluate((element) => ({ clientHeight: element.clientHeight, scrollHeight: element.scrollHeight }));
 if (encounterScroll.scrollHeight <= encounterScroll.clientHeight) throw new Error("The 12 opening encounters did not receive a contained scroll area.");
 for (let slot = 0; slot < 12; slot++) {
@@ -248,7 +378,9 @@ await page.click(".page-back");
 await page.click('[data-route="mart"]');
 if (await page.locator('[data-shop-group="TMs"], [data-shop-group="Training Items"]').count()) throw new Error("Training consumables still appeared in the Mart.");
 if (await page.locator(".shop-item").count() !== 139) throw new Error("The Mart did not render every approved held item.");
+await assertMobileLayout("Mart", [".shop-list"]);
 await page.click('[data-open-purchase="leftovers"]');
+await assertMobileLayout("Mart purchase drawer", [".mart-sheet"]);
 const heldItemPurchaseResponse = page.waitForResponse((response) => response.url().includes("/api/game/shop/leftovers") && response.request().method() === "POST");
 await page.click('[data-purchase-form="leftovers"] button[type="submit"]');
 if (!(await heldItemPurchaseResponse).ok()) throw new Error("Purchasing a held item failed.");
@@ -260,6 +392,10 @@ const tmHighlightFits = await page.locator(".shop-segments").evaluate((element) 
 });
 if (!tmHighlightFits) throw new Error("The held-item segment highlight overflowed its control.");
 await page.click(".page-back");
+await page.click('[data-route="bag"]');
+if (!await page.locator(".bag-list").count()) throw new Error("The Bag did not render its contained item list.");
+await assertMobileLayout("Bag", [".bag-list"]);
+await page.click(".page-back");
 await page.click('[data-route="pc"]');
 if ((await page.locator(".trainer-reference-section .pc-section-head h2").textContent())?.trim() !== "Brock") throw new Error("The PC did not identify today's trainer team.");
 if (await page.locator(".trainer-reference-section .trainer-party-slot").count() !== 6) throw new Error("The PC did not show today's full trainer team.");
@@ -269,6 +405,7 @@ if (await page.locator(".team-mark, .pc-help").count()) throw new Error("The obs
 if (await page.locator(".party-section [data-quick-team-remove]").count() !== generatedGame.teamIds.length || await page.locator(".box-section [data-quick-team-add]").count() !== generatedGame.roster.length - generatedGame.teamIds.length) throw new Error("The PC cards did not expose the expected quick team controls.");
 if (await page.locator(".trainer-reference-section .pc-quick-action").count()) throw new Error("The trainer reference cards incorrectly exposed team controls.");
 if (!await page.locator(`[data-quick-team-remove="${outgoingId}"].remove[aria-label="Remove ${outgoingPokemon.name} from team"]`).count() || !await page.locator(`[data-quick-team-add="${replacementId}"].add[aria-label="Add ${replacementName} to team"]`).count()) throw new Error("The quick team controls did not use the requested action styling or accessible labels.");
+await assertMobileLayout("PC", [".box-section .pc-box"]);
 const quickActionAppearance = await page.locator(".pc-quick-action").evaluateAll((buttons) => buttons.slice(0, 2).map((button) => {
   const bounds = button.getBoundingClientRect();
   const card = button.parentElement.getBoundingClientRect();
@@ -290,6 +427,7 @@ if (!await page.locator(".swap-chooser").count()) throw new Error("Quick-adding 
 await page.click("[data-cancel-pc-swap]");
 await page.click(".sheet-close");
 await page.click(`[data-pc-detail="${outgoingId}"]`);
+await assertMobileLayout("PC summary drawer", [".pc-detail-panel"]);
 const summaryAppearance = await page.locator(".pokemon-sheet").evaluate((sheet) => {
   const buttons = [...sheet.querySelectorAll(".sheet-actions .gloss-button")];
   const lightBackgrounds = buttons.map((button) => getComputedStyle(button).backgroundImage);
@@ -324,6 +462,7 @@ if (pcActionSpacing.firstGap < 6 || Math.abs(pcActionSpacing.firstGap - pcAction
 if (pcActionSpacing.closeBottom > pcActionSpacing.sheetBottom + 1) throw new Error("The PC drawer actions overflow the drawer.");
 await page.setViewportSize({ width: 390, height: 568 });
 await page.click('[data-pc-detail-view="training"]');
+await assertMobileLayout("PC training drawer");
 const expectedNatureOrder = ["Adamant", "Lonely", "Naughty", "Brave", "Bold", "Impish", "Relaxed", "Lax", "Jolly", "Timid", "Hasty", "Naive", "Modest", "Mild", "Rash", "Quiet", "Calm", "Careful", "Sassy", "Gentle", "Bashful", "Docile", "Hardy", "Quirky", "Serious"];
 if (JSON.stringify(await page.locator("[data-training-nature] option").evaluateAll((options) => options.map((option) => option.value))) !== JSON.stringify(expectedNatureOrder)) throw new Error("The Training nature menu did not use the requested order.");
 if (await page.locator(".pc-detail-panel > .pokemon-facts").count()) throw new Error("Training still includes the general Pokémon facts.");
@@ -371,6 +510,7 @@ await page.fill('[data-training-ev-input="hp"]', "7");
 if (await page.locator('[data-training-ev="hp"]').inputValue() !== "7") throw new Error("Typing an EV did not synchronize its slider.");
 await page.locator('[data-training-ev="hp"]').evaluate((input) => { input.value = "5"; input.dispatchEvent(new Event("input", { bubbles: true })); input.dispatchEvent(new Event("change", { bubbles: true })); });
 await page.click('[data-edit-training-move="0"]');
+await assertMobileLayout("move picker", [".training-move-list"]);
 if (!await page.locator("[data-training-move-search]").count()) throw new Error("The Training move picker did not expose search.");
 await page.locator("[data-training-move-search]").evaluate((input) => { input.dataset.identity = "original"; });
 await page.locator("[data-training-move-search]").pressSequentially("th", { delay: 20 });
@@ -449,6 +589,7 @@ await page.click(".sheet-close");
 await page.click(".page-back");
 await page.click('[data-route="lead"]');
 await page.click(`[data-select-lead="${replacementId}"]`);
+await assertMobileLayout("lead selection", [".lead-prompt"]);
 if (!(await page.locator(".lead-details-card").textContent())?.includes(replacementName)) throw new Error("Selecting a lead did not show its battle details.");
 if (await page.locator(".lead-stat").count() !== 6) throw new Error("The lead preview did not show all six battle stats together.");
 if (await page.locator(".lead-move-grid > span").count() !== 4) throw new Error("The lead preview did not show all four moves.");
@@ -465,6 +606,9 @@ const trainerAnchorError = await page.locator(".lead-arena").evaluate((arena) =>
 if (trainerAnchorError > 1) throw new Error(`The daily trainer was not centered on the shared opponent anchor (${trainerAnchorError}px off).`);
 await page.click("[data-start-battle]");
 await page.waitForSelector('.battle-screen [data-battle-move="1"]');
+await assertMobileLayout("active battle", [".battle-log-body"]);
+await assertContainedLandscape("active battle", ".battle-panel");
+await page.waitForSelector(".battler-slot.enemy.is-aligned");
 
 if (await page.locator(".battler-slot.player").getAttribute("data-pokemon") !== replacementId) throw new Error("The selected PC Pokémon was not used as the lead.");
 if (!(await page.locator(".battle-hud.enemy").textContent())?.includes("Lv. 100")) throw new Error("Brock's Pokémon is not level 100.");
@@ -537,6 +681,7 @@ await page.waitForFunction(() => document.querySelector(".prompt")?.textContent.
 if (await page.locator("[data-forfeit-battle]").count()) throw new Error("Forfeit remained available after the battle ended.");
 await page.waitForSelector(".result-modal");
 if (!(await page.locator(".result-modal").textContent())?.includes("Defeat")) throw new Error("The result overlay did not report the loss.");
+await assertMobileLayout("battle result", [".result-modal"]);
 const resultCenterOffset = await page.locator(".result-modal").evaluate((modal) => {
   const bounds = modal.getBoundingClientRect();
   return Math.abs(bounds.top + bounds.height / 2 - window.innerHeight / 2);
@@ -562,6 +707,7 @@ const leaderboardResponses = Promise.all([
 await page.click('[data-route="leaderboard"]');
 if ((await leaderboardResponses).some((response) => !response.ok())) throw new Error("Loading the leaderboards failed.");
 await page.waitForSelector('.leaderboard-tabs [data-leaderboard-view="daily"].selected');
+await assertMobileLayout("leaderboard", [".leaderboard-content"]);
 if (await page.locator(".leaderboard-row.leaderboard-loss").count() !== 1) throw new Error("A completed loss did not appear on the daily leaderboard.");
 if (!(await page.locator(".leaderboard-row.leaderboard-loss").textContent())?.includes(username)) throw new Error("The daily loss row did not show the account name.");
 if (!(await page.locator(".leaderboard-row.leaderboard-loss .leaderboard-avatar img").getAttribute("src"))?.includes("/trainers/misty.png")) throw new Error("The selected account avatar did not appear on the daily leaderboard.");
