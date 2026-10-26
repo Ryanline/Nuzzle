@@ -140,7 +140,7 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .trainer { width: 184px; height: 220px; }
 .opponent-team { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 0; width: min(315px, 100%); margin: 4px auto 26px; }
 .opponent-team button { position: relative; display: grid; min-width: 0; min-height: 138px; place-items: center; padding: 0; border: 0; background: transparent; cursor: default; }
-.opponent-team img { width: 164px; height: 140px; max-width: 100%; transform: scale(1.2); }
+.opponent-team img { width: 164px; height: 140px; max-width: 100%; transform: translateX(-9.5%) scale(1.2); }
 .home-actions { display: grid; gap: 7px; margin-top: auto; }
 
 .arena { position: relative; height: clamp(370px, 56vh, 560px); margin: 0 -26px; overflow: hidden; background: #58ad62 url("assets/arena.jpg") center center / cover no-repeat; }
@@ -979,7 +979,7 @@ html[data-theme="dark"] .auth-error { color: #ff9297; }
   .home-screen .trainer { width: min(124px, 32vw); height: 100%; max-height: 154px; }
   .home-screen .opponent-team { height: 100%; min-height: 0; grid-template-rows: repeat(2, minmax(0, 1fr)); margin: 0 auto; overflow: visible; }
   .home-screen .opponent-team button { min-height: 0; overflow: visible; }
-  .home-screen .opponent-team img { width: min(126px, 34vw); height: 100%; max-height: 104px; transform: scale(1.14); }
+  .home-screen .opponent-team img { width: min(126px, 34vw); height: 100%; max-height: 104px; transform: translateX(-9.5%) scale(1.14); }
   .home-screen .home-actions { margin-top: 0; padding-top: 4px; }
   .pc-section-head { height: 29px; padding: 0 8px; }
   .pc-stage { overflow: hidden; }
@@ -1069,7 +1069,7 @@ html[data-theme="dark"] .auth-error { color: #ff9297; }
 }
 
 @media (max-width: 350px) {
-  .opponent-team img { transform: scale(1.1); }
+  .opponent-team img { transform: translateX(-9.5%) scale(1.1); }
 }
 
 @media (max-width: 520px) and (max-height: 860px), (min-width: 521px) and (max-width: 1000px) and (max-height: 520px) {
