@@ -108,11 +108,13 @@
   let gameBusy = false;
   let purchaseMessage = "";
   let activeShopGroup = "Held Items";
+  let martSearch = "";
   let martSheetItemId = null;
   let martSheetMode = null;
   let martPurchaseQuantity = 1;
   let martListScrollTop = 0;
   let activeBagGroup = "Held Items";
+  let bagSearch = "";
   let inventory = {};
   let todayState = fallbackToday;
   let rolloverTimer = null;
@@ -923,11 +925,15 @@
   function shopRows() {
     const items = shopItems.filter((item) => item.group === activeShopGroup);
     if (!items.length) return '<div class="shop-empty"><strong>No items</strong><span>Nothing is available in this category yet.</span></div>';
+    const query = martSearch.trim().toLowerCase();
+    const matches = (item) => !query || `${item.name} ${item.detail} ${item.description || ""}`.toLowerCase().includes(query);
+    const matchCount = items.filter(matches).length;
     return items.map((item) => {
       const owned = inventory[item.id] || 0;
       const soldOut = item.purchaseLimit === 1 && gameState?.purchasedUnique.includes(item.id);
-      return `<div class="shop-item">${itemIcon(item)}<span class="item-copy"><strong>${escapeHtml(item.name)}</strong>${owned ? `<small>Owned: ${owned}</small>` : ""}</span><button class="item-about-button" type="button" data-item-about="${item.id}" aria-label="About ${escapeHtml(item.name)}">?</button><button class="price-button" type="button" data-open-purchase="${item.id}" ${balance < item.price || soldOut ? "disabled" : ""}>${soldOut ? "Bought" : `₽${item.price.toLocaleString()}`}</button></div>`;
-    }).join("");
+      const searchText = `${item.name} ${item.detail} ${item.description || ""}`.toLowerCase();
+      return `<div class="shop-item" data-mart-search-text="${escapeHtml(searchText)}" ${matches(item) ? "" : "hidden"}>${itemIcon(item)}<span class="item-copy"><strong>${escapeHtml(item.name)}</strong>${owned ? `<small>Owned: ${owned}</small>` : ""}</span><button class="item-about-button" type="button" data-item-about="${item.id}" aria-label="About ${escapeHtml(item.name)}">?</button><button class="price-button" type="button" data-open-purchase="${item.id}" ${balance < item.price || soldOut ? "disabled" : ""}>${soldOut ? "Bought" : `₽${item.price.toLocaleString()}`}</button></div>`;
+    }).join("") + `<p class="item-search-empty" data-mart-search-empty ${matchCount ? "hidden" : ""}>No matching items.</p>`;
   }
 
   function maxPurchaseQuantity(item) {
@@ -971,15 +977,20 @@
     const activeTabId = `shop-tab-${activeShopGroup.toLowerCase().replaceAll(" ", "-")}`;
     return `<section class="screen">${header()}<div class="mart-stage"><div class="mart-summary"><p class="purchase-message" aria-live="polite">${purchaseMessage}</p><p class="balance">Balance: <strong>₽${balance.toLocaleString()}</strong></p></div>
       <div class="shop-segments mart-segments" data-active-index="${activeGroupIndex}" role="tablist" aria-label="Mart categories">${itemGroupOrder.map((group) => { const selected = group === activeShopGroup; return `<button id="shop-tab-${group.toLowerCase().replaceAll(" ", "-")}" type="button" role="tab" aria-selected="${selected}" data-shop-group="${group}" class="${selected ? "selected" : ""}">${itemGroupLabel(group)}</button>`; }).join("")}</div>
+      <label class="move-search item-search"><span>Search items</span><input type="search" value="${escapeHtml(martSearch)}" placeholder="Search by name or effect" data-mart-search><small aria-live="polite" data-mart-search-count>${shopItems.filter((item) => item.group === activeShopGroup && (!martSearch.trim() || `${item.name} ${item.detail} ${item.description || ""}`.toLowerCase().includes(martSearch.trim().toLowerCase()))).length} matching item${shopItems.filter((item) => item.group === activeShopGroup && (!martSearch.trim() || `${item.name} ${item.detail} ${item.description || ""}`.toLowerCase().includes(martSearch.trim().toLowerCase()))).length === 1 ? "" : "s"}</small></label>
       <div class="shop-list" id="shop-items" role="tabpanel" aria-labelledby="${activeTabId}">${shopRows()}</div>${backButton()}</div>${martSheet()}</section>`;
   }
 
   function bagContents() {
     const ownedItems = shopItems.filter((item) => item.group === activeBagGroup && inventory[item.id]);
+    const query = bagSearch.trim().toLowerCase();
+    const matches = (item) => !query || `${item.name} ${item.detail} ${item.description || ""}`.toLowerCase().includes(query);
+    const matchCount = ownedItems.filter(matches).length;
     return ownedItems.length ? `<div class="bag-list">${ownedItems.map((item) => {
       const action = item.group === "Held Items" ? "give" : "use";
-      return `<div class="bag-item">${itemIcon(item)}<span class="item-copy"><strong>${item.name}</strong><small>${item.detail}</small></span><span class="item-quantity" aria-label="${inventory[item.id]} owned">×${inventory[item.id]}</span><button class="item-action" type="button" data-route="pc" aria-label="${action} ${item.name} from the PC">${action === "give" ? "Give" : "Use"}</button></div>`;
-    }).join("")}</div>` : `<div class="bag-empty"><h2>No items</h2><p>Items in this category will appear here.</p><button class="gloss-button blue" type="button" data-visit-mart="${activeBagGroup}">Visit mart</button></div>`;
+      const searchText = `${item.name} ${item.detail} ${item.description || ""}`.toLowerCase();
+      return `<div class="bag-item" data-bag-search-text="${escapeHtml(searchText)}" ${matches(item) ? "" : "hidden"}>${itemIcon(item)}<span class="item-copy"><strong>${item.name}</strong><small>${item.detail}</small></span><span class="item-quantity" aria-label="${inventory[item.id]} owned">×${inventory[item.id]}</span><button class="item-action" type="button" data-route="pc" aria-label="${action} ${item.name} from the PC">${action === "give" ? "Give" : "Use"}</button></div>`;
+    }).join("")}<p class="item-search-empty" data-bag-search-empty ${matchCount ? "hidden" : ""}>No matching items.</p></div>` : `<div class="bag-empty"><h2>No items</h2><p>Items in this category will appear here.</p><button class="gloss-button blue" type="button" data-visit-mart="${activeBagGroup}">Visit mart</button></div>`;
   }
 
   function bag() {
@@ -988,6 +999,7 @@
     const activeTabId = `bag-tab-${activeBagGroup.toLowerCase().replaceAll(" ", "-")}`;
     return `<section class="screen">${header()}<div class="bag-stage"><div class="bag-summary"><span>${total} item${total === 1 ? "" : "s"}</span><span>₽${balance.toLocaleString()}</span></div>
       <div class="shop-segments bag-segments" data-active-index="${activeGroupIndex}" role="tablist" aria-label="Bag categories">${itemGroupOrder.map((group) => { const selected = group === activeBagGroup; return `<button id="bag-tab-${group.toLowerCase().replaceAll(" ", "-")}" type="button" role="tab" aria-selected="${selected}" data-bag-group="${group}" class="${selected ? "selected" : ""}">${itemGroupLabel(group)}</button>`; }).join("")}</div>
+      <label class="move-search item-search"><span>Search items</span><input type="search" value="${escapeHtml(bagSearch)}" placeholder="Search by name or effect" data-bag-search><small aria-live="polite" data-bag-search-count>${shopItems.filter((item) => item.group === activeBagGroup && inventory[item.id] && (!bagSearch.trim() || `${item.name} ${item.detail} ${item.description || ""}`.toLowerCase().includes(bagSearch.trim().toLowerCase()))).length} matching item${shopItems.filter((item) => item.group === activeBagGroup && inventory[item.id] && (!bagSearch.trim() || `${item.name} ${item.detail} ${item.description || ""}`.toLowerCase().includes(bagSearch.trim().toLowerCase()))).length === 1 ? "" : "s"}</small></label>
       <div class="bag-contents" role="tabpanel" aria-labelledby="${activeTabId}">${bagContents()}</div>${backButton()}</div></section>`;
   }
 
@@ -1703,6 +1715,7 @@
     document.querySelectorAll("[data-shop-group]").forEach((button) => button.addEventListener("click", () => {
       if (button.dataset.shopGroup === activeShopGroup) return;
       activeShopGroup = button.dataset.shopGroup;
+      martSearch = "";
       purchaseMessage = "";
       document.querySelector(".purchase-message").textContent = "";
       document.querySelector(".shop-segments").dataset.activeIndex = itemGroupOrder.indexOf(activeShopGroup);
@@ -1714,11 +1727,30 @@
       const shopList = document.querySelector(".shop-list");
       shopList.setAttribute("aria-labelledby", button.id);
       shopList.innerHTML = shopRows();
+      const search = document.querySelector("[data-mart-search]");
+      if (search) search.value = "";
+      const count = document.querySelector("[data-mart-search-count]");
+      const itemCount = shopItems.filter((item) => item.group === activeShopGroup).length;
+      if (count) count.textContent = `${itemCount} matching item${itemCount === 1 ? "" : "s"}`;
       martListScrollTop = 0;
       shopList.scrollTop = 0;
       bindShopRows();
     }));
     bindShopRows();
+    document.querySelector("[data-mart-search]")?.addEventListener("input", (event) => {
+      martSearch = event.currentTarget.value;
+      const query = martSearch.trim().toLowerCase();
+      let matchCount = 0;
+      document.querySelectorAll("[data-mart-search-text]").forEach((row) => {
+        const matches = !query || row.dataset.martSearchText.includes(query);
+        row.hidden = !matches;
+        if (matches) matchCount++;
+      });
+      const empty = document.querySelector("[data-mart-search-empty]");
+      if (empty) empty.hidden = matchCount > 0;
+      const count = document.querySelector("[data-mart-search-count]");
+      if (count) count.textContent = `${matchCount} matching item${matchCount === 1 ? "" : "s"}`;
+    });
     document.querySelectorAll("[data-close-mart-sheet]").forEach((element) => element.addEventListener("click", (event) => {
       if (element.classList.contains("mart-sheet-backdrop") && event.target !== element) return;
       martSheetItemId = null;
@@ -1749,6 +1781,7 @@
     document.querySelectorAll("[data-bag-group]").forEach((button) => button.addEventListener("click", () => {
       if (button.dataset.bagGroup === activeBagGroup) return;
       activeBagGroup = button.dataset.bagGroup;
+      bagSearch = "";
       const segments = document.querySelector(".bag-segments");
       segments.dataset.activeIndex = itemGroupOrder.indexOf(activeBagGroup);
       document.querySelectorAll("[data-bag-group]").forEach((tab) => {
@@ -1759,9 +1792,28 @@
       const bagPanel = document.querySelector(".bag-contents");
       bagPanel.setAttribute("aria-labelledby", button.id);
       bagPanel.innerHTML = bagContents();
+      const search = document.querySelector("[data-bag-search]");
+      if (search) search.value = "";
+      const count = document.querySelector("[data-bag-search-count]");
+      const itemCount = shopItems.filter((item) => item.group === activeBagGroup && inventory[item.id]).length;
+      if (count) count.textContent = `${itemCount} matching item${itemCount === 1 ? "" : "s"}`;
       bindVisitMart();
     }));
     bindVisitMart();
+    document.querySelector("[data-bag-search]")?.addEventListener("input", (event) => {
+      bagSearch = event.currentTarget.value;
+      const query = bagSearch.trim().toLowerCase();
+      let matchCount = 0;
+      document.querySelectorAll("[data-bag-search-text]").forEach((row) => {
+        const matches = !query || row.dataset.bagSearchText.includes(query);
+        row.hidden = !matches;
+        if (matches) matchCount++;
+      });
+      const empty = document.querySelector("[data-bag-search-empty]");
+      if (empty) empty.hidden = matchCount > 0;
+      const count = document.querySelector("[data-bag-search-count]");
+      if (count) count.textContent = `${matchCount} matching item${matchCount === 1 ? "" : "s"}`;
+    });
     document.querySelectorAll("[data-pc-detail]").forEach((button) => button.addEventListener("click", () => { selectedPcId = button.dataset.pcDetail; pcDetailView = "summary"; pcSwapMode = false; pcItemMode = false; pendingPcItemId = null; selectedNature = null; pcItemMessage = ""; trainingDraft = null; trainingMoveSlot = null; trainingMessage = ""; render(); }));
     document.querySelectorAll("[data-pc-detail-view]").forEach((button) => button.addEventListener("click", () => {
       pcDetailView = button.dataset.pcDetailView;

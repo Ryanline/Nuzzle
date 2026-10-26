@@ -490,6 +490,8 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .move-search > span { color: var(--ink); font-size: 12px; font-weight: 700; }
 .move-search input { height: 36px; padding: 5px 30px 5px 9px; border: 1px solid #8d9aa3; border-radius: 4px; background: var(--page); color: var(--ink); font: inherit; font-size: 13px; }
 .move-search small { text-align: right; }
+.item-search { flex: 0 0 auto; margin: 0 0 7px; }
+.item-search-empty { margin: 22px 4px; color: var(--muted); font-size: 12px; text-align: center; }
 .training-move-list { min-height: 0; flex: 1; overflow-y: auto; overscroll-behavior: contain; }
 .training-move-list > button { display: flex; width: 100%; min-height: 52px; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 4px; border: 0; border-bottom: 1px solid #d8dcdf; background: transparent; color: var(--ink); cursor: pointer; text-align: left; }
 .training-move-list > button:hover { background: var(--surface); }
