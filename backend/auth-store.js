@@ -140,12 +140,6 @@ export class AuthStore {
     return user ? publicUser(user) : null;
   }
 
-  userByUsername(username) {
-    const usernameKey = String(username || "").trim().toLowerCase();
-    const user = this.data.users.find((candidate) => candidate.usernameKey === usernameKey);
-    return user ? publicUser(user) : null;
-  }
-
   async updateAvatar(userId, spriteId) {
     const avatarSpriteId = String(spriteId || "").trim() || null;
     if (avatarSpriteId && !avatarSpriteIds.has(avatarSpriteId)) authError("Choose an avatar from the trainer sprite list.");
