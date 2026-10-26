@@ -162,6 +162,7 @@ await page.waitForSelector(".config-current");
 await page.click("[data-open-trainer-form]");
 if (await page.locator('.trainer-form input[name="name"]').inputValue() !== "Persistent draft") throw new Error("The trainer draft did not persist across a page reload.");
 const addQueuedTrainer = async (name, spriteId, species, shiny = false) => {
+  const expectedCount = await page.locator("[data-trainer-row]").count() + 1;
   await page.click("[data-open-trainer-form]");
   await page.fill('.trainer-form input[name="name"]', name);
   await page.fill('.trainer-form input[name="spriteId"]', spriteId);
@@ -169,6 +170,7 @@ const addQueuedTrainer = async (name, spriteId, species, shiny = false) => {
   const response = page.waitForResponse((candidate) => candidate.url().endsWith("/api/admin/trainers") && candidate.request().method() === "POST");
   await page.click('.trainer-form button[type="submit"]');
   if (!(await response).ok()) throw new Error(`Adding ${name} to the daily trainer queue failed.`);
+  await page.waitForFunction((count) => document.querySelectorAll("[data-trainer-row]").length === count && !document.querySelector(".trainer-form"), expectedCount);
 };
 await addQueuedTrainer("Blue", "blue", "Mewtwo");
 await addQueuedTrainer("Red", "red", "Mew", true);
