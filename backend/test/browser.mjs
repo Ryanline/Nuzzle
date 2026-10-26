@@ -266,6 +266,22 @@ if (await page.locator(".trainer-reference-section .trainer-party-slot").count()
 if (await page.locator(".party-section [data-pc-detail]").count() !== generatedGame.teamIds.length) throw new Error("The PC Team section did not show only the active team.");
 if (await page.locator(".box-section [data-pc-mon]").count() !== generatedGame.roster.length - generatedGame.teamIds.length) throw new Error("The PC Box section did not exclude active team members.");
 if (await page.locator(".team-mark, .pc-help").count()) throw new Error("The obsolete PC team labels or helper text are still visible.");
+if (await page.locator(".party-section [data-quick-team-remove]").count() !== generatedGame.teamIds.length || await page.locator(".box-section [data-quick-team-add]").count() !== generatedGame.roster.length - generatedGame.teamIds.length) throw new Error("The PC cards did not expose the expected quick team controls.");
+if (await page.locator(".trainer-reference-section .pc-quick-action").count()) throw new Error("The trainer reference cards incorrectly exposed team controls.");
+if (!await page.locator(`[data-quick-team-remove="${outgoingId}"].remove[aria-label="Remove ${outgoingPokemon.name} from team"]`).count() || !await page.locator(`[data-quick-team-add="${replacementId}"].add[aria-label="Add ${replacementName} to team"]`).count()) throw new Error("The quick team controls did not use the requested action styling or accessible labels.");
+let quickTeamResponse = page.waitForResponse((response) => response.url().endsWith("/api/game/team") && response.request().method() === "PUT");
+await page.click(`[data-quick-team-remove="${outgoingId}"]`);
+if (!(await quickTeamResponse).ok()) throw new Error("Quick-removing a Pokémon from the team failed.");
+await page.waitForSelector(`[data-quick-team-add="${outgoingId}"]`);
+if (await page.locator(".pokemon-sheet").count()) throw new Error("Quick-removing a Pokémon opened its details drawer.");
+quickTeamResponse = page.waitForResponse((response) => response.url().endsWith("/api/game/team") && response.request().method() === "PUT");
+await page.click(`[data-quick-team-add="${outgoingId}"]`);
+if (!(await quickTeamResponse).ok()) throw new Error("Quick-adding a Pokémon to an open team slot failed.");
+await page.waitForSelector(`[data-quick-team-remove="${outgoingId}"]`);
+await page.click(`[data-quick-team-add="${replacementId}"]`);
+if (!await page.locator(".swap-chooser").count()) throw new Error("Quick-adding with a full team did not open the replacement chooser.");
+await page.click("[data-cancel-pc-swap]");
+await page.click(".sheet-close");
 await page.click(`[data-pc-detail="${outgoingId}"]`);
 const summaryAppearance = await page.locator(".pokemon-sheet").evaluate((sheet) => {
   const buttons = [...sheet.querySelectorAll(".sheet-actions .gloss-button")];

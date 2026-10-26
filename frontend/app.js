@@ -703,12 +703,12 @@
       const id = party[index];
       if (!id) return `<div class="party-slot empty" aria-label="Empty team slot"><span>empty</span></div>`;
       const mon = mons[id];
-      return `<button class="party-slot" type="button" data-pc-detail="${id}" aria-label="View ${mon.name}"><img class="sprite" src="${sprite(id)}" alt=""/><span>${mon.name}</span></button>`;
+      return `<div class="party-card"><button class="party-slot" type="button" data-pc-detail="${id}" aria-label="View ${mon.name}"><img class="sprite" src="${sprite(id)}" alt=""/><span>${mon.name}</span></button><button class="pc-quick-action remove" type="button" data-quick-team-remove="${id}" aria-label="Remove ${mon.name} from team">×</button></div>`;
     }).join("");
     const boxIds = pcOrder.filter((id) => !team.has(id));
     const boxMons = boxIds.map((id) => {
       const mon = mons[id];
-      return `<button class="pc-mon" type="button" draggable="false" data-pc-mon="${id}" aria-label="View ${mon.name}"><img class="sprite" src="${sprite(id)}" alt=""/><span class="pc-mon-name">${mon.name}</span></button>`;
+      return `<div class="pc-mon-card"><button class="pc-mon" type="button" draggable="false" data-pc-mon="${id}" aria-label="View ${mon.name}"><img class="sprite" src="${sprite(id)}" alt=""/><span class="pc-mon-name">${mon.name}</span></button><button class="pc-quick-action add" type="button" data-quick-team-add="${id}" aria-label="Add ${mon.name} to team">+</button></div>`;
     }).join("");
     return `<section class="screen">${header()}<div class="pc-stage">
       <section class="pc-section trainer-reference-section" aria-labelledby="trainer-team-heading"><div class="pc-section-head"><h2 id="trainer-team-heading">${escapeHtml(trainer.name)}</h2><span>${trainer.pokemon.length} Pokémon</span></div><div class="party-strip">${trainerSlots}</div></section>
@@ -1886,6 +1886,26 @@
     }));
     document.querySelector("[data-reset-training]")?.addEventListener("click", () => { beginTraining(mons[selectedPcId]); render(); });
     document.querySelector("[data-apply-training]")?.addEventListener("click", () => void applyTraining());
+    document.querySelectorAll("[data-quick-team-remove]").forEach((button) => button.addEventListener("click", () => {
+      const id = button.dataset.quickTeamRemove;
+      void persistTeam([...team].filter((teamId) => teamId !== id));
+    }));
+    document.querySelectorAll("[data-quick-team-add]").forEach((button) => button.addEventListener("click", () => {
+      const id = button.dataset.quickTeamAdd;
+      if (team.size < 6) {
+        void persistTeam([...team, id]);
+        return;
+      }
+      selectedPcId = id;
+      pcDetailView = "summary";
+      pcSwapMode = true;
+      pcItemMode = false;
+      pendingPcItemId = null;
+      selectedNature = null;
+      pcItemMessage = "";
+      trainingDraft = null;
+      render();
+    }));
     document.querySelector("[data-team-toggle]")?.addEventListener("click", (event) => {
       const id = event.currentTarget.dataset.teamToggle;
       if (team.has(id)) {
@@ -1974,7 +1994,9 @@
         const from = pcOrder.indexOf(sourceId);
         const to = pcOrder.indexOf(targetId);
         pcOrder.splice(to, 0, pcOrder.splice(from, 1)[0]);
-        target.parentElement.insertBefore(element, to > from ? target.nextSibling : target);
+        const sourceCard = element.closest(".pc-mon-card");
+        const targetCard = target.closest(".pc-mon-card");
+        targetCard.parentElement.insertBefore(sourceCard, to > from ? targetCard.nextSibling : targetCard);
         moved = true;
       });
       element.addEventListener("pointerup", () => {
