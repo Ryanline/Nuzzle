@@ -140,7 +140,6 @@ async function assertDesktopLayout(label, scrollRegions = [], relationships = []
         documentOverflowX: Math.max(root.scrollWidth, body.scrollWidth) - root.clientWidth,
         documentOverflowY: Math.max(root.scrollHeight, body.scrollHeight) - window.innerHeight,
         app: appBounds,
-        appRadius: app ? Number.parseFloat(getComputedStyle(app).borderRadius) : 0,
         screen: screen ? { ...screenBounds, overflowX: screen.scrollWidth - screen.clientWidth, overflowY: screen.scrollHeight - screen.clientHeight } : null,
         outOfBounds,
         invalidDialogs,
@@ -151,7 +150,7 @@ async function assertDesktopLayout(label, scrollRegions = [], relationships = []
     const context = `${label} at ${viewport.name} (${viewport.width}x${viewport.height})`;
     if (!layout.app || !layout.screen) throw new Error(`${context} did not render the app shell.`);
     if (layout.documentOverflowX > 1 || layout.documentOverflowY > 1) throw new Error(`${context} caused document scrolling: ${JSON.stringify(layout)}`);
-    if (layout.app.width < 900 || layout.app.width > 1181 || layout.app.top < 15 || layout.app.bottom > layout.viewportHeight - 15 || layout.appRadius < 10) throw new Error(`${context} did not use the desktop app shell: ${JSON.stringify(layout)}`);
+    if (layout.app.width < 899 || layout.app.width > 901 || layout.app.top < -1 || layout.app.bottom > layout.viewportHeight + 1) throw new Error(`${context} did not use the desktop app shell: ${JSON.stringify(layout)}`);
     if (layout.screen.overflowX > 1 || layout.screen.left < layout.app.left - 1 || layout.screen.right > layout.app.right + 1 || layout.screen.top < layout.app.top - 1 || layout.screen.bottom > layout.app.bottom + 1) throw new Error(`${context} escaped the desktop app shell: ${JSON.stringify(layout)}`);
     if (layout.outOfBounds.length || layout.invalidDialogs.length) throw new Error(`${context} clipped a control or dialog: ${JSON.stringify(layout)}`);
     for (const region of layout.scrollChecks) {
@@ -273,8 +272,8 @@ for (const viewport of [{ width: 320, height: 568 }, { width: 375, height: 667 }
 }
 await assertMobileLayout("landing page");
 await assertDesktopLayout("landing page", [], [
-  { first: ".trainer-wrap", second: ".opponent-team", direction: "before" },
-  { first: ".opponent-team", second: ".home-actions", direction: "before" },
+  { first: ".trainer-wrap", second: ".opponent-team", direction: "above" },
+  { first: ".opponent-team", second: ".home-actions", direction: "above" },
 ]);
 await assertContainedLandscape("landing page", ".landing");
 await page.setViewportSize({ width: 390, height: 844 });
@@ -338,7 +337,9 @@ await page.click(".page-back");
 await page.click('[data-route="settings"]');
 if ((await page.locator(".more-stage h2").textContent())?.trim() !== "More") throw new Error("The Settings destination was not replaced by More.");
 await assertMobileLayout("More screen");
-await assertDesktopLayout("More screen");
+await assertDesktopLayout("More screen", [], [
+  { first: ".more-actions button:nth-child(1)", second: ".more-actions button:nth-child(2)", direction: "above" },
+]);
 const moreButtons = await page.locator(".more-stage button").evaluateAll((buttons) => buttons.map((button) => ({ label: button.textContent.trim(), classes: button.className })));
 if (moreButtons.map(({ label }) => label).join(",") !== "How to play,What a Nuzlocke is,Schedule,Affiliation,Scheduler,Battle reset,Back") throw new Error("The More actions were not rendered in the requested order.");
 for (const [index, color] of ["red", "yellow", "green", "blue", "gold", "slate", "purple"].entries()) {
@@ -423,7 +424,7 @@ if (await emptyRunBattleButton.count() !== 1) throw new Error("The empty-run Bat
 await emptyRunBattleButton.click();
 await assertMobileLayout("opening encounters", [".encounter-list"]);
 await assertDesktopLayout("opening encounters", [".encounter-list"], [
-  { first: ".encounter-card:nth-child(1)", second: ".encounter-card:nth-child(2)", direction: "before" },
+  { first: ".encounter-card:nth-child(1)", second: ".encounter-card:nth-child(2)", direction: "above" },
 ]);
 const encounterScroll = await page.locator(".encounter-list").evaluate((element) => ({ clientHeight: element.clientHeight, scrollHeight: element.scrollHeight }));
 if (encounterScroll.scrollHeight <= encounterScroll.clientHeight) throw new Error("The 12 opening encounters did not receive a contained scroll area.");
@@ -500,7 +501,7 @@ if (stableMartSearch.identity !== "original" || !stableMartSearch.focused || awa
 await page.fill("[data-mart-search]", "");
 await assertMobileLayout("Mart", [".shop-list"]);
 await assertDesktopLayout("Mart", [".shop-list"], [
-  { first: ".shop-item:nth-child(1)", second: ".shop-item:nth-child(2)", direction: "before" },
+  { first: ".shop-item:nth-child(1)", second: ".shop-item:nth-child(2)", direction: "above" },
 ]);
 await page.click('[data-open-purchase="leftovers"]');
 await assertMobileLayout("Mart purchase drawer", [".mart-sheet"]);
@@ -556,7 +557,7 @@ if (await page.locator(".trainer-reference-section .pc-quick-action").count()) t
 if (!await page.locator(`[data-quick-team-remove="${outgoingId}"].remove[aria-label="Remove ${outgoingPokemon.name} from team"]`).count() || !await page.locator(`[data-quick-team-add="${replacementId}"].add[aria-label="Add ${replacementName} to team"]`).count()) throw new Error("The quick team controls did not use the requested action styling or accessible labels.");
 await assertMobileLayout("PC", [".box-section .pc-box"]);
 await assertDesktopLayout("PC", [".box-section .pc-box"], [
-  { first: ".trainer-reference-section", second: ".party-section", direction: "before" },
+  { first: ".trainer-reference-section", second: ".party-section", direction: "above" },
   { first: ".party-section", second: ".box-section", direction: "above" },
 ]);
 const quickActionAppearance = await page.locator(".pc-quick-action").evaluateAll((buttons) => buttons.slice(0, 2).map((button) => {
@@ -763,7 +764,8 @@ await page.click('[data-route="lead"]');
 await page.click(`[data-select-lead="${replacementId}"]`);
 await assertMobileLayout("lead selection", [".lead-prompt"]);
 await assertDesktopLayout("lead selection", [".lead-prompt"], [
-  { first: ".lead-arena", second: ".lead-prompt", direction: "before" },
+  { first: ".lead-arena", second: ".lead-prompt", direction: "above" },
+  { first: ".lead-prompt", second: ".lead-actions", direction: "above" },
 ]);
 if (!(await page.locator(".lead-details-card").textContent())?.includes(replacementName)) throw new Error("Selecting a lead did not show its battle details.");
 if (await page.locator(".lead-stat").count() !== 6) throw new Error("The lead preview did not show all six battle stats together.");
@@ -783,7 +785,7 @@ await page.click("[data-start-battle]");
 await page.waitForSelector('.battle-screen [data-battle-move="1"]');
 await assertMobileLayout("active battle", [".battle-panel", ".battle-log-body"]);
 await assertDesktopLayout("active battle", [".battle-panel", ".battle-log-body"], [
-  { first: ".battle-arena", second: ".battle-panel", direction: "before" },
+  { first: ".battle-arena", second: ".battle-panel", direction: "above" },
 ]);
 await assertContainedLandscape("active battle", ".battle-panel");
 await page.waitForSelector(".battler-slot.enemy.is-aligned");

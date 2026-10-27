@@ -952,63 +952,52 @@ html[data-theme="dark"] .auth-error { color: #ff9297; }
 
 @media (min-width: 900px) and (min-height: 600px) {
   html, body { width: 100%; height: 100%; overflow: hidden; }
-  body { display: grid; place-items: center; padding: 16px; }
-  html[data-theme="dark"] body { background: #090a0b; }
-  .app { width: min(100%, 1180px); height: min(calc(100vh - 32px), 900px); min-height: 0; margin: 0 auto; border-radius: 13px; }
-  .screen { display: flex; height: 100%; min-height: 0; flex-direction: column; padding: 0 30px 24px; overflow: hidden; }
-  .screen-header { height: 78px; flex: 0 0 78px; }
+  body, html[data-theme="dark"] body { background: var(--page); }
+  .app { width: min(100%, 900px); height: 100vh; min-height: 0; margin: 0 auto; box-shadow: none; }
+  .screen { display: flex; height: 100%; min-height: 0; flex-direction: column; padding: 0 28px 22px; overflow: hidden; }
+  .screen-header { height: 80px; flex: 0 0 80px; }
   .screen-title { max-width: calc(100% - 220px); font-size: 22px; }
-  .header-tools { top: 19px; }
+  .header-tools { top: 20px; }
   .home-header { height: 92px; flex: 0 0 92px; align-items: center; padding-bottom: 0; }
   .home-header .header-tools { top: 13px; }
   .home-header .screen-title { font-size: 24px; }
   .home-header .screen-meta { margin-top: 2px; font-size: 15px; }
 
-  .landing { display: grid; height: auto; min-height: 0; flex: 1; grid-template-columns: minmax(150px, .72fr) minmax(300px, 1.42fr) minmax(210px, .86fr); align-items: center; gap: 18px; }
-  .trainer-wrap { min-height: 0; }
-  .trainer { width: min(184px, 100%); height: 220px; }
-  .opponent-team { width: 100%; max-width: 540px; margin: 0 auto; gap: 14px 2px; }
-  .opponent-team button { min-height: 154px; }
-  .opponent-team img { width: 174px; height: 150px; }
-  .home-actions { width: 100%; align-self: center; gap: 8px; margin-top: 0; }
-  .home-actions .gloss-button { min-height: 46px; font-size: 18px; }
+  .home-screen .landing { display: grid; height: auto; min-height: 0; flex: 1; grid-template-rows: minmax(55px, .65fr) minmax(110px, 1fr) auto; overflow: hidden; }
+  .home-screen .trainer-wrap { min-height: 0; overflow: hidden; }
+  .home-screen .trainer { width: min(150px, 22vw); height: 100%; max-height: 170px; }
+  .home-screen .opponent-team { width: min(600px, 100%); height: 100%; min-height: 0; grid-template-rows: repeat(2, minmax(0, 1fr)); gap: 5px 0; margin: 0 auto 10px; overflow: visible; }
+  .home-screen .opponent-team button { min-height: 0; overflow: visible; }
+  .home-screen .opponent-team img { width: min(150px, 18vw); height: 100%; max-height: 118px; transform: translateX(-6.5%) scale(1.16); }
+  .home-screen .home-actions { width: min(560px, 100%); align-self: center; gap: 5px; margin: 0 auto; }
+  .home-screen .home-actions .gloss-button { min-height: 38px; padding: 3px 12px 5px; font-size: 17px; }
 
   .page-back { width: min(320px, 100%); margin-right: auto; margin-left: auto; }
   .pc-stage .page-back, .encounter-stage .page-back, .mart-stage .page-back, .bag-stage .page-back, .simple-stage .page-back, .leaderboard-stage .page-back { margin-bottom: 0; }
 
-  .lead-screen, .battle-screen { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(370px, .9fr); column-gap: 22px; }
-  .lead-screen { grid-template-rows: 78px minmax(0, 1fr) auto auto; }
-  .battle-screen { grid-template-rows: 78px minmax(0, 1fr); }
-  .lead-screen .screen-header, .battle-screen .screen-header { grid-row: 1; grid-column: 1 / -1; }
-  .lead-screen .arena, .battle-screen .arena { width: 100%; height: auto; min-height: 0; margin: 0; grid-row: 2 / -1; grid-column: 1; border: 1px solid #777; border-radius: 10px; }
-  .lead-screen .lead-prompt { grid-row: 2; grid-column: 2; padding-top: 0; }
-  .lead-screen > .battle-error { grid-row: 3; grid-column: 2; }
-  .lead-actions { width: 100%; grid-row: 4; grid-column: 2; gap: 8px; margin: 10px 0 0; padding-top: 0; }
-  .lead-choice { height: 72px; }
-  .lead-details-card { padding: 8px 10px 9px; }
-  .lead-details-card > header > strong { font-size: 17px; }
-  .lead-fact-line { margin: 6px 0; font-size: 12px; }
-  .lead-stat { padding: 3px 0; font-size: 10px; }
-  .lead-move-grid { gap: 5px 12px; padding-top: 7px; }
-  .lead-move-grid strong { font-size: 11px; }
-  .battle-screen .battle-panel { grid-row: 2; grid-column: 2; padding-top: 0; overflow-y: auto; overscroll-behavior: contain; }
-  .battle-log-card { height: clamp(118px, 19vh, 170px); flex: 0 0 auto; }
-  .battle-log-card.expanded { top: 0; }
-  .battle-result-actions { margin-right: 0; margin-left: 0; }
-  .give-up { width: calc(100% - 58px); }
+  .lead-screen, .battle-screen { display: flex; }
+  .lead-screen .arena, .battle-screen .arena { width: min(780px, 100%); height: clamp(205px, 36vh, 340px); margin: 0 auto; border-radius: 8px; }
+  .lead-screen .lead-prompt, .lead-screen > .battle-error, .lead-actions, .battle-screen .battle-panel { width: min(780px, 100%); align-self: center; }
+  .lead-prompt, .battle-panel { padding-top: 10px; }
+  .lead-actions { gap: 7px; margin: 0 auto; padding-top: 10px; }
+  .battle-screen .battle-panel { overflow-y: auto; overscroll-behavior: contain; }
+  .battle-screen .battle-log-card { height: 100px; flex: 0 0 100px; }
+  .battle-log-card.expanded { top: 10px; }
+  .battle-screen .move-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; }
+  .battle-screen .move-button { min-height: 56px; }
+  .battle-screen .move-grid + .section-label { margin-top: 9px; }
+  .battle-screen .switch-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 5px; }
+  .battle-screen .switch-choice { height: 45px; }
+  .battle-screen .give-up { min-height: 42px; }
 
-  .pc-stage { display: grid; height: auto; min-height: 0; flex: 1; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: auto minmax(0, 1fr) auto; gap: 12px; }
-  .pc-section + .pc-section { margin-top: 0; }
-  .trainer-reference-section { grid-row: 1; grid-column: 1; }
-  .party-section { grid-row: 1; grid-column: 2; }
-  .box-section { display: flex; min-height: 0; grid-row: 2; grid-column: 1 / -1; flex-direction: column; }
-  .box-section .pc-box { min-height: 0; flex: 1; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); align-content: start; overflow-y: auto; overscroll-behavior: contain; }
-  .pc-stage .page-back { grid-row: 3; grid-column: 1 / -1; margin-top: 0; }
-  .pokemon-sheet { width: min(680px, 100%); height: min(650px, calc(100vh - 64px)); max-height: calc(100vh - 64px); padding: 16px; }
-  .pokemon-sheet.training-sheet { width: min(840px, 100%); }
+  .pc-stage { width: min(840px, 100%); height: auto; min-height: 0; align-self: center; flex: 1; overflow: hidden; }
+  .box-section { display: flex; min-height: 0; flex: 1; flex-direction: column; }
+  .box-section .pc-box { min-height: 0; flex: 1; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); align-content: start; overflow-y: auto; overscroll-behavior: contain; }
+  .pokemon-sheet { width: min(620px, 100%); height: min(650px, calc(100vh - 48px)); max-height: calc(100vh - 48px); padding: 16px; }
+  .pokemon-sheet.training-sheet { width: min(780px, 100%); }
   .pokemon-sheet .pc-detail-tabs { margin-top: 9px; }
   .pokemon-sheet .pc-detail-tabs button { min-height: 34px; font-size: 13px; }
-  .training-column-head, .training-editor-row { grid-template-columns: 76px 42px 56px minmax(150px, 1fr) 56px 48px 52px; gap: 7px; }
+  .training-column-head, .training-editor-row { grid-template-columns: 70px 40px 52px minmax(140px, 1fr) 52px 45px 48px; gap: 6px; }
   .training-column-head { min-height: 18px; font-size: 9px; }
   .training-editor-row { min-height: 36px; }
   .training-stat-name, .training-base-value, .training-final-value { font-size: 11px; }
@@ -1021,32 +1010,26 @@ html[data-theme="dark"] .auth-error { color: #ff9297; }
   .training-moves button { min-height: 34px; padding: 3px 7px; }
   .training-moves button strong { font-size: 11px; }
   .training-footer { padding-top: 6px; font-size: 11px; }
-  .showdown-move-row { grid-template-columns: minmax(0, 1fr) 224px; gap: 12px; padding: 7px 9px; }
+  .showdown-move-row { grid-template-columns: minmax(0, 1fr) 214px; gap: 10px; padding: 7px 9px; }
   .training-move-list > button { min-height: 64px; }
   .showdown-move-copy > strong { font-size: 13px; }
   .showdown-move-copy > small { font-size: 10px; line-height: 1.2; }
-  .showdown-move-data { width: 224px; grid-template-columns: 38px 38px 40px 48px 56px; }
+  .showdown-move-data { width: 214px; grid-template-columns: 36px 36px 38px 46px 54px; }
   .showdown-move-stat small { font-size: 7px; }
   .showdown-move-stat b { font-size: 10px; }
 
-  .encounter-stage, .mart-stage, .bag-stage, .simple-stage, .leaderboard-stage, .config-stage { height: auto; min-height: 0; flex: 1; }
-  .encounter-list { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-  .encounter-card { min-height: 116px; }
-  .shop-list, .bag-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; gap: 9px 14px; padding: 3px 2px 8px; }
-  .shop-item, .bag-item { min-height: 64px; padding: 5px 8px; border: 1px solid #d4d8dd; border-radius: 7px; background: var(--raised); }
-  .item-search-empty, .shop-empty, .bag-empty { grid-column: 1 / -1; }
+  .encounter-stage, .mart-stage, .bag-stage, .simple-stage, .leaderboard-stage, .config-stage { width: min(780px, 100%); height: auto; min-height: 0; align-self: center; flex: 1; }
+  .encounter-list { grid-template-columns: minmax(0, 1fr); }
+  .shop-list, .bag-list { display: block; }
   .mart-sheet { width: min(440px, 100%); }
 
-  .leaderboard-stage { width: min(920px, 100%); align-self: center; }
-  .leaderboard-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-content: start; gap: 9px 14px; padding: 8px 2px; }
-  .leaderboard-row { min-height: 78px; padding: 7px 9px; border: 1px solid #d4d8dd; border-radius: 7px; background: var(--raised); }
-  .more-stage { width: min(760px, 100%); align-self: center; }
-  .more-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .more-developer .more-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .leaderboard-list { display: block; }
+  .more-stage { width: min(560px, 100%); }
+  .more-actions, .more-developer .more-actions { grid-template-columns: minmax(0, 1fr); }
   .more-stage .page-back { margin-top: auto; }
   .more-card { width: min(560px, 100%); }
-  .config-stage { width: min(940px, 100%); align-self: center; }
-  .trainer-queue { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .config-stage { width: min(800px, 100%); }
+  .trainer-queue { grid-template-columns: minmax(0, 1fr); }
   .trainer-form { width: min(720px, 100%); justify-self: center; }
 }
 
