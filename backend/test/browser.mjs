@@ -605,6 +605,14 @@ const summaryAppearance = await page.locator(".pokemon-sheet").evaluate((sheet) 
     factsTopBorder: getComputedStyle(sheet.querySelector(".pokemon-facts")).borderTopWidth,
     spriteWidth: sheet.querySelector(".pokemon-summary > img").getBoundingClientRect().width,
     summaryHeight: sheet.querySelector(".pokemon-summary").getBoundingClientRect().height,
+    moves: [...sheet.querySelectorAll(".sheet-move")].map((move) => ({
+      name: move.querySelector(":scope > strong")?.textContent.trim(),
+      className: move.className,
+      imagePaths: [...move.querySelectorAll(".sheet-move-sprite img")].map((image) => new URL(image.src).pathname),
+      powerLabel: move.querySelector(".sheet-move-power small")?.textContent.trim(),
+      power: move.querySelector(".sheet-move-power b")?.textContent.trim(),
+      background: getComputedStyle(move).backgroundImage,
+    })),
   };
 });
 if (summaryAppearance.labels.join(",") !== "Remove from team,Held item,Close") throw new Error("The PC Summary actions did not use the requested labels and capitalization.");
@@ -612,6 +620,9 @@ if (!summaryAppearance.classes[0].includes("red") || !summaryAppearance.classes[
 if (summaryAppearance.lightBackgrounds.some((value, index) => value === summaryAppearance.darkBackgrounds[index])) throw new Error("The PC Summary action colors did not adapt to dark mode.");
 if (summaryAppearance.factsTopBorder !== "0px") throw new Error("PC Summary retained the redundant divider above Ability.");
 if (summaryAppearance.spriteWidth < 70 || summaryAppearance.summaryHeight < 70) throw new Error("The PC drawer did not give the Pokémon sprite a larger shared header.");
+if (summaryAppearance.moves.length !== 4 || summaryAppearance.moves.map((move) => move.name).join(",") !== outgoingPokemon.moves.join(",")) throw new Error(`PC Summary did not show all four move names: ${JSON.stringify(summaryAppearance.moves)}`);
+if (summaryAppearance.moves.some((move) => !/type-\w+/.test(move.className) || move.imagePaths.length !== 2 || !move.imagePaths[0].includes("/assets/showdown/types/") || !move.imagePaths[1].includes("/assets/showdown/categories/") || move.powerLabel !== "Power" || !/^(?:\d+|—)$/.test(move.power) || move.power.includes("/"))) throw new Error(`PC Summary moves did not use type/category sprites and power values: ${JSON.stringify(summaryAppearance.moves)}`);
+if (new Set(summaryAppearance.moves.map((move) => move.background)).size < 2 && new Set(summaryAppearance.moves.map((move) => move.className)).size > 1) throw new Error("PC Summary move colors did not reflect their types.");
 const pcActionSpacing = await page.locator(".pokemon-sheet").evaluate((sheet) => {
   const teamButton = sheet.querySelector("[data-team-toggle]").getBoundingClientRect();
   const itemButton = sheet.querySelector("[data-open-pc-items]").getBoundingClientRect();
@@ -677,6 +688,27 @@ if (trainingLayout.footerButtonLabels.join(",") !== "Apply changes,Close" || new
 if (trainingLayout.sliderHeight > 20) throw new Error("The Training EV slider remained too thick for the compact layout.");
 if (!trainingLayout.sliderBackgroundSize.includes("16px")) throw new Error("The Training EV slider track did not stop beneath its thumb.");
 if ((await page.locator("[data-edit-training-move] > b").allTextContents()).some((label) => label.trim() !== "Select")) throw new Error("Training move actions did not use the Select label.");
+const compactTrainingViewport = page.viewportSize();
+await page.setViewportSize({ width: 658, height: 525 });
+const shortWideTrainingLayout = await page.locator(".training-sheet").evaluate(async (sheet) => {
+  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  const content = sheet.querySelector(".training-scroll").getBoundingClientRect();
+  const footer = sheet.querySelector(".training-footer").getBoundingClientRect();
+  const sheetBounds = sheet.getBoundingClientRect();
+  const moves = [...sheet.querySelectorAll("[data-edit-training-move]")].map((button) => button.getBoundingClientRect());
+  return {
+    count: moves.length,
+    rowCount: new Set(moves.map((move) => Math.round(move.top))).size,
+    clippedMoves: moves.filter((move) => move.top < content.top - 1 || move.bottom > content.bottom + 1).length,
+    footerOverflow: footer.bottom - sheetBounds.bottom,
+    contentTop: content.top,
+    contentBottom: content.bottom,
+    moveTop: moves[0]?.top,
+    moveBottom: moves[0]?.bottom,
+  };
+});
+if (shortWideTrainingLayout.count !== 4 || shortWideTrainingLayout.rowCount !== 1 || shortWideTrainingLayout.clippedMoves || shortWideTrainingLayout.footerOverflow > 1) throw new Error(`The short desktop Training drawer clipped its bottom moves: ${JSON.stringify(shortWideTrainingLayout)}`);
+if (compactTrainingViewport) await page.setViewportSize(compactTrainingViewport);
 await page.fill('[data-training-ev-input="hp"]', "7");
 if (await page.locator('[data-training-ev="hp"]').inputValue() !== "7") throw new Error("Typing an EV did not synchronize its slider.");
 await page.locator('[data-training-ev="hp"]').evaluate((input) => { input.value = "5"; input.dispatchEvent(new Event("input", { bubbles: true })); input.dispatchEvent(new Event("change", { bubbles: true })); });

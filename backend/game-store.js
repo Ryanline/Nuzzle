@@ -261,7 +261,12 @@ function pokemonView(pokemon) {
     stats: stats.filter((stat) => stat !== "hp").map((stat) => `${statLabels[stat]} ${values[stat]}`).join(" / "),
     moveDetails: pokemon.moves.map((name) => {
       const move = Dex.moves.get(name);
-      return { name, type: move.exists ? move.type : "Normal" };
+      return {
+        name,
+        type: move.exists ? move.type : "Normal",
+        category: move.exists ? move.category : "Status",
+        power: move.exists && move.category !== "Status" && move.basePower > 0 ? move.basePower : null,
+      };
     }),
     learnableMoveIds: [...learnableMoveIds(pokemon.speciesId)],
     legalMoveIds: [...legalMoveIds(pokemon.speciesId)],
