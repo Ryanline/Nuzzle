@@ -79,7 +79,7 @@ export class AuthStore {
   validateRegistration(username, password) {
     const trimmedUsername = String(username || "").trim();
     if (!/^[A-Za-z0-9_]{3,20}$/.test(trimmedUsername)) authError("Username must be 3–20 characters using only letters, numbers, or underscores.");
-    if (String(password || "").length < 15) authError("Password must be at least 15 characters.");
+    if (String(password || "").length < 7) authError("Password must be at least 7 characters.");
     if (String(password).length > 128) authError("Password must be 128 characters or fewer.");
     return trimmedUsername;
   }

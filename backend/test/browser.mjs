@@ -202,6 +202,7 @@ if (await page.locator(".pc-stage").count()) throw new Error("A logged-out user 
 await assertMobileLayout("login dialog", [".auth-card"]);
 await page.click('[data-auth-mode="register"]');
 await assertMobileLayout("registration dialog", [".auth-card"]);
+if (await page.locator("#auth-password").getAttribute("minlength") !== "7" || await page.locator("#auth-password-confirmation").getAttribute("minlength") !== "7" || !(await page.locator(".password-help").textContent())?.includes("7 characters")) throw new Error("Registration did not expose the seven-character password minimum.");
 const username = "ryanline";
 const password = "correct horse battery staple";
 await page.fill('#auth-username', username);
@@ -568,17 +569,19 @@ await page.locator('[data-training-ev="hp"]').evaluate((input) => { input.value 
 await page.click('[data-edit-training-move="0"]');
 await assertMobileLayout("move picker", [".training-move-list"]);
 const currentMoveSummary = await page.locator("[data-current-training-move]").evaluate((row) => ({
-  name: row.querySelector(".showdown-move-main > strong")?.textContent.trim(),
-  imagePaths: [...row.querySelectorAll(".showdown-move-icons img")].map((image) => new URL(image.src).pathname),
-  statLabels: [...row.querySelectorAll(".showdown-move-stats small")].map((label) => label.textContent.trim()),
-  statValues: [...row.querySelectorAll(".showdown-move-stats b")].map((value) => value.textContent.trim()),
-  description: row.querySelector(".showdown-move-bottom small")?.textContent.trim(),
-  hasPrice: Boolean(row.querySelector(".showdown-move-price")),
+  name: row.querySelector(".showdown-move-copy > strong")?.textContent.trim(),
+  imagePaths: [...row.querySelectorAll(".showdown-move-sprite img")].map((image) => new URL(image.src).pathname),
+  statLabels: [...row.querySelectorAll("[data-move-stat] small")].map((label) => label.textContent.trim()),
+  statValues: [...row.querySelectorAll("[data-move-stat] b")].map((value) => value.textContent.trim()),
+  description: row.querySelector(".showdown-move-copy > small")?.textContent.trim(),
+  price: row.querySelector("[data-move-price] b")?.textContent.trim(),
 }));
-if (currentMoveSummary.name !== outgoingPokemon.moves[0] || currentMoveSummary.statLabels.join(",") !== "Power,Accuracy" || currentMoveSummary.statValues.some((value) => !value) || !currentMoveSummary.description || currentMoveSummary.hasPrice) throw new Error(`The current move did not use the complete price-free Showdown row: ${JSON.stringify(currentMoveSummary)}`);
+if (currentMoveSummary.name !== outgoingPokemon.moves[0] || currentMoveSummary.statLabels.join(",") !== "Power,Accuracy" || currentMoveSummary.statValues.some((value) => !value) || !currentMoveSummary.description || currentMoveSummary.price) throw new Error(`The current move did not use the complete price-free Showdown row: ${JSON.stringify(currentMoveSummary)}`);
 if (!currentMoveSummary.imagePaths[0]?.includes("/sprites/types/") || !currentMoveSummary.imagePaths[1]?.includes("/sprites/categories/")) throw new Error(`The current move did not use Showdown type and category sprites: ${JSON.stringify(currentMoveSummary.imagePaths)}`);
-const candidateMoveSummary = await page.locator("[data-select-training-move]").first().evaluate((row) => ({ images: row.querySelectorAll(".showdown-move-icons img").length, hasPrice: Boolean(row.querySelector(".showdown-move-main > .showdown-move-price")) }));
-if (candidateMoveSummary.images !== 2 || !candidateMoveSummary.hasPrice) throw new Error("Candidate moves did not share the Showdown row while retaining their price.");
+const candidateMoveSummary = await page.locator("[data-select-training-move]").first().evaluate((row) => ({ images: row.querySelectorAll(".showdown-move-sprite img").length, priceHeader: row.querySelector("[data-move-price] small")?.textContent.trim(), price: row.querySelector("[data-move-price] b")?.textContent.trim() }));
+if (candidateMoveSummary.images !== 2 || candidateMoveSummary.priceHeader !== "Price" || !candidateMoveSummary.price?.startsWith("₽")) throw new Error("Candidate moves did not share the aligned Showdown row while retaining their labeled price.");
+const alignedMoveColumns = await page.locator("[data-select-training-move]").evaluateAll((rows) => rows.slice(0, 5).map((row) => [...row.querySelectorAll(".showdown-move-sprite, [data-move-stat], [data-move-price]")].map((cell) => cell.getBoundingClientRect().left)));
+if (alignedMoveColumns.some((columns) => columns.some((left, index) => Math.abs(left - alignedMoveColumns[0][index]) > .5))) throw new Error(`Move comparison columns did not align across cards: ${JSON.stringify(alignedMoveColumns)}`);
 if (!await page.locator("[data-training-move-search]").count()) throw new Error("The Training move picker did not expose search.");
 await page.locator("[data-training-move-search]").evaluate((input) => { input.dataset.identity = "original"; });
 await page.locator("[data-training-move-search]").pressSequentially("th", { delay: 20 });

@@ -89,8 +89,10 @@ test("logout invalidates only the supplied session", async () => {
   assert.equal(auth.userForToken(second.token)?.username, "MistyFan");
 });
 
-test("registration enforces simple usernames and long passwords", async () => {
+test("registration enforces simple usernames and seven-character passwords", async () => {
   const { auth } = await authFixture();
   await assert.rejects(auth.register("no spaces", "this is a long password"), /Username/);
-  await assert.rejects(auth.register("ValidName", "too short"), /at least 15/);
+  await assert.rejects(auth.register("ValidName", "short6"), /at least 7/);
+  const registration = await auth.register("ValidName", "seven77");
+  assert.equal(auth.userForToken(registration.token)?.username, "ValidName");
 });
