@@ -674,6 +674,7 @@ if (trainingLayout.maxButtonText !== "Max IV" || trainingLayout.maxButtonWidth >
 if (trainingLayout.footerButtonLabels.join(",") !== "Apply changes,Close" || new Set(trainingLayout.footerButtonHeights).size !== 1) throw new Error("The Training footer did not expose normalized Apply and Close actions.");
 if (trainingLayout.sliderHeight > 20) throw new Error("The Training EV slider remained too thick for the compact layout.");
 if (!trainingLayout.sliderBackgroundSize.includes("16px")) throw new Error("The Training EV slider track did not stop beneath its thumb.");
+if ((await page.locator("[data-edit-training-move] > b").allTextContents()).some((label) => label.trim() !== "Select")) throw new Error("Training move actions did not use the Select label.");
 await page.fill('[data-training-ev-input="hp"]', "7");
 if (await page.locator('[data-training-ev="hp"]').inputValue() !== "7") throw new Error("Typing an EV did not synchronize its slider.");
 await page.locator('[data-training-ev="hp"]').evaluate((input) => { input.value = "5"; input.dispatchEvent(new Event("input", { bubbles: true })); input.dispatchEvent(new Event("change", { bubbles: true })); });
