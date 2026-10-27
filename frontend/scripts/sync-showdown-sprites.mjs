@@ -3,6 +3,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { trainerSpriteIds } from "../../backend/trainer-sprite-ids.js";
+import { generateSpriteBounds } from "./generate-sprite-bounds.mjs";
 
 const require = createRequire(import.meta.url);
 const { Dex } = require("pokemon-showdown");
@@ -92,5 +93,6 @@ async function worker() {
 await mkdir(assetsDirectory, { recursive: true });
 await Promise.all(Array.from({ length: concurrency }, worker));
 await writeFile(path.join(assetsDirectory, "manifest.json"), `${JSON.stringify({ totals, unavailable }, null, 2)}\n`);
+await generateSpriteBounds();
 console.log(`Showdown sprite sync complete: ${JSON.stringify(totals)}`);
 if (totals.failed) process.exitCode = 1;

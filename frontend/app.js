@@ -9,6 +9,15 @@
     const directory = isShiny ? (back ? "gen5-back-shiny" : "gen5-shiny") : (back ? "gen5-back" : "gen5");
     return `assets/showdown/${directory}/${encodeURIComponent(spriteId)}.png`;
   };
+  let spriteBounds = {};
+  const spriteBoundsReady = fetch("assets/showdown/sprite-bounds.json", { cache: "force-cache" })
+    .then((response) => response.ok ? response.json() : {})
+    .catch(() => ({}))
+    .then((bounds) => {
+      spriteBounds = bounds;
+      requestAnimationFrame(alignBattleSprites);
+      return bounds;
+    });
   const healthTone = (percent) => percent <= 20 ? "critical" : percent <= 50 ? "warning" : "healthy";
   const trainerSprite = (id = "brock") => id === "brock"
     ? "assets/trainers/brock.png"
@@ -1263,6 +1272,65 @@
     slot.classList.add("is-aligned");
   }
 
+  function alignPlayerSprite() {
+    const arena = document.querySelector(".battle-arena");
+    const platform = arena?.querySelector(".battle-platform.player");
+    const slot = arena?.querySelector(".battler-slot.player");
+    const image = slot?.querySelector(".active-sprite");
+    const hud = arena?.querySelector(".battle-hud.player");
+    if (!arena || !platform || !slot || !image || !hud) return;
+    if (!image.complete || !image.naturalWidth) {
+      image.addEventListener("load", alignPlayerSprite, { once: true });
+      return;
+    }
+    const arenaRect = arena.getBoundingClientRect();
+    const platformRect = platform.getBoundingClientRect();
+    const hudRect = hud.getBoundingClientRect();
+    const marker = "/assets/showdown/";
+    const pathname = decodeURIComponent(new URL(image.currentSrc || image.src, location.href).pathname);
+    const key = pathname.includes(marker) ? pathname.split(marker)[1] : "";
+    const [visibleX, visibleY, visibleWidth, visibleHeight, canvasWidth, canvasHeight] = spriteBounds[key]
+      || [0, 0, image.naturalWidth, image.naturalHeight, image.naturalWidth, image.naturalHeight];
+    const inset = Math.max(6, arenaRect.height * .025);
+    const safeLeft = inset;
+    const safeRight = Math.max(safeLeft + 1, Math.min(arenaRect.width - inset, hudRect.left - arenaRect.left - inset));
+    const safeTop = Math.max(inset, arenaRect.height * .23);
+    const baseline = arenaRect.height - inset;
+    const baseCanvasHeight = Math.min(210, arenaRect.width * .5, arenaRect.height * .9);
+    const scale = Math.max(.01, Math.min(
+      baseCanvasHeight / canvasHeight,
+      (safeRight - safeLeft) / visibleWidth,
+      (baseline - safeTop) / visibleHeight,
+    ));
+    const renderedWidth = canvasWidth * scale;
+    const renderedHeight = canvasHeight * scale;
+    const anchorX = platformRect.left - arenaRect.left + platformRect.width / 2;
+    let left = anchorX - (visibleX + visibleWidth / 2) * scale;
+    const visibleLeft = () => left + visibleX * scale;
+    const visibleRight = () => visibleLeft() + visibleWidth * scale;
+    if (visibleLeft() < safeLeft) left += safeLeft - visibleLeft();
+    if (visibleRight() > safeRight) left -= visibleRight() - safeRight;
+    const top = baseline - (visibleY + visibleHeight) * scale;
+    image.style.setProperty("--player-sprite-left", `${left}px`);
+    image.style.setProperty("--player-sprite-top", `${top}px`);
+    image.style.setProperty("--player-sprite-width", `${renderedWidth}px`);
+    image.style.setProperty("--player-sprite-height", `${renderedHeight}px`);
+    image.dataset.visibleLeft = String(left + visibleX * scale);
+    image.dataset.visibleRight = String(left + (visibleX + visibleWidth) * scale);
+    image.dataset.visibleTop = String(top + visibleY * scale);
+    image.dataset.visibleBottom = String(top + (visibleY + visibleHeight) * scale);
+    image.dataset.safeLeft = String(safeLeft);
+    image.dataset.safeRight = String(safeRight);
+    image.dataset.safeTop = String(safeTop);
+    image.dataset.safeBottom = String(baseline);
+    slot.classList.add("is-aligned");
+  }
+
+  function alignBattleSprites() {
+    alignOpponentSprite();
+    alignPlayerSprite();
+  }
+
   function showTooltip(target, html) {
     tooltip.innerHTML = html;
     tooltip.hidden = false;
@@ -1443,7 +1511,7 @@
   }
 
   function bind() {
-    alignOpponentSprite();
+    alignBattleSprites();
     const encounterList = document.querySelector(".encounter-list");
     if (encounterList) {
       encounterList.scrollTop = encounterListScrollTop;
@@ -2132,7 +2200,7 @@
 
   applyTheme();
   render();
-  window.addEventListener("resize", alignOpponentSprite);
+  window.addEventListener("resize", alignBattleSprites);
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState !== "visible") return;
     void loadToday().then(async () => {

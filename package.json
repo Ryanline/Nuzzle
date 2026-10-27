@@ -11,6 +11,7 @@
     "start": "node backend/server.js",
     "test": "node --test backend/test/*.test.js",
     "test:browser": "node backend/test/run-browser.mjs",
+    "build:sprite-bounds": "node frontend/scripts/generate-sprite-bounds.mjs",
     "sync:sprites": "node frontend/scripts/sync-showdown-sprites.mjs"
   },
   "dependencies": {

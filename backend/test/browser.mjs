@@ -911,15 +911,23 @@ const battlefieldBounds = await page.locator(".battle-arena").evaluate((arena) =
   const enemyPlatform = arena.querySelector(".battle-platform.enemy").getBoundingClientRect();
   const enemyImage = arena.querySelector(".battler-slot.enemy img");
   const enemyImageRect = enemyImage.getBoundingClientRect();
+  const playerImage = arena.querySelector(".battler-slot.player img");
+  const playerVisible = {
+    left: arenaRect.left + Number(playerImage.dataset.visibleLeft),
+    right: arenaRect.left + Number(playerImage.dataset.visibleRight),
+    top: arenaRect.top + Number(playerImage.dataset.visibleTop),
+    bottom: arenaRect.top + Number(playerImage.dataset.visibleBottom),
+  };
   return {
     enemyHud: bounds(".battle-hud.enemy"),
     playerHud: bounds(".battle-hud.player"),
     enemySprite: bounds(".battler-slot.enemy img"),
-    playerSprite: bounds(".battler-slot.player"),
+    playerSprite: playerVisible,
     playerPlatformVisibleFraction: (arenaRect.bottom - playerPlatform.top) / playerPlatform.height,
     enemyAnchorErrorX: Math.abs((enemyImageRect.left + enemyImageRect.width / 2) - (enemyPlatform.left + enemyPlatform.width / 2)),
     enemyAnchorErrorY: Math.abs(enemyImageRect.bottom - (enemyPlatform.bottom - enemyPlatform.height * .1 + 30 - enemyImageRect.height * .12)),
     enemyContained: enemyImageRect.left >= arenaRect.left && enemyImageRect.right <= arenaRect.right && enemyImageRect.top >= arenaRect.top && enemyImageRect.bottom <= arenaRect.bottom,
+    playerContained: playerVisible.left >= arenaRect.left && playerVisible.right <= arenaRect.right && playerVisible.top >= arenaRect.top && playerVisible.bottom <= arenaRect.bottom,
   };
 });
 const overlaps = (one, two) => one.left < two.right && one.right > two.left && one.top < two.bottom && one.bottom > two.top;
@@ -928,6 +936,32 @@ if (battlefieldBounds.enemyHud.left >= battlefieldBounds.enemySprite.left || bat
 if (battlefieldBounds.playerPlatformVisibleFraction < 0.45 || battlefieldBounds.playerPlatformVisibleFraction > 0.6) throw new Error("The player's platform is not approximately half-clipped by the bottom of the arena.");
 if (battlefieldBounds.enemyAnchorErrorX > 1 || battlefieldBounds.enemyAnchorErrorY > 1) throw new Error("The foe's full-canvas bottom-center was not aligned to the shared platform anchor.");
 if (!battlefieldBounds.enemyContained) throw new Error(`The foe sprite canvas falls outside the battle arena: ${JSON.stringify(battlefieldBounds.enemySprite)}`);
+if (!battlefieldBounds.playerContained) throw new Error(`The player's visible sprite pixels fall outside the battle arena: ${JSON.stringify(battlefieldBounds.playerSprite)}`);
+
+const originalPlayerSprite = await page.locator(".battler-slot.player img").getAttribute("src");
+for (const viewport of [{ width: 390, height: 844 }, { width: 390, height: 568 }, { width: 1366, height: 768 }]) {
+  await page.setViewportSize(viewport);
+  for (const species of ["plusle", "torterra", "rapidash", "tinkaton"]) {
+    await page.locator(".battler-slot.player img").evaluate((image, source) => new Promise((resolve, reject) => {
+      image.addEventListener("load", resolve, { once: true });
+      image.addEventListener("error", reject, { once: true });
+      image.src = source;
+    }), `assets/showdown/gen5-back/${species}.png?placement-test=${species}`);
+    await page.evaluate(() => window.dispatchEvent(new Event("resize")));
+    const placement = await page.locator(".battler-slot.player img").evaluate(async (image) => {
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      return Object.fromEntries(["visibleLeft", "visibleRight", "visibleTop", "visibleBottom", "safeLeft", "safeRight", "safeTop", "safeBottom"].map((key) => [key, Number(image.dataset[key])]));
+    });
+    if (placement.visibleLeft < placement.safeLeft - 1 || placement.visibleRight > placement.safeRight + 1 || placement.visibleTop < placement.safeTop - 1 || placement.visibleBottom > placement.safeBottom + 1 || Math.abs(placement.visibleBottom - placement.safeBottom) > 1) throw new Error(`Content-aware player placement failed for ${species} at ${viewport.width}x${viewport.height}: ${JSON.stringify(placement)}`);
+  }
+}
+await page.setViewportSize({ width: 390, height: 844 });
+await page.locator(".battler-slot.player img").evaluate((image, source) => new Promise((resolve, reject) => {
+  image.addEventListener("load", resolve, { once: true });
+  image.addEventListener("error", reject, { once: true });
+  image.src = source;
+}), originalPlayerSprite);
+await page.evaluate(() => window.dispatchEvent(new Event("resize")));
 
 const turnResponse = page.waitForResponse((response) => response.url().includes("/choices") && response.request().method() === "POST");
 await page.click('[data-battle-move="1"]');

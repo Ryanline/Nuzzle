@@ -215,7 +215,7 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
   pointer-events: none;
 }
 .battler-slot.enemy { inset: 0; display: block; width: auto; height: auto; }
-.battler-slot.player { bottom: 7%; left: 1%; width: 48%; height: 43%; }
+.battler-slot.player { inset: 0; display: block; width: auto; height: auto; }
 .active-sprite {
   width: 100%;
   height: 100%;
@@ -235,9 +235,17 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
   transform: none;
 }
 .battler-slot.enemy.is-aligned .active-sprite { opacity: 1; }
-.battler-slot.player[data-pokemon="venusaur"], .battler-slot.player[data-pokemon="lapras"] { --sprite-scale: 1.04; }
-.battler-slot.player[data-pokemon="exeggutor"] { --sprite-scale: .9; }
-.battler-slot.player[data-pokemon="vaporeon"], .battler-slot.player[data-pokemon="flareon"] { --sprite-scale: 1; }
+.battler-slot.player .active-sprite {
+  position: absolute;
+  top: var(--player-sprite-top, 0);
+  left: var(--player-sprite-left, 0);
+  width: var(--player-sprite-width, 0);
+  height: var(--player-sprite-height, 0);
+  opacity: 0;
+  object-fit: fill;
+  transform: none;
+}
+.battler-slot.player.is-aligned .active-sprite { opacity: 1; }
 .battle-hud {
   position: absolute;
   z-index: 4;
