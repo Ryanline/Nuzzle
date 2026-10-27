@@ -644,12 +644,10 @@ button.encounter-card:hover { border-color: #789481; background: #f7faf7; }
 button.encounter-card:active { background: #eef5ef; transform: translateY(1px); }
 .encounter-card.mystery { grid-template-columns: 94px minmax(0, 1fr); border-color: #a8b9ac; background: #f4f8f4; }
 .encounter-mark, .encounter-sprite { position: relative; display: grid; width: 88px; height: 88px; place-items: center; border: 1px solid #bfd0c2; border-radius: 7px; background: #e8f2e9; }
-.encounter-mark i { position: absolute; bottom: 20px; width: 4px; height: 27px; border-radius: 5px 5px 1px 1px; background: #6d9b73; transform-origin: bottom; }
-.encounter-mark i:first-child { left: 25%; height: 25px; transform: rotate(-34deg); }
-.encounter-mark i:nth-child(2) { left: 37%; height: 32px; transform: rotate(-17deg); }
-.encounter-mark i:nth-child(3) { left: calc(50% - 2px); height: 38px; }
-.encounter-mark i:nth-child(4) { right: 37%; height: 30px; transform: rotate(17deg); }
-.encounter-mark i:last-child { right: 25%; height: 24px; transform: rotate(34deg); }
+.encounter-mark { border-color: transparent; background: transparent; }
+.encounter-mark img { width: 64px; height: 64px; image-rendering: pixelated; transition: transform 120ms ease; }
+button.encounter-card:hover .encounter-mark img { transform: translateY(-1px); }
+button.encounter-card:active .encounter-mark img { transform: translateY(1px) scale(.97); }
 .encounter-copy { display: grid; min-width: 0; gap: 4px; }
 .encounter-copy strong { font-size: 17px; font-weight: 400; }
 .encounter-copy small { color: var(--muted); font-size: 12px; }
@@ -663,7 +661,7 @@ button.encounter-card:active { background: #eef5ef; transform: translateY(1px); 
 .encounter-empty p + p { margin-top: 5px; color: var(--muted); font-size: 13px; }
 .encounter-empty b { font-variant-numeric: tabular-nums; font-weight: 400; }
 @keyframes encounter-reveal { from { opacity: .4; transform: scale(.97); } }
-@media (prefers-reduced-motion: reduce) { .encounter-card.revealed { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .encounter-card.revealed { animation: none; } .encounter-mark img { transition: none; } }
 .encounter-stage .page-back { flex: 0 0 auto; margin-top: 8px; margin-bottom: 12px; }
 
 .mart-stage, .bag-stage, .simple-stage { display: flex; min-height: calc(100vh - 104px); flex-direction: column; }

@@ -901,7 +901,7 @@
     return `<section class="screen">${header()}<div class="encounter-stage">${remaining ? `<p class="encounter-count">${remaining} encounter${remaining === 1 ? "" : "s"} remaining</p>` : ""}
       <div class="encounter-list">${visibleEncounters.length ? visibleEncounters.map(({ encounter, slot: index }) => {
         if (!encounter.claimed) {
-          return `<button class="encounter-card mystery" type="button" data-encounter="${index}" aria-label="Reveal encounter ${index + 1}"><span class="encounter-mark" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span class="encounter-copy"><strong>Unknown encounter</strong><small>Tap to reveal</small></span></button>`;
+          return `<button class="encounter-card mystery" type="button" data-encounter="${index}" aria-label="Reveal encounter ${index + 1}"><span class="encounter-mark" aria-hidden="true"><img src="assets/pixel-grass.png" alt=""/></span><span class="encounter-copy"><strong>Unknown encounter</strong><small>Tap to reveal</small></span></button>`;
         }
         const mon = encounter.pokemon[0];
         return `<article class="encounter-card revealed" data-mon-tip="${mon.id}"><span class="encounter-sprite"><img class="sprite" src="${sprite(mon.id)}" alt="${escapeHtml(mon.name)}"/></span><span class="encounter-copy"><strong>${escapeHtml(mon.name)}</strong><span class="encounter-types">${mon.types.map((type) => `<span class="type-chip ${type.toLowerCase()}">${type}</span>`).join("")}</span></span><span class="encounter-status">Added to PC</span></article>`;

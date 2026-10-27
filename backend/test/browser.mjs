@@ -435,6 +435,12 @@ await page.click(".page-back");
 const emptyRunBattleButton = page.locator('button[data-route="encounters"]', { hasText: /^battle$/i });
 if (await emptyRunBattleButton.count() !== 1) throw new Error("The empty-run Battle button did not retain its normal label and redirect to encounters.");
 await emptyRunBattleButton.click();
+await page.waitForFunction(() => [...document.querySelectorAll(".encounter-mark img")].every((image) => image.complete && image.naturalWidth === 64 && image.naturalHeight === 64));
+const grassAppearance = await page.locator(".encounter-mark img").first().evaluate((image) => ({
+  path: new URL(image.src).pathname,
+  rendering: getComputedStyle(image).imageRendering,
+}));
+if (!grassAppearance.path.endsWith("/assets/pixel-grass.png") || !["pixelated", "crisp-edges"].includes(grassAppearance.rendering)) throw new Error(`Opening encounters did not use the crisp pixel-grass asset: ${JSON.stringify(grassAppearance)}`);
 await assertMobileLayout("opening encounters", [".encounter-list"]);
 await assertDesktopLayout("opening encounters", [".encounter-list"], [
   { first: ".encounter-card:nth-child(1)", second: ".encounter-card:nth-child(2)", direction: "above" },
