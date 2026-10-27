@@ -1065,9 +1065,9 @@ html[data-theme="dark"] .auth-error { color: #ff9297; }
   .opponent-team img { width: 126px; height: 104px; max-width: none; }
   .home-screen .trainer-wrap { min-height: 0; overflow: hidden; }
   .home-screen .trainer { width: min(124px, 32vw); height: 100%; max-height: 154px; }
-  .home-screen .opponent-team { height: 100%; min-height: 0; grid-template-rows: repeat(2, minmax(0, 1fr)); margin: 0 auto; overflow: visible; }
+  .home-screen .opponent-team { height: 100%; min-height: 0; grid-template-rows: repeat(2, minmax(0, 1fr)); margin: 0 auto; padding-bottom: 4px; overflow: visible; }
   .home-screen .opponent-team button { min-height: 0; overflow: visible; }
-  .home-screen .opponent-team img { width: min(126px, 34vw); height: 100%; max-height: 104px; transform: translateX(-6.5%) scale(1.14); }
+  .home-screen .opponent-team img { width: min(126px, 34vw); height: 100%; max-height: 102px; transform: translate(-6.5%, -3px) scale(1.14); }
   .home-screen .home-actions { margin-top: 0; padding-top: 4px; }
   .pc-section-head { height: 29px; padding: 0 8px; }
   .pc-stage { overflow: hidden; }
@@ -1159,7 +1159,7 @@ html[data-theme="dark"] .auth-error { color: #ff9297; }
 }
 
 @media (max-width: 350px) {
-  .opponent-team img { transform: translateX(-6.5%) scale(1.1); }
+  .opponent-team img { transform: translate(-6.5%, -3px) scale(1.1); }
 }
 
 @media (max-width: 520px) and (max-height: 860px), (min-width: 521px) and (max-width: 1000px) and (max-height: 520px) {
