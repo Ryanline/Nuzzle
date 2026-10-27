@@ -1033,7 +1033,7 @@
     const cards = {
       "how-to-play": {
         title: "How to play",
-        content: `<ol class="more-card-steps"><li><strong>Claim encounters.</strong> Each one joins your PC.</li><li><strong>Build a team.</strong> Choose up to six Pokémon, then adjust their training, moves, and held items.</li><li><strong>Challenge the daily trainer.</strong> Pick your lead and play out the simulated battle.</li><li><strong>Protect your run.</strong> A win earns money and encounters. A loss wipes your run, but you can start fresh tomorrow!</li></ol>`,
+        content: `<ol class="more-card-steps"><li><strong>Claim encounters.</strong> Each one joins your PC.</li><li><strong>Build a team.</strong> Choose up to six Pokémon, then adjust their training, moves, and held items.</li><li><strong>Challenge the daily trainer.</strong> Pick your lead and play out the simulated battle.</li><li><strong>Protect your run.</strong> A win earns money and encounters. A loss wipes your run... But you can always start fresh tomorrow!</li></ol>`,
       },
       nuzlocke: {
         title: "What a Nuzlocke is",
@@ -1041,7 +1041,7 @@
       },
       schedule: {
         title: "Battle schedule",
-        content: `<dl class="battle-schedule"><div><dt>Sunday</dt><dd>Theme teams</dd></div><div><dt>Monday</dt><dd>Regular trainers</dd></div><div><dt>Tuesday</dt><dd>Ace trainers</dd></div><div><dt>Wednesday</dt><dd>Rival battles</dd></div><div><dt>Thursday</dt><dd>Gym leaders</dd></div><div><dt>Friday</dt><dd>Elite 4</dd></div><div><dt>Saturday</dt><dd>Champions</dd></div></dl><p class="schedule-note">On holidays, a special holiday-themed Trainer may appear instead of the regularly scheduled opponent.</p><p class="schedule-reset">Battles reset each day at 12:00 AM Eastern Time (EST).</p>`,
+        content: `<dl class="battle-schedule"><div><dt>Sunday</dt><dd>Theme teams</dd></div><div><dt>Monday</dt><dd>Regular trainers</dd></div><div><dt>Tuesday</dt><dd>Ace trainers</dd></div><div><dt>Wednesday</dt><dd>Rival battles</dd></div><div><dt>Thursday</dt><dd>Gym leaders</dd></div><div><dt>Friday</dt><dd>Elite 4</dd></div><div><dt>Saturday</dt><dd>Champions</dd></div></dl><p class="schedule-note">On holidays, a special holiday-themed trainer may appear instead of the regularly scheduled opponent.</p><p class="schedule-reset">Battles reset each day at 12:00 AM Eastern Time (EST).</p>`,
       },
       affiliation: {
         title: "Affiliation",

@@ -275,9 +275,9 @@ for (const [cardId, title, copy, link] of moreCardChecks) {
   const cardFit = await card.evaluate((element) => ({ top: element.getBoundingClientRect().top, bottom: element.getBoundingClientRect().bottom, scrollHeight: element.scrollHeight, clientHeight: element.clientHeight }));
   if (cardFit.top < 0 || cardFit.bottom > 568 || cardFit.scrollHeight > cardFit.clientHeight) throw new Error(`${title} did not fit a 320x568 mobile page without scrolling.`);
   if (link && !await card.locator(`a[href*="${link}"]`).count()) throw new Error(`${title} did not include its required source link.`);
-  if (cardId === "how-to-play" && !(await card.textContent())?.includes("but you can start fresh tomorrow!")) throw new Error("How to play did not use the requested run-reset wording.");
+  if (cardId === "how-to-play" && !(await card.textContent())?.includes("A loss wipes your run... But you can always start fresh tomorrow!")) throw new Error("How to play did not use the requested run-reset wording.");
   if (cardId === "schedule" && (await card.locator(".battle-schedule dd").allTextContents()).join(",") !== "Theme teams,Regular trainers,Ace trainers,Rival battles,Gym leaders,Elite 4,Champions") throw new Error("The battle schedule did not use the requested labels and capitalization.");
-  if (cardId === "schedule" && !(await card.locator(".schedule-note").textContent())?.includes("holiday-themed Trainer")) throw new Error("The battle schedule did not explain the holiday exception.");
+  if (cardId === "schedule" && !(await card.locator(".schedule-note").textContent())?.includes("holiday-themed trainer")) throw new Error("The battle schedule did not explain the holiday exception.");
   if (cardId === "affiliation" && (await card.locator(".more-card-content > p").count() !== 4 || !(await card.locator(".more-card-content > p").last().textContent())?.includes("sprites are © Nintendo"))) throw new Error("The affiliation and ownership notices were not combined into one paragraph.");
   await card.locator(".more-card-back").click();
   if (await page.locator(".more-card").count()) throw new Error(`${title} remained open after using Back.`);
