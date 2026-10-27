@@ -263,7 +263,7 @@ for (const [index, color] of ["red", "yellow", "green", "blue", "gold", "slate",
 await page.setViewportSize({ width: 320, height: 568 });
 const moreCardChecks = [
   ["how-to-play", "How to play", "Challenge the daily trainer", null],
-  ["nuzlocke", "What a Nuzlocke is", "fainted Pokémon are considered lost", "bulbapedia.bulbagarden.net/wiki/Nuzlocke_Challenge"],
+  ["nuzlocke", "What a Nuzlocke is", "wipes your entire box and ends your win streak", "bulbapedia.bulbagarden.net/wiki/Nuzlocke_Challenge"],
   ["schedule", "Battle schedule", "12:00 AM Eastern Time (EST)", null],
   ["affiliation", "Affiliation", "not affiliated with or endorsed", "github.com/smogon/pokemon-showdown"],
 ];
@@ -277,6 +277,7 @@ for (const [cardId, title, copy, link] of moreCardChecks) {
   if (link && !await card.locator(`a[href*="${link}"]`).count()) throw new Error(`${title} did not include its required source link.`);
   if (cardId === "how-to-play" && !(await card.textContent())?.includes("but you can start fresh tomorrow!")) throw new Error("How to play did not use the requested run-reset wording.");
   if (cardId === "schedule" && (await card.locator(".battle-schedule dd").allTextContents()).join(",") !== "Theme teams,Regular trainers,Ace trainers,Rival battles,Gym leaders,Elite 4,Champions") throw new Error("The battle schedule did not use the requested labels and capitalization.");
+  if (cardId === "schedule" && !(await card.locator(".schedule-note").textContent())?.includes("holiday-themed Trainer")) throw new Error("The battle schedule did not explain the holiday exception.");
   if (cardId === "affiliation" && (await card.locator(".more-card-content > p").count() !== 4 || !(await card.locator(".more-card-content > p").last().textContent())?.includes("sprites are © Nintendo"))) throw new Error("The affiliation and ownership notices were not combined into one paragraph.");
   await card.locator(".more-card-back").click();
   if (await page.locator(".more-card").count()) throw new Error(`${title} remained open after using Back.`);

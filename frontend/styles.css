@@ -711,6 +711,7 @@ button.encounter-card:active { background: #eef5ef; transform: translateY(1px); 
 .battle-schedule > div { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 8px; padding: 4px 2px; border-bottom: 1px solid #bdc4c8; }
 .battle-schedule dt { font-weight: 700; }
 .battle-schedule dd { margin: 0; }
+.schedule-note { margin: 9px 2px 0 !important; color: var(--muted); font-size: 12px; text-align: center; }
 .schedule-reset { margin-top: 9px !important; font-weight: 700; text-align: center; }
 .more-card-affiliation .more-card-content { font-size: 12px; line-height: 1.32; }
 .more-card-affiliation .more-card-content p { margin-bottom: 7px; }

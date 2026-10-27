@@ -1037,11 +1037,11 @@
       },
       nuzlocke: {
         title: "What a Nuzlocke is",
-        content: `<p>A <a href="https://bulbapedia.bulbagarden.net/wiki/Nuzlocke_Challenge" target="_blank" rel="noopener noreferrer">Nuzlocke</a> is a fan-created way to make Pokémon more challenging. Its core idea is that fainted Pokémon are considered lost, while encounters are limited.</p><p>Traditional versions usually allow only the first encounter in each area and encourage nicknames. Nuzzle adapts those stakes: encounters are limited, fainted team members are lost, and losing the daily battle wipes the run.</p>`,
+        content: `<p>A <a href="https://bulbapedia.bulbagarden.net/wiki/Nuzlocke_Challenge" target="_blank" rel="noopener noreferrer">Nuzlocke</a> is a fan-created way to make Pokémon more challenging. Encounters are limited, fainted Pokémon are lost forever, and losing a battle ends the run completely.</p><p>Nuzzle adapts those stakes into a daily puzzle game form: limited encounters are given, fainted Pokémon are automatically removed, and the loss of any battle wipes your entire box and ends your win streak.</p>`,
       },
       schedule: {
         title: "Battle schedule",
-        content: `<dl class="battle-schedule"><div><dt>Sunday</dt><dd>Theme teams</dd></div><div><dt>Monday</dt><dd>Regular trainers</dd></div><div><dt>Tuesday</dt><dd>Ace trainers</dd></div><div><dt>Wednesday</dt><dd>Rival battles</dd></div><div><dt>Thursday</dt><dd>Gym leaders</dd></div><div><dt>Friday</dt><dd>Elite 4</dd></div><div><dt>Saturday</dt><dd>Champions</dd></div></dl><p class="schedule-reset">Battles reset each day at 12:00 AM Eastern Time (EST).</p>`,
+        content: `<dl class="battle-schedule"><div><dt>Sunday</dt><dd>Theme teams</dd></div><div><dt>Monday</dt><dd>Regular trainers</dd></div><div><dt>Tuesday</dt><dd>Ace trainers</dd></div><div><dt>Wednesday</dt><dd>Rival battles</dd></div><div><dt>Thursday</dt><dd>Gym leaders</dd></div><div><dt>Friday</dt><dd>Elite 4</dd></div><div><dt>Saturday</dt><dd>Champions</dd></div></dl><p class="schedule-note">On holidays, a special holiday-themed Trainer may appear instead of the regularly scheduled opponent.</p><p class="schedule-reset">Battles reset each day at 12:00 AM Eastern Time (EST).</p>`,
       },
       affiliation: {
         title: "Affiliation",
