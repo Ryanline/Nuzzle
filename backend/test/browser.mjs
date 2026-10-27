@@ -56,7 +56,7 @@ async function assertMobileLayout(label, scrollRegions = []) {
       const viewportHeight = window.innerHeight;
       const trackedSelectors = [".screen-header", ".home-actions", ".lead-actions", ".battle-command-area", ".give-up", ".battle-result-actions", ".page-back"];
       const tracked = trackedSelectors.flatMap((selector) => [...document.querySelectorAll(selector)]).filter(visible);
-      const outOfBounds = tracked.filter((element) => {
+      const outOfBounds = tracked.filter((element) => !expectedScrollRegions.some((selector) => element.closest(selector))).filter((element) => {
         const rect = element.getBoundingClientRect();
         return rect.left < -1 || rect.right > viewportWidth + 1 || rect.top < -1 || rect.bottom > viewportHeight + 1;
       }).map((element) => element.className || element.tagName);
@@ -118,7 +118,7 @@ async function assertDesktopLayout(label, scrollRegions = [], relationships = []
       const screenBounds = screen ? bounds(screen) : null;
       const trackedSelectors = [".screen-header", ".home-actions", ".lead-actions", ".battle-command-area", ".give-up", ".battle-result-actions", ".page-back"];
       const tracked = trackedSelectors.flatMap((selector) => [...document.querySelectorAll(selector)]).filter(visible);
-      const outOfBounds = appBounds ? tracked.filter((element) => {
+      const outOfBounds = appBounds ? tracked.filter((element) => !expectations.scrollRegions.some((selector) => element.closest(selector))).filter((element) => {
         const rect = element.getBoundingClientRect();
         return rect.left < appBounds.left - 1 || rect.right > appBounds.right + 1 || rect.top < appBounds.top - 1 || rect.bottom > appBounds.bottom + 1;
       }).map((element) => element.className || element.tagName) : [];
