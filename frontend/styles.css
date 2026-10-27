@@ -399,8 +399,8 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .pokemon-sheet { position: relative; display: flex; width: min(520px, 100%); height: min(570px, calc(100vh - 36px)); height: min(570px, calc(100dvh - 36px)); max-height: calc(100vh - 36px); max-height: calc(100dvh - 36px); flex-direction: column; padding: 12px; overflow-y: auto; border: 1px solid #777; border-radius: 12px; background: #fff; box-shadow: 0 14px 45px rgba(0,0,0,.3); }
 .sheet-close { position: absolute; z-index: 1; top: 9px; right: 10px; width: 38px; height: 38px; padding: 0; border: 0; border-radius: 50%; background: transparent; cursor: pointer; font-size: 30px; line-height: 34px; }
 .sheet-close:hover { background: #eee; }
-.pokemon-summary { display: flex; min-height: 54px; align-items: center; gap: 8px; padding-right: 38px; }
-.pokemon-summary > img { flex: 0 0 54px; width: 54px; height: 50px; }
+.pokemon-summary { display: flex; min-height: 72px; align-items: center; gap: 10px; padding-right: 38px; }
+.pokemon-summary > img { flex: 0 0 72px; width: 72px; height: 68px; }
 .sheet-kicker { margin: 0 0 1px; color: var(--muted); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
 .pokemon-summary h2 { margin: 0 0 2px; font-size: 20px; font-weight: 400; }
 .sheet-types { display: flex; gap: 4px; }
@@ -1085,8 +1085,8 @@ html[data-theme="dark"] .auth-error { color: #ff9297; }
   .pc-mon img { width: 60px; height: 57px; }
   .pokemon-sheet { align-self: flex-end; width: 100%; height: min(590px, calc(var(--viewport-height) - max(8px, var(--safe-top)) - var(--safe-bottom))); max-height: calc(var(--viewport-height) - max(8px, var(--safe-top)) - var(--safe-bottom)); padding: 10px 12px 8px; border-radius: 13px 13px 0 0; }
   .sheet-backdrop { align-items: flex-end; padding: max(8px, var(--safe-top)) var(--safe-right) var(--safe-bottom) var(--safe-left); }
-  .pokemon-summary { min-height: 54px; gap: 8px; }
-  .pokemon-summary > img { flex-basis: 54px; width: 54px; height: 50px; }
+  .pokemon-summary { min-height: 72px; gap: 10px; }
+  .pokemon-summary > img { flex-basis: 72px; width: 72px; height: 68px; }
   .pokemon-summary h2 { font-size: 20px; }
   .pokemon-facts p { padding: 5px 2px; }
   .sheet-section h3 { margin-top: 10px; }
@@ -1183,6 +1183,10 @@ html[data-theme="dark"] .auth-error { color: #ff9297; }
 }
 
 @media (max-width: 520px) and (max-height: 700px), (min-width: 521px) and (max-width: 1000px) and (max-height: 520px) {
+  .pokemon-sheet { padding-top: 6px; }
+  .pokemon-summary { min-height: 64px; gap: 9px; }
+  .pokemon-summary > img { flex-basis: 64px; width: 64px; height: 60px; }
+  .pokemon-sheet .pc-detail-tabs { margin: 2px 0 1px; }
   .home-screen .screen-header { flex-basis: 100px; }
   .home-screen .header-tools { top: 2px; }
   .home-header { height: 100px; }

@@ -595,12 +595,15 @@ const summaryAppearance = await page.locator(".pokemon-sheet").evaluate((sheet) 
     lightBackgrounds,
     darkBackgrounds,
     factsTopBorder: getComputedStyle(sheet.querySelector(".pokemon-facts")).borderTopWidth,
+    spriteWidth: sheet.querySelector(".pokemon-summary > img").getBoundingClientRect().width,
+    summaryHeight: sheet.querySelector(".pokemon-summary").getBoundingClientRect().height,
   };
 });
 if (summaryAppearance.labels.join(",") !== "Remove from team,Held item,Close") throw new Error("The PC Summary actions did not use the requested labels and capitalization.");
 if (!summaryAppearance.classes[0].includes("red") || !summaryAppearance.classes[1].includes("blue") || !summaryAppearance.classes[2].includes("slate")) throw new Error("The PC Summary actions did not match the Battle, Mart, and Settings colors.");
 if (summaryAppearance.lightBackgrounds.some((value, index) => value === summaryAppearance.darkBackgrounds[index])) throw new Error("The PC Summary action colors did not adapt to dark mode.");
 if (summaryAppearance.factsTopBorder !== "0px") throw new Error("PC Summary retained the redundant divider above Ability.");
+if (summaryAppearance.spriteWidth < 70 || summaryAppearance.summaryHeight < 70) throw new Error("The PC drawer did not give the Pokémon sprite a larger shared header.");
 const pcActionSpacing = await page.locator(".pokemon-sheet").evaluate((sheet) => {
   const teamButton = sheet.querySelector("[data-team-toggle]").getBoundingClientRect();
   const itemButton = sheet.querySelector("[data-open-pc-items]").getBoundingClientRect();
@@ -619,6 +622,7 @@ await page.setViewportSize({ width: 390, height: 568 });
 await page.click('[data-pc-detail-view="training"]');
 await assertMobileLayout("PC training drawer");
 await assertDesktopLayout("PC training drawer");
+if (await page.locator(".pokemon-summary > img").evaluate((image) => image.getBoundingClientRect().width) < 63) throw new Error("The compact Training drawer shrank the Pokémon sprite back to its old size.");
 const expectedNatureOrder = ["Adamant", "Lonely", "Naughty", "Brave", "Bold", "Impish", "Relaxed", "Lax", "Jolly", "Timid", "Hasty", "Naive", "Modest", "Mild", "Rash", "Quiet", "Calm", "Careful", "Sassy", "Gentle", "Bashful", "Docile", "Hardy", "Quirky", "Serious"];
 if (JSON.stringify(await page.locator("[data-training-nature] option").evaluateAll((options) => options.map((option) => option.value))) !== JSON.stringify(expectedNatureOrder)) throw new Error("The Training nature menu did not use the requested order.");
 if (await page.locator(".pc-detail-panel > .pokemon-facts").count()) throw new Error("Training still includes the general Pokémon facts.");
