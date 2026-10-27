@@ -89,7 +89,9 @@
   let resultOverlayOpen = false;
   let balance = 50000;
   let selectedPcId = null;
+  let selectedTrainerPokemon = null;
   let pcDetailView = "summary";
+  let pcSummaryMoveId = null;
   let pcSwapMode = false;
   let pcItemMode = false;
   let activePcItemGroup = "Held Items";
@@ -695,7 +697,7 @@
 
   function pc() {
     const trainer = todayState.trainer;
-    const trainerSlots = trainer.pokemon.map((pokemon) => `<div class="party-slot trainer-party-slot" aria-label="${escapeHtml(pokemon.name)}${pokemon.shiny ? ", shiny" : ""}"><img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId, pokemon.shiny)}" alt=""/><span>${escapeHtml(pokemon.name)}</span></div>`).join("");
+    const trainerSlots = trainer.pokemon.map((pokemon, index) => `<button class="party-slot trainer-party-slot" type="button" data-trainer-pokemon="${index}" aria-label="View ${escapeHtml(pokemon.name)}${pokemon.shiny ? ", shiny" : ""}"><img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId, pokemon.shiny)}" alt=""/><span>${escapeHtml(pokemon.name)}</span></button>`).join("");
     const party = [...team].slice(0, 6);
     const partySlots = Array.from({ length: 6 }, (_, index) => {
       const id = party[index];
@@ -712,7 +714,17 @@
       <section class="pc-section trainer-reference-section" aria-labelledby="trainer-team-heading"><div class="pc-section-head"><h2 id="trainer-team-heading">${escapeHtml(trainer.name)}</h2><span>${trainer.pokemon.length} Pokémon</span></div><div class="party-strip">${trainerSlots}</div></section>
       <section class="pc-section party-section" aria-labelledby="party-heading"><div class="pc-section-head"><h2 id="party-heading">team</h2><span>${party.length}/6</span></div><div class="party-strip">${partySlots}</div></section>
       <section class="pc-section box-section" aria-labelledby="box-heading"><div class="pc-section-head"><h2 id="box-heading">box</h2><span>${boxIds.length} Pokémon</span></div><div class="pc-box">${boxMons}</div></section>
-      ${backButton()}</div>${selectedPcId ? pcPokemonSheet(selectedPcId) : ""}</section>`;
+      ${backButton()}</div>${selectedPcId ? pcPokemonSheet(selectedPcId) : ""}${selectedTrainerPokemon !== null ? trainerPokemonCard(trainer.pokemon[selectedTrainerPokemon]) : ""}</section>`;
+  }
+
+  function trainerPokemonCard(pokemon) {
+    const species = pokemonContent.get(pokemon.id) || {};
+    const types = pokemon.types?.length ? pokemon.types : species.types || ["Normal"];
+    const abilities = pokemon.possibleAbilities?.length
+      ? pokemon.possibleAbilities
+      : [...new Set([...(species.ordinaryAbilities || []), species.hiddenAbility].filter(Boolean))];
+    const speed = Number.isFinite(pokemon.speed) ? pokemon.speed : species.baseStats?.spe ?? "—";
+    return `<div class="trainer-scout-backdrop" data-close-trainer-pokemon><section class="trainer-scout-card" role="dialog" aria-modal="true" aria-labelledby="trainer-scout-title"><button class="trainer-scout-close" type="button" data-close-trainer-pokemon aria-label="Close trainer Pokémon details">×</button><header><h2 id="trainer-scout-title">${escapeHtml(pokemon.name)}</h2><div class="sheet-types">${types.map((type) => `<span class="type-chip ${type.toLowerCase()}">${escapeHtml(type)}</span>`).join("")}</div></header><div class="trainer-scout-facts"><p><span>Possible abilities</span><strong>${escapeHtml(abilities.join(", ") || "Unknown")}</strong></p><p><span>Speed</span><strong>${speed}</strong><small>before items, abilities, or modifiers</small></p></div></section></div>`;
   }
 
   const trainingStats = [["hp", "HP"], ["atk", "Atk"], ["def", "Def"], ["spa", "SpA"], ["spd", "SpD"], ["spe", "Spe"]];
@@ -797,6 +809,23 @@
     return { lines, total: lines.reduce((sum, line) => sum + line.cost, 0), changed };
   }
 
+  function moveCatalogItem(name, details = {}) {
+    return shopItems.find((item) => item.group === "TMs" && item.moveId === toId(name)) || {
+      name,
+      type: details.type || "Normal",
+      category: details.category || "Status",
+      power: details.power || 0,
+      accuracy: true,
+      description: "Move details unavailable.",
+    };
+  }
+
+  function showdownMoveRow(item, price = null) {
+    const power = item.category === "Status" || !item.power ? "—" : item.power;
+    const accuracy = item.accuracy === true ? "—" : `${item.accuracy}%`;
+    return `<span class="showdown-move-copy"><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.description || "No additional effect.")}</small></span><span class="showdown-move-data"><span class="showdown-move-sprite"><img src="assets/showdown/types/${encodeURIComponent(item.type)}.png" alt="${escapeHtml(item.type)} type"></span><span class="showdown-move-sprite"><img src="assets/showdown/categories/${encodeURIComponent(item.category)}.png" alt="${escapeHtml(item.category)} move"></span><span class="showdown-move-stat" data-move-stat><small>Power</small><b>${power}</b></span><span class="showdown-move-stat" data-move-stat><small>Accuracy</small><b>${accuracy}</b></span><span class="showdown-move-stat showdown-move-price${price === null ? " empty" : ""}" data-move-price><small>Price</small><b>${price === null ? "" : `₽${price.toLocaleString()}`}</b></span></span>`;
+  }
+
   function trainingMovePicker(mon) {
     const form = trainingForm(mon);
     const query = trainingMoveSearch.trim().toLowerCase();
@@ -805,15 +834,8 @@
     const matches = (item) => !query || `${item.name} ${item.type} ${item.category} ${item.description || ""}`.toLowerCase().includes(query);
     const matchCount = moves.filter(matches).length;
     const currentMoveName = trainingDraft.moves[trainingMoveSlot];
-    const currentMove = shopItems.find((item) => item.group === "TMs" && item.moveId === toId(currentMoveName)) || {
-      name: currentMoveName, type: "Normal", category: "Status", power: 0, accuracy: true, pp: "—", description: "Move details unavailable.",
-    };
-    const moveRow = (item, price = null) => {
-      const power = item.category === "Status" || !item.power ? "—" : item.power;
-      const accuracy = item.accuracy === true ? "—" : `${item.accuracy}%`;
-      return `<span class="showdown-move-copy"><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.description || "No additional effect.")}</small></span><span class="showdown-move-data"><span class="showdown-move-sprite"><img src="assets/showdown/types/${encodeURIComponent(item.type)}.png" alt="${escapeHtml(item.type)} type"></span><span class="showdown-move-sprite"><img src="assets/showdown/categories/${encodeURIComponent(item.category)}.png" alt="${escapeHtml(item.category)} move"></span><span class="showdown-move-stat" data-move-stat><small>Power</small><b>${power}</b></span><span class="showdown-move-stat" data-move-stat><small>Accuracy</small><b>${accuracy}</b></span><span class="showdown-move-stat showdown-move-price${price === null ? " empty" : ""}" data-move-price><small>Price</small><b>${price === null ? "" : `₽${price.toLocaleString()}`}</b></span></span>`;
-    };
-    return `<section class="training-move-picker"><header><div class="training-move-nav"><button type="button" data-close-move-picker aria-label="Back to training">←</button><small>Replace move ${trainingMoveSlot + 1}</small></div><div class="showdown-move-row training-current-move" data-current-training-move>${moveRow(currentMove)}</div></header><label class="move-search"><span>Search available moves</span><input type="search" value="${escapeHtml(trainingMoveSearch)}" placeholder="Search by name, type, category, or effect" data-training-move-search autofocus><small aria-live="polite" data-training-move-count>${matchCount} matching move${matchCount === 1 ? "" : "s"}</small></label><div class="training-move-list">${moves.map((item) => `<button class="showdown-move-row" type="button" data-select-training-move="${item.id}" data-move-search-text="${escapeHtml(`${item.name} ${item.type} ${item.category} ${item.description || ""}`.toLowerCase())}" ${matches(item) ? "" : "hidden"}>${moveRow(item, item.price)}</button>`).join("")}<p class="training-empty" ${matchCount ? "hidden" : ""}>No matching moves.</p></div></section>`;
+    const currentMove = moveCatalogItem(currentMoveName);
+    return `<section class="training-move-picker"><header><div class="training-move-nav"><button type="button" data-close-move-picker aria-label="Back to training">←</button><small>Replace move ${trainingMoveSlot + 1}</small></div><div class="showdown-move-row training-current-move" data-current-training-move>${showdownMoveRow(currentMove)}</div></header><label class="move-search"><span>Search available moves</span><input type="search" value="${escapeHtml(trainingMoveSearch)}" placeholder="Search by name, type, category, or effect" data-training-move-search autofocus><small aria-live="polite" data-training-move-count>${matchCount} matching move${matchCount === 1 ? "" : "s"}</small></label><div class="training-move-list">${moves.map((item) => `<button class="showdown-move-row" type="button" data-select-training-move="${item.id}" data-move-search-text="${escapeHtml(`${item.name} ${item.type} ${item.category} ${item.description || ""}`.toLowerCase())}" ${matches(item) ? "" : "hidden"}>${showdownMoveRow(item, item.price)}</button>`).join("")}<p class="training-empty" ${matchCount ? "hidden" : ""}>No matching moves.</p></div></section>`;
   }
 
   function trainingEditor(mon) {
@@ -853,14 +875,15 @@
     const summaryMoves = moveDetails.map((move) => {
       const type = move.type || "Normal";
       const category = move.category || "Status";
-      const power = Number.isFinite(move.power) && move.power > 0 ? move.power : "—";
-      return `<div class="sheet-move type-${toId(type)}" title="${escapeHtml(move.name)}"><strong>${escapeHtml(move.name)}</strong><span class="sheet-move-sprite"><img src="assets/showdown/types/${encodeURIComponent(type)}.png" alt="${escapeHtml(type)} type"></span><span class="sheet-move-sprite sheet-move-category"><img src="assets/showdown/categories/${encodeURIComponent(category)}.png" alt="${escapeHtml(category)} move"></span><span class="sheet-move-power"><small>Power</small><b>${power}</b></span></div>`;
+      return `<button class="sheet-move type-${toId(type)}" type="button" data-summary-move="${toId(move.name)}" title="View ${escapeHtml(move.name)} details"><strong>${escapeHtml(move.name)}</strong><span class="sheet-move-category"><img src="assets/showdown/categories/${encodeURIComponent(category)}.png" alt="${escapeHtml(category)} move"></span></button>`;
     }).join("");
     const summary = `<div class="pokemon-facts"><p><span>Ability</span><strong>${mon.ability}</strong></p><p><span>Nature</span><strong>${mon.nature}</strong></p><p><span>Held item</span><strong>${mon.item}</strong></p></div><section class="sheet-section" role="tabpanel"><div class="stat-grid">${stats}</div><h3>Moves</h3><div class="sheet-moves">${summaryMoves}</div></section>`;
     const normalContent = `${tabs}<div class="pc-detail-panel">${pcDetailView === "training" ? trainingEditor(mon) : summary}</div>${pcDetailView === "summary" ? `<div class="sheet-actions"><button class="gloss-button ${onTeam ? "red" : "green"}" type="button" data-team-toggle="${id}">${onTeam ? "Remove from team" : "Add to team"}</button><button class="gloss-button blue" type="button" data-open-pc-items>Held item</button><button class="gloss-button slate" type="button" data-close-pc-sheet>Close</button></div>` : ""}`;
     const sheetContent = swapChooser || itemChooser || normalContent;
     const alternateMode = swapChooser || itemChooser;
-    return `<div class="sheet-backdrop" data-close-pc-sheet><section class="pokemon-sheet${pcDetailView === "training" && !alternateMode ? " training-sheet" : ""}" role="dialog" aria-modal="true" aria-labelledby="pokemon-sheet-title"><button class="sheet-close" type="button" data-close-pc-sheet aria-label="Close Pokémon details">×</button><div class="pokemon-summary"><img class="sprite" src="${sprite(id)}" alt="${mon.name}"/><div><p class="sheet-kicker">Pokémon details</p><h2 id="pokemon-sheet-title">${mon.name}</h2><div class="sheet-types">${mon.types.map((type) => `<span class="type-chip ${type.toLowerCase()}">${type}</span>`).join("")}</div></div></div><div class="sheet-mode-content">${sheetContent}</div>${alternateMode ? `<button class="gloss-button neutral sheet-secondary-action" type="button" ${swapChooser ? "data-cancel-pc-swap" : "data-cancel-pc-items"}>Cancel</button>` : ""}</section></div>`;
+    const selectedMove = pcSummaryMoveId ? moveCatalogItem(mon.moves.find((move) => toId(move) === pcSummaryMoveId) || pcSummaryMoveId) : null;
+    const moveCard = selectedMove ? `<div class="summary-move-backdrop" data-close-summary-move><section class="summary-move-card" role="dialog" aria-labelledby="summary-move-title"><header><small>Move details</small><button type="button" data-close-summary-move aria-label="Close move details">×</button></header><div class="showdown-move-row" data-summary-move-detail id="summary-move-title">${showdownMoveRow(selectedMove)}</div></section></div>` : "";
+    return `<div class="sheet-backdrop" data-close-pc-sheet><section class="pokemon-sheet${pcDetailView === "training" && !alternateMode ? " training-sheet" : ""}" role="dialog" aria-modal="true" aria-labelledby="pokemon-sheet-title"><button class="sheet-close" type="button" data-close-pc-sheet aria-label="Close Pokémon details">×</button><div class="pokemon-summary"><img class="sprite" src="${sprite(id)}" alt="${mon.name}"/><div><p class="sheet-kicker">Pokémon details</p><h2 id="pokemon-sheet-title">${mon.name}</h2><div class="sheet-types">${mon.types.map((type) => `<span class="type-chip ${type.toLowerCase()}">${type}</span>`).join("")}</div></div></div><div class="sheet-mode-content">${sheetContent}</div>${alternateMode ? `<button class="gloss-button neutral sheet-secondary-action" type="button" ${swapChooser ? "data-cancel-pc-swap" : "data-cancel-pc-items"}>Cancel</button>` : ""}${moveCard}</section></div>`;
   }
 
   function encountersScreen() {
@@ -1517,6 +1540,11 @@
         martSheetMode = null;
         martListScrollTop = 0;
       }
+      if (nextRoute !== "pc") {
+        selectedPcId = null;
+        selectedTrainerPokemon = null;
+        pcSummaryMoveId = null;
+      }
       if (nextRoute !== "settings") moreCardOpen = null;
       route = nextRoute;
       if (route === "battle" && battleState?.ended) resultOverlayOpen = true;
@@ -1783,7 +1811,13 @@
       const count = document.querySelector("[data-bag-search-count]");
       if (count) count.textContent = `${matchCount} matching item${matchCount === 1 ? "" : "s"}`;
     });
-    document.querySelectorAll("[data-pc-detail]").forEach((button) => button.addEventListener("click", () => { selectedPcId = button.dataset.pcDetail; pcDetailView = "summary"; pcSwapMode = false; pcItemMode = false; pendingPcItemId = null; selectedNature = null; pcItemMessage = ""; trainingDraft = null; trainingMoveSlot = null; trainingMessage = ""; render(); }));
+    document.querySelectorAll("[data-trainer-pokemon]").forEach((button) => button.addEventListener("click", () => { selectedTrainerPokemon = Number(button.dataset.trainerPokemon); render(); }));
+    document.querySelectorAll("[data-close-trainer-pokemon]").forEach((element) => element.addEventListener("click", (event) => {
+      if (element.classList.contains("trainer-scout-backdrop") && event.target !== element) return;
+      selectedTrainerPokemon = null;
+      render();
+    }));
+    document.querySelectorAll("[data-pc-detail]").forEach((button) => button.addEventListener("click", () => { selectedPcId = button.dataset.pcDetail; pcDetailView = "summary"; pcSummaryMoveId = null; pcSwapMode = false; pcItemMode = false; pendingPcItemId = null; selectedNature = null; pcItemMessage = ""; trainingDraft = null; trainingMoveSlot = null; trainingMessage = ""; render(); }));
     document.querySelectorAll("[data-pc-detail-view]").forEach((button) => button.addEventListener("click", () => {
       pcDetailView = button.dataset.pcDetailView;
       if (pcDetailView === "training" && !trainingDraft) beginTraining(mons[selectedPcId]);
@@ -1793,12 +1827,19 @@
       if (element.classList.contains("sheet-backdrop") && event.target !== element) return;
       if (hasPendingTraining() && !window.confirm("Discard your pending training changes?")) return;
       selectedPcId = null;
+      pcSummaryMoveId = null;
       pcSwapMode = false;
       pcItemMode = false;
       pendingPcItemId = null;
       selectedNature = null;
       trainingDraft = null;
       trainingMoveSlot = null;
+      render();
+    }));
+    document.querySelectorAll("[data-summary-move]").forEach((button) => button.addEventListener("click", () => { pcSummaryMoveId = button.dataset.summaryMove; render(); }));
+    document.querySelectorAll("[data-close-summary-move]").forEach((element) => element.addEventListener("click", (event) => {
+      if (element.classList.contains("summary-move-backdrop") && event.target !== element) return;
+      pcSummaryMoveId = null;
       render();
     }));
     document.querySelector("[data-open-pc-items]")?.addEventListener("click", () => {
@@ -1986,8 +2027,12 @@
         battleLogExpanded = false;
         render();
         requestAnimationFrame(() => document.querySelector("[data-toggle-battle-log]")?.focus());
+      } else if (event.key === "Escape" && selectedTrainerPokemon !== null) {
+        selectedTrainerPokemon = null;
+        render();
       } else if (event.key === "Escape" && selectedPcId) {
-        if (pcSwapMode) pcSwapMode = false;
+        if (pcSummaryMoveId) pcSummaryMoveId = null;
+        else if (pcSwapMode) pcSwapMode = false;
         else if (pcItemMode) { pcItemMode = false; pendingPcItemId = null; selectedNature = null; }
         else selectedPcId = null;
         render();
@@ -2036,6 +2081,7 @@
         if (element.dataset.held || dragArmed) { delete element.dataset.held; dragArmed = false; return; }
         selectedPcId = element.dataset.pcMon;
         pcDetailView = "summary";
+        pcSummaryMoveId = null;
         pcSwapMode = false;
         pcItemMode = false;
         pendingPcItemId = null;

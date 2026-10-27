@@ -557,12 +557,27 @@ await page.click(".page-back");
 await page.click('[data-route="pc"]');
 if ((await page.locator(".trainer-reference-section .pc-section-head h2").textContent())?.trim() !== "Brock") throw new Error("The PC did not identify today's trainer team.");
 if (await page.locator(".trainer-reference-section .trainer-party-slot").count() !== 6) throw new Error("The PC did not show today's full trainer team.");
+if (await page.locator(".trainer-reference-section button.trainer-party-slot").count() !== 6) throw new Error("The trainer Pokémon were not exposed as tappable controls.");
 if (await page.locator(".party-section [data-pc-detail]").count() !== generatedGame.teamIds.length) throw new Error("The PC Team section did not show only the active team.");
 if (await page.locator(".box-section [data-pc-mon]").count() !== generatedGame.roster.length - generatedGame.teamIds.length) throw new Error("The PC Box section did not exclude active team members.");
 if (await page.locator(".team-mark, .pc-help").count()) throw new Error("The obsolete PC team labels or helper text are still visible.");
 if (await page.locator(".party-section [data-quick-team-remove]").count() !== generatedGame.teamIds.length || await page.locator(".box-section [data-quick-team-add]").count() !== generatedGame.roster.length - generatedGame.teamIds.length) throw new Error("The PC cards did not expose the expected quick team controls.");
 if (await page.locator(".trainer-reference-section .pc-quick-action").count()) throw new Error("The trainer reference cards incorrectly exposed team controls.");
 if (!await page.locator(`[data-quick-team-remove="${outgoingId}"].remove[aria-label="Remove ${outgoingPokemon.name} from team"]`).count() || !await page.locator(`[data-quick-team-add="${replacementId}"].add[aria-label="Add ${replacementName} to team"]`).count()) throw new Error("The quick team controls did not use the requested action styling or accessible labels.");
+await page.locator("[data-trainer-pokemon]").first().click();
+const trainerScout = await page.locator(".trainer-scout-card").evaluate((card) => ({
+  name: card.querySelector("h2")?.textContent.trim(),
+  types: [...card.querySelectorAll(".type-chip")].map((type) => type.textContent.trim()),
+  abilities: card.querySelector(".trainer-scout-facts p:first-child strong")?.textContent.trim(),
+  speed: card.querySelector(".trainer-scout-facts p:nth-child(2) strong")?.textContent.trim(),
+  speedNote: card.querySelector(".trainer-scout-facts p:nth-child(2) small")?.textContent.trim(),
+  text: card.textContent,
+}));
+if (trainerScout.name !== "Steelix" || trainerScout.types.join(",") !== "Steel,Ground" || !trainerScout.abilities?.includes("Sturdy") || !/^\d+$/.test(trainerScout.speed) || trainerScout.speedNote !== "before items, abilities, or modifiers") throw new Error(`The trainer scouting card did not show the requested public species details: ${JSON.stringify(trainerScout)}`);
+if (/Earthquake|Heavy Slam|Adamant|Rock Slide/.test(trainerScout.text)) throw new Error("The trainer scouting card leaked private set details.");
+await assertMobileLayout("trainer Pokémon scouting card");
+await assertDesktopLayout("trainer Pokémon scouting card");
+await page.click(".trainer-scout-close");
 await assertMobileLayout("PC", [".box-section .pc-box"]);
 await assertDesktopLayout("PC", [".box-section .pc-box"], [
   { first: ".trainer-reference-section", second: ".party-section", direction: "above" },
@@ -608,9 +623,8 @@ const summaryAppearance = await page.locator(".pokemon-sheet").evaluate((sheet) 
     moves: [...sheet.querySelectorAll(".sheet-move")].map((move) => ({
       name: move.querySelector(":scope > strong")?.textContent.trim(),
       className: move.className,
-      imagePaths: [...move.querySelectorAll(".sheet-move-sprite img")].map((image) => new URL(image.src).pathname),
-      powerLabel: move.querySelector(".sheet-move-power small")?.textContent.trim(),
-      power: move.querySelector(".sheet-move-power b")?.textContent.trim(),
+      categoryPath: new URL(move.querySelector(".sheet-move-category img").src).pathname,
+      hasTypeOrPower: Boolean(move.querySelector("img[src*='/types/'], .sheet-move-power")),
       background: getComputedStyle(move).backgroundImage,
     })),
   };
@@ -621,8 +635,18 @@ if (summaryAppearance.lightBackgrounds.some((value, index) => value === summaryA
 if (summaryAppearance.factsTopBorder !== "0px") throw new Error("PC Summary retained the redundant divider above Ability.");
 if (summaryAppearance.spriteWidth < 70 || summaryAppearance.summaryHeight < 70) throw new Error("The PC drawer did not give the Pokémon sprite a larger shared header.");
 if (summaryAppearance.moves.length !== 4 || summaryAppearance.moves.map((move) => move.name).join(",") !== outgoingPokemon.moves.join(",")) throw new Error(`PC Summary did not show all four move names: ${JSON.stringify(summaryAppearance.moves)}`);
-if (summaryAppearance.moves.some((move) => !/type-\w+/.test(move.className) || move.imagePaths.length !== 2 || !move.imagePaths[0].includes("/assets/showdown/types/") || !move.imagePaths[1].includes("/assets/showdown/categories/") || move.powerLabel !== "Power" || !/^(?:\d+|—)$/.test(move.power) || move.power.includes("/"))) throw new Error(`PC Summary moves did not use type/category sprites and power values: ${JSON.stringify(summaryAppearance.moves)}`);
+if (summaryAppearance.moves.some((move) => !/type-\w+/.test(move.className) || !move.categoryPath.includes("/assets/showdown/categories/") || move.hasTypeOrPower)) throw new Error(`PC Summary move buttons did not use only type color, name, and category: ${JSON.stringify(summaryAppearance.moves)}`);
 if (new Set(summaryAppearance.moves.map((move) => move.background)).size < 2 && new Set(summaryAppearance.moves.map((move) => move.className)).size > 1) throw new Error("PC Summary move colors did not reflect their types.");
+await page.locator("[data-summary-move]").first().click();
+const summaryMoveDetail = await page.locator("[data-summary-move-detail]").evaluate((row) => ({
+  name: row.querySelector(".showdown-move-copy > strong")?.textContent.trim(),
+  description: row.querySelector(".showdown-move-copy > small")?.textContent.trim(),
+  imagePaths: [...row.querySelectorAll(".showdown-move-sprite img")].map((image) => new URL(image.src).pathname),
+  statLabels: [...row.querySelectorAll("[data-move-stat] small")].map((label) => label.textContent.trim()),
+  price: row.querySelector("[data-move-price] b")?.textContent.trim(),
+}));
+if (summaryMoveDetail.name !== outgoingPokemon.moves[0] || !summaryMoveDetail.description || !summaryMoveDetail.imagePaths[0]?.includes("/assets/showdown/types/") || !summaryMoveDetail.imagePaths[1]?.includes("/assets/showdown/categories/") || summaryMoveDetail.statLabels.join(",") !== "Power,Accuracy" || summaryMoveDetail.price) throw new Error(`The Summary move detail did not match the Training selection row: ${JSON.stringify(summaryMoveDetail)}`);
+await page.click(".summary-move-card [data-close-summary-move]");
 const pcActionSpacing = await page.locator(".pokemon-sheet").evaluate((sheet) => {
   const teamButton = sheet.querySelector("[data-team-toggle]").getBoundingClientRect();
   const itemButton = sheet.querySelector("[data-open-pc-items]").getBoundingClientRect();

@@ -25,11 +25,20 @@ function trainerError(message, statusCode = 400) {
 
 function pokemonSummary(set) {
   const species = Dex.species.get(set.species || set.name);
+  const level = set.level || 100;
+  const speedIv = set.ivs?.spe ?? 31;
+  const speedEv = set.evs?.spe ?? 0;
+  const nature = Dex.natures.get(set.nature || "Serious");
+  const speedCore = Math.floor(((2 * species.baseStats.spe + speedIv + Math.floor(speedEv / 4)) * level) / 100) + 5;
+  const speedModifier = nature.plus === "spe" ? 1.1 : nature.minus === "spe" ? 0.9 : 1;
   return {
     id: species.id || toID(set.species || set.name),
     name: species.name || set.species || set.name,
     spriteId: species.spriteid || species.id || toID(set.species || set.name),
     shiny: Boolean(set.shiny),
+    types: [...species.types],
+    possibleAbilities: [...new Set(Object.values(species.abilities).filter(Boolean))],
+    speed: Math.floor(speedCore * speedModifier),
   };
 }
 
