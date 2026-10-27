@@ -215,7 +215,8 @@ page.on("console", (message) => {
 });
 page.on("pageerror", (error) => errors.push(error.message));
 
-await page.goto(baseUrl, { waitUntil: "networkidle" });
+await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
+await page.waitForSelector(".home-screen .screen-title");
 const viewportMeta = await page.locator('meta[name="viewport"]').getAttribute("content");
 if (!viewportMeta?.includes("width=device-width") || !viewportMeta.includes("viewport-fit=cover") || !viewportMeta.includes("interactive-widget=resizes-content")) throw new Error("The mobile viewport does not cover device cutouts and resize for the virtual keyboard.");
 if (!/^Daily Nuzzle #\d+: /.test((await page.locator(".home-header .screen-title").textContent())?.trim() || "")) throw new Error("The landing title did not identify the Daily Nuzzle.");
@@ -389,7 +390,8 @@ await page.click('[data-route="config"]');
 if (await page.locator('.trainer-form input[name="name"]').inputValue() !== "Persistent draft") throw new Error("The trainer name draft did not persist across navigation.");
 if (await page.locator('.trainer-form input[name="spriteId"]').inputValue() !== "misty-masters") throw new Error("The trainer sprite draft did not persist across navigation.");
 if (!(await page.locator('.trainer-form textarea[name="teamText"]').inputValue()).includes("Starmie")) throw new Error("The trainer team draft did not persist across navigation.");
-await page.reload({ waitUntil: "networkidle" });
+await page.reload({ waitUntil: "domcontentloaded" });
+await page.waitForSelector('.home-screen [data-route="settings"]');
 if (await page.locator(".welcome-card").count()) throw new Error("The acknowledged welcome message appeared again.");
 await page.click('[data-route="settings"]');
 await page.waitForSelector('[data-route="config"]');
@@ -890,7 +892,7 @@ if (!overlayBounds || !arenaBounds || !giveUpBounds || overlayBounds.y < arenaBo
 await page.click("[data-toggle-battle-log]");
 if (await page.locator(".battle-command-area").getAttribute("inert") !== null) throw new Error("Battle controls stayed inert after collapse.");
 
-await page.reload({ waitUntil: "networkidle" });
+await page.reload({ waitUntil: "domcontentloaded" });
 await page.waitForSelector(".battle-screen");
 if (!(await page.locator(".prompt").textContent())?.includes("Turn 2")) throw new Error("The active battle was not resumed after refresh.");
 
