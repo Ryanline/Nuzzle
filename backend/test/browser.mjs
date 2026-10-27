@@ -567,6 +567,18 @@ if (await page.locator('[data-training-ev="hp"]').inputValue() !== "7") throw ne
 await page.locator('[data-training-ev="hp"]').evaluate((input) => { input.value = "5"; input.dispatchEvent(new Event("input", { bubbles: true })); input.dispatchEvent(new Event("change", { bubbles: true })); });
 await page.click('[data-edit-training-move="0"]');
 await assertMobileLayout("move picker", [".training-move-list"]);
+const currentMoveSummary = await page.locator("[data-current-training-move]").evaluate((row) => ({
+  name: row.querySelector(".showdown-move-main > strong")?.textContent.trim(),
+  imagePaths: [...row.querySelectorAll(".showdown-move-icons img")].map((image) => new URL(image.src).pathname),
+  statLabels: [...row.querySelectorAll(".showdown-move-stats small")].map((label) => label.textContent.trim()),
+  statValues: [...row.querySelectorAll(".showdown-move-stats b")].map((value) => value.textContent.trim()),
+  description: row.querySelector(".showdown-move-bottom small")?.textContent.trim(),
+  hasPrice: Boolean(row.querySelector(".showdown-move-bottom > b")),
+}));
+if (currentMoveSummary.name !== outgoingPokemon.moves[0] || currentMoveSummary.statLabels.join(",") !== "Power,Accuracy,PP" || currentMoveSummary.statValues.some((value) => !value) || !currentMoveSummary.description || currentMoveSummary.hasPrice) throw new Error(`The current move did not use the complete price-free Showdown row: ${JSON.stringify(currentMoveSummary)}`);
+if (!currentMoveSummary.imagePaths[0]?.includes("/sprites/types/") || !currentMoveSummary.imagePaths[1]?.includes("/sprites/categories/")) throw new Error(`The current move did not use Showdown type and category sprites: ${JSON.stringify(currentMoveSummary.imagePaths)}`);
+const candidateMoveSummary = await page.locator("[data-select-training-move]").first().evaluate((row) => ({ images: row.querySelectorAll(".showdown-move-icons img").length, hasPrice: Boolean(row.querySelector(".showdown-move-bottom > b")) }));
+if (candidateMoveSummary.images !== 2 || !candidateMoveSummary.hasPrice) throw new Error("Candidate moves did not share the Showdown row while retaining their price.");
 if (!await page.locator("[data-training-move-search]").count()) throw new Error("The Training move picker did not expose search.");
 await page.locator("[data-training-move-search]").evaluate((input) => { input.dataset.identity = "original"; });
 await page.locator("[data-training-move-search]").pressSequentially("th", { delay: 20 });

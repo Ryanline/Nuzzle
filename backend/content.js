@@ -383,6 +383,7 @@ const tmCatalog = [...approvedMoveIds].map((id) => {
     category: move.category,
     power: move.basePower,
     accuracy: move.accuracy,
+    pp: move.noPPBoosts ? move.pp : Math.floor(move.pp * 8 / 5),
     consumable: true,
     purchaseLimit: null,
     icon: "TM",
