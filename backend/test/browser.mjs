@@ -397,6 +397,11 @@ if (await page.locator('.trainer-form input[name="name"]').inputValue() !== "Per
 if (await page.locator('.trainer-form input[name="spriteId"]').inputValue() !== "misty-masters") throw new Error("The trainer sprite draft did not persist across navigation.");
 if (!(await page.locator('.trainer-form textarea[name="teamText"]').inputValue()).includes("Starmie")) throw new Error("The trainer team draft did not persist across navigation.");
 await page.reload({ waitUntil: "domcontentloaded" });
+// The unauthenticated shell renders immediately while the saved session and game
+// load in parallel. Wait for that session restore before navigating; otherwise a
+// slower CI runner can click More on the temporary guest shell and never expose
+// the admin-only Scheduler control.
+await page.waitForSelector(".account-button.signed-in");
 await page.waitForSelector('.home-screen [data-route="settings"]');
 if (await page.locator(".welcome-card").count()) throw new Error("The acknowledged welcome message appeared again.");
 await page.click('[data-route="settings"]');
