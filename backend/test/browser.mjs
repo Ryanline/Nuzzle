@@ -217,6 +217,10 @@ page.on("pageerror", (error) => errors.push(error.message));
 
 await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
 await page.waitForSelector(".home-screen .screen-title");
+const localSpriteResponse = await fetch(`${baseUrl}/assets/showdown/gen5/charizard.png`);
+if (!localSpriteResponse.ok || localSpriteResponse.headers.get("content-type") !== "image/png" || !localSpriteResponse.headers.get("cache-control")?.includes("immutable")) {
+  throw new Error("Local sprites were not served as long-lived immutable PNG assets.");
+}
 const viewportMeta = await page.locator('meta[name="viewport"]').getAttribute("content");
 if (!viewportMeta?.includes("width=device-width") || !viewportMeta.includes("viewport-fit=cover") || !viewportMeta.includes("interactive-widget=resizes-content")) throw new Error("The mobile viewport does not cover device cutouts and resize for the virtual keyboard.");
 if (!/^Daily Nuzzle #\d+: /.test((await page.locator(".home-header .screen-title").textContent())?.trim() || "")) throw new Error("The landing title did not identify the Daily Nuzzle.");
@@ -685,7 +689,7 @@ const currentMoveSummary = await page.locator("[data-current-training-move]").ev
   price: row.querySelector("[data-move-price] b")?.textContent.trim(),
 }));
 if (currentMoveSummary.name !== outgoingPokemon.moves[0] || currentMoveSummary.statLabels.join(",") !== "Power,Accuracy" || currentMoveSummary.statValues.some((value) => !value) || !currentMoveSummary.description || currentMoveSummary.price) throw new Error(`The current move did not use the complete price-free Showdown row: ${JSON.stringify(currentMoveSummary)}`);
-if (!currentMoveSummary.imagePaths[0]?.includes("/sprites/types/") || !currentMoveSummary.imagePaths[1]?.includes("/sprites/categories/")) throw new Error(`The current move did not use Showdown type and category sprites: ${JSON.stringify(currentMoveSummary.imagePaths)}`);
+if (!currentMoveSummary.imagePaths[0]?.includes("/assets/showdown/types/") || !currentMoveSummary.imagePaths[1]?.includes("/assets/showdown/categories/")) throw new Error(`The current move did not use local Showdown type and category sprites: ${JSON.stringify(currentMoveSummary.imagePaths)}`);
 const candidateMoveSummary = await page.locator("[data-select-training-move]").first().evaluate((row) => ({ images: row.querySelectorAll(".showdown-move-sprite img").length, priceHeader: row.querySelector("[data-move-price] small")?.textContent.trim(), price: row.querySelector("[data-move-price] b")?.textContent.trim() }));
 if (candidateMoveSummary.images !== 2 || candidateMoveSummary.priceHeader !== "Price" || !candidateMoveSummary.price?.startsWith("₽")) throw new Error("Candidate moves did not share the aligned Showdown row while retaining their labeled price.");
 const alignedMoveColumns = await page.locator("[data-select-training-move]").evaluateAll((rows) => rows.slice(0, 5).map((row) => [...row.querySelectorAll(".showdown-move-sprite, [data-move-stat], [data-move-price]")].map((cell) => cell.getBoundingClientRect().left)));

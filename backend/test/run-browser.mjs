@@ -20,7 +20,7 @@ const dataDirectory = await mkdtemp(path.join(os.tmpdir(), "nuzzle-browser-battl
 const baseUrl = `http://127.0.0.1:${port}`;
 const backend = spawn(process.execPath, ["backend/server.js"], {
   cwd: projectDirectory,
-  env: { ...process.env, PORT: String(port), NUZZLE_DATA_DIR: dataDirectory },
+  env: { ...process.env, PORT: String(port), NUZZLE_DATA_DIR: dataDirectory, NUZZLE_DISABLE_SPRITE_FETCH: "1" },
   stdio: ["ignore", "pipe", "inherit"],
 });
 

@@ -1,21 +1,18 @@
 (function () {
   "use strict";
 
-  const localSpriteIds = new Set(["aerodactyl", "alakazam", "arcanine", "exeggutor", "flareon", "gengar", "golem", "lapras", "machamp", "magcargo", "nidoking", "onix", "pidgeot", "raichu", "rhydon", "rhyperior", "steelix", "sudowoodo", "vaporeon", "venusaur"]);
   const toId = (value) => String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
-  const backSpriteIds = new Set(["flareon", "raichu", "vaporeon", "gengar", "venusaur", "pidgeot", "arcanine", "lapras", "alakazam", "machamp", "nidoking", "exeggutor"]);
   const sprite = (id, back = false, currentSpriteId = null, shiny = null) => {
     const speciesId = mons[id]?.speciesId || id;
     const isShiny = shiny ?? Boolean(mons[id]?.shiny);
-    if (!isShiny && localSpriteIds.has(speciesId) && (!back || backSpriteIds.has(speciesId))) return `assets/${back ? "sprites-back" : "sprites"}/${speciesId}.png`;
     const spriteId = currentSpriteId || mons[id]?.spriteId || pokemonContent.get(speciesId)?.spriteId || speciesId;
     const directory = isShiny ? (back ? "gen5-back-shiny" : "gen5-shiny") : (back ? "gen5-back" : "gen5");
-    return `https://play.pokemonshowdown.com/sprites/${directory}/${encodeURIComponent(spriteId)}.png`;
+    return `assets/showdown/${directory}/${encodeURIComponent(spriteId)}.png`;
   };
   const healthTone = (percent) => percent <= 20 ? "critical" : percent <= 50 ? "warning" : "healthy";
   const trainerSprite = (id = "brock") => id === "brock"
     ? "assets/trainers/brock.png"
-    : `https://play.pokemonshowdown.com/sprites/trainers/${encodeURIComponent(id)}.png`;
+    : `assets/showdown/trainers/${encodeURIComponent(id)}.png`;
   const mysteryTrainerSprite = "assets/trainers/mystery.png";
   const defaultAccountAvatarId = "unknownf";
   const app = document.querySelector("#app");
@@ -814,7 +811,7 @@
     const moveRow = (item, price = null) => {
       const power = item.category === "Status" || !item.power ? "—" : item.power;
       const accuracy = item.accuracy === true ? "—" : `${item.accuracy}%`;
-      return `<span class="showdown-move-copy"><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.description || "No additional effect.")}</small></span><span class="showdown-move-data"><span class="showdown-move-sprite"><img src="https://play.pokemonshowdown.com/sprites/types/${encodeURIComponent(item.type)}.png" alt="${escapeHtml(item.type)} type"></span><span class="showdown-move-sprite"><img src="https://play.pokemonshowdown.com/sprites/categories/${encodeURIComponent(item.category)}.png" alt="${escapeHtml(item.category)} move"></span><span class="showdown-move-stat" data-move-stat><small>Power</small><b>${power}</b></span><span class="showdown-move-stat" data-move-stat><small>Accuracy</small><b>${accuracy}</b></span><span class="showdown-move-stat showdown-move-price${price === null ? " empty" : ""}" data-move-price><small>Price</small><b>${price === null ? "" : `₽${price.toLocaleString()}`}</b></span></span>`;
+      return `<span class="showdown-move-copy"><strong>${escapeHtml(item.name)}</strong><small>${escapeHtml(item.description || "No additional effect.")}</small></span><span class="showdown-move-data"><span class="showdown-move-sprite"><img src="assets/showdown/types/${encodeURIComponent(item.type)}.png" alt="${escapeHtml(item.type)} type"></span><span class="showdown-move-sprite"><img src="assets/showdown/categories/${encodeURIComponent(item.category)}.png" alt="${escapeHtml(item.category)} move"></span><span class="showdown-move-stat" data-move-stat><small>Power</small><b>${power}</b></span><span class="showdown-move-stat" data-move-stat><small>Accuracy</small><b>${accuracy}</b></span><span class="showdown-move-stat showdown-move-price${price === null ? " empty" : ""}" data-move-price><small>Price</small><b>${price === null ? "" : `₽${price.toLocaleString()}`}</b></span></span>`;
     };
     return `<section class="training-move-picker"><header><div class="training-move-nav"><button type="button" data-close-move-picker aria-label="Back to training">←</button><small>Replace move ${trainingMoveSlot + 1}</small></div><div class="showdown-move-row training-current-move" data-current-training-move>${moveRow(currentMove)}</div></header><label class="move-search"><span>Search available moves</span><input type="search" value="${escapeHtml(trainingMoveSearch)}" placeholder="Search by name, type, category, or effect" data-training-move-search autofocus><small aria-live="polite" data-training-move-count>${matchCount} matching move${matchCount === 1 ? "" : "s"}</small></label><div class="training-move-list">${moves.map((item) => `<button class="showdown-move-row" type="button" data-select-training-move="${item.id}" data-move-search-text="${escapeHtml(`${item.name} ${item.type} ${item.category} ${item.description || ""}`.toLowerCase())}" ${matches(item) ? "" : "hidden"}>${moveRow(item, item.price)}</button>`).join("")}<p class="training-empty" ${matchCount ? "hidden" : ""}>No matching moves.</p></div></section>`;
   }

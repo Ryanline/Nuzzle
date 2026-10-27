@@ -1,5 +1,7 @@
 import { createServer } from "node:http";
-import { readFile, stat } from "node:fs/promises";
+import { createReadStream } from "node:fs";
+import { mkdir, rename, stat, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { BattleService } from "./battle-service.js";
@@ -7,11 +9,16 @@ import { BattleStore } from "./battle-store.js";
 import { AuthStore, SESSION_LIFETIME_MS } from "./auth-store.js";
 import { GameStore, publicContent } from "./game-store.js";
 import { trainerSprites, TrainerStore } from "./trainer-store.js";
+import { trainerSpriteIds } from "./trainer-sprite-ids.js";
 
+const require = createRequire(import.meta.url);
+const { Dex } = require("pokemon-showdown");
 const backendDirectory = path.dirname(fileURLToPath(import.meta.url));
 const projectDirectory = path.dirname(backendDirectory);
 const frontendDirectory = path.join(projectDirectory, "frontend");
 const dataDirectory = process.env.NUZZLE_DATA_DIR || path.join(backendDirectory, "data");
+const showdownAssetsDirectory = path.join(frontendDirectory, "assets", "showdown");
+const showdownCacheDirectory = path.join(dataDirectory, "showdown-sprites");
 const port = Number(process.env.PORT || 3000);
 const host = process.env.HOST || "127.0.0.1";
 
@@ -39,6 +46,9 @@ await service.initialize();
 
 const loginAttempts = new Map();
 const sessionCookie = "nuzzle_session";
+const showdownOrigin = "https://play.pokemonshowdown.com/sprites";
+const showdownDownloads = new Map();
+const pngSignature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 const contentTypes = {
   ".css": "text/css; charset=utf-8",
@@ -121,6 +131,88 @@ async function requestBody(request) {
   } catch {
     throw Object.assign(new Error("Request body must be valid JSON."), { statusCode: 400 });
   }
+}
+
+function validShowdownAsset(relative) {
+  return relative === "itemicons-sheet.png"
+    || /^(?:gen5|gen5-back|gen5-shiny|gen5-back-shiny|trainers|types|categories)\/[a-z0-9_.-]+\.png$/i.test(relative);
+}
+
+async function fileExists(filename) {
+  return (await stat(filename).catch(() => null))?.isFile() || false;
+}
+
+async function cacheShowdownAsset(relative, timeoutMs = 15_000) {
+  if (!validShowdownAsset(relative)) throw Object.assign(new Error("Not found."), { statusCode: 404 });
+  const bundled = path.join(showdownAssetsDirectory, ...relative.split("/"));
+  if (await fileExists(bundled)) return { filename: bundled, downloaded: false };
+  const cached = path.join(showdownCacheDirectory, ...relative.split("/"));
+  if (await fileExists(cached)) return { filename: cached, downloaded: false };
+  if (process.env.NUZZLE_DISABLE_SPRITE_FETCH === "1") {
+    return { filename: path.join(frontendDirectory, "assets", "trainers", "mystery.png"), downloaded: false };
+  }
+  if (showdownDownloads.has(relative)) return showdownDownloads.get(relative);
+
+  const pending = (async () => {
+    const url = `${showdownOrigin}/${relative.split("/").map(encodeURIComponent).join("/")}`;
+    let response;
+    try {
+      response = await fetch(url, { headers: { Connection: "close" }, signal: AbortSignal.timeout(timeoutMs) });
+    } catch (error) {
+      throw Object.assign(new Error(`Sprite source request failed: ${error.message}`), { statusCode: 502 });
+    }
+    if (response.status === 404) throw Object.assign(new Error("Sprite not found."), { statusCode: 404 });
+    if (!response.ok) throw Object.assign(new Error(`Sprite source returned ${response.status}.`), { statusCode: 502 });
+    const bytes = Buffer.from(await response.arrayBuffer());
+    if (bytes.length < pngSignature.length || !bytes.subarray(0, pngSignature.length).equals(pngSignature)) {
+      throw Object.assign(new Error("Sprite source returned an invalid image."), { statusCode: 502 });
+    }
+    await mkdir(path.dirname(cached), { recursive: true });
+    const temporary = `${cached}.${process.pid}.${Date.now()}.tmp`;
+    await writeFile(temporary, bytes);
+    await rename(temporary, cached);
+    return { filename: cached, downloaded: true };
+  })().finally(() => showdownDownloads.delete(relative));
+  showdownDownloads.set(relative, pending);
+  return pending;
+}
+
+function showdownAssetCatalog() {
+  const species = [...new Set(Dex.species.all().filter((entry) => entry.exists && entry.spriteid).map((entry) => entry.spriteid))].sort();
+  const types = Dex.types.all().filter((entry) => entry.exists).map((entry) => entry.name).sort();
+  return [
+    "itemicons-sheet.png",
+    ...types.map((name) => `types/${name}.png`),
+    ...["Physical", "Special", "Status"].map((name) => `categories/${name}.png`),
+    ...trainerSpriteIds.map((id) => `trainers/${id}.png`),
+    ...["gen5", "gen5-back", "gen5-shiny", "gen5-back-shiny"].flatMap((directory) => species.map((id) => `${directory}/${id}.png`)),
+  ];
+}
+
+async function warmShowdownCache() {
+  let pending = showdownAssetCatalog();
+  let downloaded = 0;
+  let notFound = 0;
+  while (pending.length) {
+    const retry = [];
+    for (const relative of pending) {
+      try {
+        const result = await cacheShowdownAsset(relative, 5_000);
+        if (result.downloaded) {
+          downloaded++;
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+      } catch (error) {
+        if (error.statusCode === 404) notFound++;
+        else retry.push(relative);
+      }
+    }
+    if (!retry.length) break;
+    console.log(`Showdown sprite warmup will retry ${retry.length} temporary failures.`);
+    pending = retry;
+    await new Promise((resolve) => setTimeout(resolve, 60_000));
+  }
+  console.log(`Showdown sprite warmup finished: ${downloaded} cached, ${notFound} unavailable.`);
 }
 
 async function api(request, response, pathname) {
@@ -323,18 +415,23 @@ async function api(request, response, pathname) {
 
 async function staticFile(response, pathname) {
   const relative = pathname === "/" ? "index.html" : decodeURIComponent(pathname).replace(/^\/+/, "");
-  const filename = path.resolve(frontendDirectory, relative);
+  let filename = path.resolve(frontendDirectory, relative);
   if (filename !== frontendDirectory && !filename.startsWith(`${frontendDirectory}${path.sep}`)) {
     throw Object.assign(new Error("Not found."), { statusCode: 404 });
   }
-  const metadata = await stat(filename).catch(() => null);
+  let metadata = await stat(filename).catch(() => null);
+  if (!metadata?.isFile() && relative.startsWith("assets/showdown/")) {
+    filename = (await cacheShowdownAsset(relative.slice("assets/showdown/".length))).filename;
+    metadata = await stat(filename);
+  }
   if (!metadata?.isFile()) throw Object.assign(new Error("Not found."), { statusCode: 404 });
   response.writeHead(200, {
     "Content-Type": contentTypes[path.extname(filename)] || "application/octet-stream",
-    "Cache-Control": "no-cache",
+    "Cache-Control": relative.startsWith("assets/showdown/") ? "public, max-age=31536000, immutable" : "no-cache",
+    "Content-Length": metadata.size,
     "X-Content-Type-Options": "nosniff",
   });
-  response.end(await readFile(filename));
+  createReadStream(filename).pipe(response);
 }
 
 const server = createServer(async (request, response) => {
@@ -354,6 +451,9 @@ const server = createServer(async (request, response) => {
 
 server.listen(port, host, () => {
   console.log(`Nuzzle is running at http://${host}:${port}`);
+  if (process.env.NODE_ENV === "production" && process.env.NUZZLE_DISABLE_SPRITE_WARMUP !== "1") {
+    void warmShowdownCache().catch((error) => console.error("Showdown sprite warmup failed:", error));
+  }
 });
 
 export { server };

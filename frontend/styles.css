@@ -626,7 +626,7 @@ button.encounter-card:active { background: #eef5ef; transform: translateY(1px); 
 .item-icon { display: grid; width: 44px; height: 44px; place-items: center; border: 1px solid #aeb4ba; border-radius: 5px; color: #38536d; font-size: 10px; font-weight: 700; letter-spacing: -.02em; }
 .item-icon.training { background: #edf4fa; }
 .item-icon.held { border-color: #bbc4ca; background: #f1f4f6; color: #526474; }
-.held-item-sprite { display: block; width: 24px; height: 24px; background: transparent url("https://play.pokemonshowdown.com/sprites/itemicons-sheet.png") no-repeat; image-rendering: pixelated; transform: scale(1.35); transform-origin: center; }
+.held-item-sprite { display: block; width: 24px; height: 24px; background: transparent url("assets/showdown/itemicons-sheet.png") no-repeat; image-rendering: pixelated; transform: scale(1.35); transform-origin: center; }
 .item-icon.tm { border-color: #aaa1c9; background: #f0edf8; color: #554a7b; }
 .item-copy { display: grid; }
 .item-copy strong { overflow: hidden; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }

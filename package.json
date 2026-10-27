@@ -10,7 +10,8 @@
     "dev": "node --watch backend/server.js",
     "start": "node backend/server.js",
     "test": "node --test backend/test/*.test.js",
-    "test:browser": "node backend/test/run-browser.mjs"
+    "test:browser": "node backend/test/run-browser.mjs",
+    "sync:sprites": "node frontend/scripts/sync-showdown-sprites.mjs"
   },
   "dependencies": {
     "pokemon-showdown": "0.11.11"

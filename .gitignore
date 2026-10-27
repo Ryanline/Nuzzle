@@ -3,3 +3,4 @@ Thumbs.db
 node_modules/
 qa-output/
 backend/data/
+frontend/assets/showdown/manifest.json
