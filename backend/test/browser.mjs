@@ -584,7 +584,7 @@ const trainerScout = await page.locator(".trainer-scout-card").evaluate((card) =
   speedNote: card.querySelector(".trainer-scout-facts p:nth-child(2) small")?.textContent.trim(),
   text: card.textContent,
 }));
-if (trainerScout.name !== "Steelix" || trainerScout.types.join(",") !== "Steel,Ground" || !trainerScout.abilities?.includes("Sturdy") || !/^\d+$/.test(trainerScout.speed) || trainerScout.speedNote !== "before items, abilities, or modifiers") throw new Error(`The trainer scouting card did not show the requested public species details: ${JSON.stringify(trainerScout)}`);
+if (trainerScout.name !== "Steelix" || trainerScout.types.join(",") !== "Steel,Ground" || !trainerScout.abilities?.includes("Sturdy") || trainerScout.speed !== "58–174" || trainerScout.speedNote !== "before items, abilities, or modifiers") throw new Error(`The trainer scouting card did not show the requested public species details: ${JSON.stringify(trainerScout)}`);
 if (/Earthquake|Heavy Slam|Adamant|Rock Slide/.test(trainerScout.text)) throw new Error("The trainer scouting card leaked private set details.");
 await assertMobileLayout("trainer Pokémon scouting card");
 await assertDesktopLayout("trainer Pokémon scouting card");

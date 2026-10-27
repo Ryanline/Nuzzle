@@ -732,7 +732,19 @@
     const abilities = pokemon.possibleAbilities?.length
       ? pokemon.possibleAbilities
       : [...new Set([...(species.ordinaryAbilities || []), species.hiddenAbility].filter(Boolean))];
-    const speed = Number.isFinite(pokemon.speed) ? pokemon.speed : species.baseStats?.spe ?? "—";
+    const baseSpeed = species.baseStats?.spe;
+    const fallbackSpeedStat = (iv, ev, natureNumerator) => {
+      const core = Math.floor((2 * baseSpeed + iv + Math.floor(ev / 4)) * 100 / 100) + 5;
+      return Math.floor(core * natureNumerator / 10);
+    };
+    const fallbackSpeed = Number.isFinite(baseSpeed)
+      ? {
+          min: fallbackSpeedStat(0, 0, 9),
+          max: fallbackSpeedStat(31, 252, 11),
+        }
+      : null;
+    const speedRange = pokemon.speedRange || fallbackSpeed;
+    const speed = Number.isFinite(speedRange?.min) && Number.isFinite(speedRange?.max) ? `${speedRange.min}–${speedRange.max}` : "—";
     return `<div class="trainer-scout-backdrop" data-close-trainer-pokemon><section class="trainer-scout-card" role="dialog" aria-modal="true" aria-labelledby="trainer-scout-title"><button class="trainer-scout-close" type="button" data-close-trainer-pokemon aria-label="Close trainer Pokémon details">×</button><header><h2 id="trainer-scout-title">${escapeHtml(pokemon.name)}</h2><div class="sheet-types">${types.map((type) => `<span class="type-chip ${type.toLowerCase()}">${escapeHtml(type)}</span>`).join("")}</div></header><div class="trainer-scout-facts"><p><span>Possible abilities</span><strong>${escapeHtml(abilities.join(", ") || "Unknown")}</strong></p><p><span>Speed</span><strong>${speed}</strong><small>before items, abilities, or modifiers</small></p></div></section></div>`;
   }
 

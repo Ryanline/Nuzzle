@@ -72,7 +72,8 @@ test("queued trainers can be reordered and publish one immutable snapshot per da
   assert.equal(first.trainer.name, "Brock");
   assert.deepEqual(first.trainer.pokemon[0].types, ["Steel", "Ground"]);
   assert.ok(first.trainer.pokemon[0].possibleAbilities.includes("Sturdy"));
-  assert.equal(first.trainer.pokemon[0].speed, 101);
+  assert.deepEqual(first.trainer.pokemon[0].speedRange, { min: 58, max: 174 });
+  assert.equal(first.trainer.pokemon[0].speed, undefined, "public scouting data must not reveal the configured Speed stat");
   assert.equal(first.trainer.pokemon[0].ability, undefined, "public scouting data must not reveal the configured ability");
   assert.equal(first.trainer.pokemon[0].moves, undefined, "public scouting data must not reveal the configured moves");
 
