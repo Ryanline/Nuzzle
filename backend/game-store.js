@@ -393,11 +393,6 @@ export class GameStore {
       if (encounter.kind === "opening") {
         run.openingBatchClaimed = run.daily.encounters.every((candidate) => candidate.claimed);
       }
-      if (encounter.kind === "opening" && run.teamIds.length < 6) {
-        for (const pokemon of encounter.pokemon) {
-          if (run.teamIds.length < 6 && !run.teamIds.includes(pokemon.id)) run.teamIds.push(pokemon.id);
-        }
-      } else if (!run.teamIds.length) run.teamIds = run.roster.slice(0, 6).map((pokemon) => pokemon.id);
       return this.publicState(run);
     });
   }

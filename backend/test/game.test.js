@@ -109,14 +109,15 @@ test("a new run starts empty and offers twelve individually claimed encounters",
 
   const first = await store.claimEncounter("user-one", 0);
   assert.equal(first.roster.length, 1);
-  assert.equal(first.teamIds.length, 1);
-  assert.equal(first.battleUnlocked, true);
+  assert.equal(first.teamIds.length, 0);
+  assert.equal(first.battleUnlocked, false);
   assert.equal(pokemonCatalog.find((entry) => entry.id === first.roster[0].speciesId)?.starterEligible, true);
 
   let after = first;
   for (let slot = 1; slot < 12; slot++) after = await store.claimEncounter("user-one", slot);
   assert.equal(after.roster.length, 12);
-  assert.equal(after.teamIds.length, 6);
+  assert.equal(after.teamIds.length, 0);
+  assert.equal(after.battleUnlocked, false);
   assert.equal(after.roster.filter((pokemon) => pokemonCatalog.find((entry) => entry.id === pokemon.speciesId)?.starterEligible).length, 1);
   assert.equal(new Set(after.roster.map((pokemon) => pokemon.encounterFamilyId)).size, 12);
   for (const pokemon of after.roster) {
@@ -125,6 +126,9 @@ test("a new run starts empty and offers twelve individually claimed encounters",
     assert.equal(pokemon.ordinaryAbilities.includes(pokemon.ability), true);
     assert.equal(pokemon.moves.length >= 1 && pokemon.moves.length <= 4, true);
   }
+  const selected = await store.setTeam("user-one", after.roster.slice(0, 6).map((pokemon) => pokemon.id));
+  assert.equal(selected.teamIds.length, 6);
+  assert.equal(selected.battleUnlocked, true);
 });
 
 test("a wipe defers twelve fresh-run encounters until the next day without adding daily encounters", async () => {
@@ -159,11 +163,16 @@ test("a wipe defers twelve fresh-run encounters until the next day without addin
   for (let slot = 0; slot < 12; slot++) nextDay = await store.claimEncounter("wipe-user", slot);
   assert.equal(nextDay.encounters.length, 12);
   assert.equal(nextDay.encounters.every((encounter) => encounter.claimed), true);
+  const selectedTeam = nextDay.roster.slice(0, 2).map((pokemon) => pokemon.id);
+  nextDay = await store.setTeam("wipe-user", selectedTeam);
 
   now = new Date("2026-10-22T16:00:00Z");
   const followingDay = await store.get("wipe-user");
   assert.equal(followingDay.encounters.length, 3);
   assert.equal(followingDay.encounters.every((encounter) => encounter.kind === "single" && !encounter.claimed), true);
+  const dailyClaim = await store.claimEncounter("wipe-user", 0);
+  assert.deepEqual(dailyClaim.teamIds, selectedTeam);
+  assert.equal(dailyClaim.teamIds.includes(dailyClaim.encounters[0].pokemon[0].id), false);
 });
 
 test("the developer wipe immediately creates a clean run with twelve encounters", async () => {
@@ -223,6 +232,7 @@ test("held-item purchases, atomic training builds, and battle snapshots are serv
   const { store } = await fixture();
   let state = await store.get("shop-user");
   for (let slot = 0; slot < 12; slot++) state = await store.claimEncounter("shop-user", slot);
+  state = await store.setTeam("shop-user", state.roster.slice(0, 6).map((pokemon) => pokemon.id));
   state = await store.buy("shop-user", "leftovers", 1);
   await assert.rejects(store.buy("shop-user", "leftovers", 1), /once per run/i);
   const [firstHolder, secondHolder] = state.roster.filter((pokemon) => !pokemon.heldItemId);
@@ -325,6 +335,7 @@ test("battle settlement permanently removes fainted Pokémon but retains their h
   let state = await store.claimEncounter("faint-user", 0);
   state = await store.claimEncounter("faint-user", 1);
   const [fainted, survivor] = state.roster;
+  state = await store.setTeam("faint-user", [fainted.id, survivor.id]);
   state = await store.buy("faint-user", "leftovers", 1);
   state = await store.equip("faint-user", fainted.id, "leftovers");
 

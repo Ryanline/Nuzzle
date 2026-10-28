@@ -548,12 +548,13 @@
     const currentClass = (name) => current === name ? " is-current" : "";
     const currentPage = (name) => current === name ? ' aria-current="page"' : "";
     const dailyBattleUsed = Boolean(currentUser && gameState?.dailyBattleAttempted && gameState?.dailyBattleId);
-    const battleRoute = dailyBattleUsed ? "battle" : currentUser && gameState && !gameState.battleUnlocked ? "encounters" : "lead";
+    const unclaimedEncounters = encounters.filter((item) => !item.claimed).length;
+    const battleRoute = dailyBattleUsed ? "battle" : currentUser && gameState && !gameState.battleUnlocked ? (unclaimedEncounters || !gameState.roster?.length ? "encounters" : "pc") : "lead";
     return `<nav class="${className}" aria-label="Game sections">
       <button class="gloss-button red${currentClass("battle")}"${currentPage("battle")} data-route="${battleRoute}">${dailyBattleUsed ? gameState.dailyBattleEnded ? "View result" : "Resume battle" : "Battle"}</button>
       <button class="gloss-button orange${currentClass("pc")}"${currentPage("pc")} data-route="pc">PC box</button>
       <button class="gloss-button gold${currentClass("bag")}"${currentPage("bag")} data-route="bag">Bag</button>
-      <button class="gloss-button green${currentClass("encounters")}"${currentPage("encounters")} data-route="encounters">Encounter (${encounters.filter((item) => !item.claimed).length})</button>
+      <button class="gloss-button green${currentClass("encounters")}"${currentPage("encounters")} data-route="encounters">Encounter (${unclaimedEncounters})</button>
       <button class="gloss-button blue${currentClass("mart")}"${currentPage("mart")} data-route="mart">Mart</button>
       <button class="gloss-button purple${currentClass("leaderboard")}"${currentPage("leaderboard")} data-route="leaderboard">Leaderboard</button>
       <button class="gloss-button slate${currentClass("settings")}"${currentPage("settings")} data-route="settings">More</button>

@@ -467,12 +467,25 @@ for (let slot = 0; slot < 12; slot++) {
   }
   if (slot === 0) {
     const firstEncounter = await page.evaluate(() => fetch("/api/game").then((response) => response.json()));
-    if (firstEncounter.roster.length !== 1 || !firstEncounter.battleUnlocked) throw new Error("The first individual encounter did not add one Pokémon and unlock battle.");
+    if (firstEncounter.roster.length !== 1 || firstEncounter.teamIds.length || firstEncounter.battleUnlocked) throw new Error("The first individual encounter did not go exclusively to the PC box.");
     if (await page.locator(".encounter-card.revealed").count() !== 1) throw new Error("A newly claimed encounter did not remain visible during its reveal visit.");
   }
 }
+const boxedGame = await page.evaluate(() => fetch("/api/game").then((response) => response.json()));
+if (boxedGame.roster.length !== 12 || boxedGame.teamIds.length || boxedGame.battleUnlocked) throw new Error("The 12 opening encounters did not remain exclusively in the PC box.");
+await page.click(".page-back");
+const buildTeamButton = page.locator('.home-actions .red[data-route="pc"]', { hasText: /^battle$/i });
+if (await buildTeamButton.count() !== 1) throw new Error("Battle did not route a boxed run without a team to the PC.");
+await buildTeamButton.click();
+if (await page.locator(".party-section [data-pc-detail]").count() || await page.locator(".box-section [data-pc-mon]").count() !== 12) throw new Error("Fresh encounters did not all appear in the PC box.");
+for (const pokemon of boxedGame.roster.slice(0, 6)) {
+  const teamResponse = page.waitForResponse((response) => response.url().endsWith("/api/game/team") && response.request().method() === "PUT");
+  await page.click(`[data-quick-team-add="${pokemon.id}"]`);
+  if (!(await teamResponse).ok()) throw new Error(`Adding ${pokemon.name} to the initial team failed.`);
+  await page.waitForSelector(`[data-quick-team-remove="${pokemon.id}"]`);
+}
 const generatedGame = await page.evaluate(() => fetch("/api/game").then((response) => response.json()));
-if (generatedGame.roster.length !== 12 || generatedGame.teamIds.length !== 6) throw new Error("The 12 opening encounters did not build the initial roster and team.");
+if (generatedGame.roster.length !== 12 || generatedGame.teamIds.length !== 6 || !generatedGame.battleUnlocked) throw new Error("Building a team explicitly from the PC failed.");
 const outgoingId = generatedGame.teamIds[0];
 const outgoingPokemon = generatedGame.roster.find((pokemon) => pokemon.id === outgoingId);
 const content = await page.evaluate(() => fetch("/api/content").then((response) => response.json()));
