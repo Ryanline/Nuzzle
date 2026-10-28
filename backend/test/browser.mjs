@@ -460,6 +460,7 @@ for (let slot = 0; slot < 12; slot++) {
   const encounterResponse = page.waitForResponse((response) => response.url().includes(`/api/game/encounters/${slot}`) && response.request().method() === "POST");
   await page.click(`[data-encounter="${slot}"]`);
   if (!(await encounterResponse).ok()) throw new Error(`Opening encounter ${slot + 1} failed.`);
+  await page.waitForFunction((revealedCount) => document.querySelectorAll(".encounter-card.revealed").length === revealedCount, slot + 1);
   if (scrollTopBeforeReveal !== null) {
     const scrollTopAfterReveal = await page.locator(".encounter-list").evaluate((element) => element.scrollTop);
     if (Math.abs(scrollTopAfterReveal - scrollTopBeforeReveal) > 2) throw new Error("Revealing an encounter reset the list scroll position.");
