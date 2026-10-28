@@ -791,7 +791,7 @@ export class BattleService {
       if (!user) continue;
       let streak = 0;
       let date = challengeDate;
-      const streakStartDate = process.env.NUZZLE_STREAK_START_DATE || defaultLaunchDate;
+      const streakStartDate = defaultLaunchDate;
       const hasSeasonBoundary = challengeDate >= streakStartDate;
       while ((!hasSeasonBoundary || date >= streakStartDate) && attempts.get(date)?.won) {
         streak++;

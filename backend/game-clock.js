@@ -32,7 +32,7 @@ export function datesAfter(fromDate, throughDate) {
   return dates;
 }
 
-export function gameNumber(date, launchDate = process.env.NUZZLE_LAUNCH_DATE || defaultLaunchDate) {
+export function gameNumber(date, launchDate = defaultLaunchDate) {
   const day = Date.parse(`${date}T12:00:00Z`);
   const launch = Date.parse(`${launchDate}T12:00:00Z`);
   return Math.max(1, Math.round((day - launch) / 86_400_000) + 1);
