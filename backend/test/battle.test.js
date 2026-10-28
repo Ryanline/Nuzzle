@@ -3,7 +3,7 @@ import { mkdtemp } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { acquisitionFromProtocol, BattleService, faintedPlayerIds, playerTeamIds, shuffledTeamOrder, trainerReplacementChoice } from "../battle-service.js";
+import { acquisitionFromProtocol, BattleService, eventEntry, faintedPlayerIds, playerTeamIds, shuffledTeamOrder, trainerReplacementChoice } from "../battle-service.js";
 import { BattleStore } from "../battle-store.js";
 import { buildBrockTeam, buildPlayerTeam, PLAYER_IDS } from "../teams.js";
 
@@ -56,6 +56,28 @@ test("item-transfer protocol only records acquisitions by initially itemless pla
   );
   assert.equal(acquisitionFromProtocol("|-item|p1a: Scizor|Choice Band|[from] move: Trick", record), null);
   assert.equal(acquisitionFromProtocol("|-item|p1a: Delphox|Sitrus Berry|[from] ability: Frisk", record), null);
+});
+
+test("the battle log identifies delayed attacks when they are set and when they land", () => {
+  const context = { logTurn: 11, health: new Map(), record: {} };
+  assert.deepEqual(eventEntry("|-start|p2a: Kadabra|move: Future Sight", context), {
+    turn: 11,
+    side: "system",
+    category: "delayed",
+    text: "Kadabra set up Future Sight.",
+  });
+  assert.deepEqual(eventEntry("|-end|p1a: Great Tusk|move: Future Sight", context), {
+    turn: 11,
+    side: "system",
+    category: "delayed",
+    text: "Future Sight struck Great Tusk!",
+  });
+  assert.deepEqual(eventEntry("|-end|p2a: Manectric|move: Doom Desire", context), {
+    turn: 11,
+    side: "system",
+    category: "delayed",
+    text: "Doom Desire struck Manectric!",
+  });
 });
 
 test("battle slots map back to roster IDs after the selected lead is reordered", () => {

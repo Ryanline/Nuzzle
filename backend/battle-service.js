@@ -203,11 +203,11 @@ export function faintedPlayerIds(record, pokemon) {
   }).filter(Boolean);
 }
 
-function eventEntry(line, context) {
+export function eventEntry(line, context) {
   if (!line.startsWith("|")) return null;
   const [type, subject, detail, extra] = splitProtocol(line);
   const name = displayName(subject);
-  const side = sideFrom(subject);
+  let side = sideFrom(subject);
   let text = null;
   let category = type.replace(/^-/, "") || "system";
   switch (type) {
@@ -243,6 +243,15 @@ function eventEntry(line, context) {
     }
     case "-status": text = `${name} is now ${detail.toUpperCase()}.`; break;
     case "-curestatus": text = `${name} recovered from ${detail.toUpperCase()}.`; break;
+    case "-start":
+    case "-end": {
+      const delayedMove = effectName(detail);
+      if (!["futuresight", "doomdesire"].includes(toID(delayedMove))) break;
+      text = type === "-start" ? `${name} set up ${delayedMove}.` : `${delayedMove} struck ${name}!`;
+      category = "delayed";
+      side = "system";
+      break;
+    }
     case "-supereffective": text = "It's super effective!"; break;
     case "-resisted": text = "It's not very effective."; break;
     case "-immune": text = `It doesn't affect ${name}.`; break;
