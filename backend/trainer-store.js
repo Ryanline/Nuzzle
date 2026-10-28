@@ -153,6 +153,10 @@ export class TrainerStore {
       this.data.daily[missingDate] = snapshot(trainer, missingDate);
     }
     if (!this.data.daily[date]) this.data.daily[date] = snapshot(this.data.queue.shift() || defaultTrainer(), date);
+    // Challenge numbering can be rebased independently of the immutable daily
+    // trainer selection. Refreshing this field preserves today's opponent and
+    // every player's run while allowing a new numbered season to begin.
+    this.data.daily[date].number = gameNumber(date);
   }
 
   async current() {

@@ -221,6 +221,9 @@ const localSpriteResponse = await fetch(`${baseUrl}/assets/showdown/gen5/chariza
 if (!localSpriteResponse.ok || localSpriteResponse.headers.get("content-type") !== "image/png" || !localSpriteResponse.headers.get("cache-control")?.includes("immutable")) {
   throw new Error("Local sprites were not served as long-lived immutable PNG assets.");
 }
+const faviconHref = await page.locator('link[rel="icon"]').getAttribute("href");
+const faviconResponse = await fetch(new URL(faviconHref, baseUrl));
+if (faviconHref !== "assets/favicon.png" || !faviconResponse.ok || faviconResponse.headers.get("content-type") !== "image/png") throw new Error("The supplied PNG favicon was not linked and served correctly.");
 const viewportMeta = await page.locator('meta[name="viewport"]').getAttribute("content");
 if (!viewportMeta?.includes("width=device-width") || !viewportMeta.includes("viewport-fit=cover") || !viewportMeta.includes("interactive-widget=resizes-content")) throw new Error("The mobile viewport does not cover device cutouts and resize for the virtual keyboard.");
 if (!/^Daily Nuzzle #\d+: /.test((await page.locator(".home-header .screen-title").textContent())?.trim() || "")) throw new Error("The landing title did not identify the Daily Nuzzle.");

@@ -331,6 +331,19 @@ test("streak leaderboard counts consecutive wins ending today", async () => {
   assert.equal(entries[0].avatarSpriteId, "red");
 });
 
+test("a new numbered season caps today's winning streaks at one without removing battles", async () => {
+  const { service } = await serviceFixture();
+  for (const date of ["2026-10-25", "2026-10-26", "2026-10-27"]) {
+    service.battles.set(`winner-${date}`, {
+      record: { id: `winner-${date}`, userId: "winner", challengeDate: date, completedAt: `${date}T14:00:00.000Z`, createdAt: `${date}T14:00:00.000Z` },
+      state: () => ({ ended: true, winner: "Player", player: { team: [] } }),
+    });
+  }
+  const entries = service.streakLeaderboard("2026-10-27", (id) => ({ username: id }));
+  assert.equal(service.battles.size, 3);
+  assert.deepEqual(entries.map(({ username, streak }) => ({ username, streak })), [{ username: "winner", streak: 1 }]);
+});
+
 test("a six-on-six battle can be played through to a real result", async () => {
   const { directory, service } = await serviceFixture();
   let state = await service.create({

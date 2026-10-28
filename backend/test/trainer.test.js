@@ -29,7 +29,8 @@ test("the Nuzzle day rolls over at midnight America/New_York", () => {
   assert.equal(gameDate(new Date("2026-12-10T04:59:59Z")), "2026-12-09");
   assert.equal(gameDate(new Date("2026-12-10T05:00:00Z")), "2026-12-10");
   assert.equal(nextRolloverAt(new Date("2026-10-23T14:00:00Z")), "2026-10-24T04:00:00.000Z");
-  assert.equal(gameNumber("2026-10-23"), 2);
+  assert.equal(gameNumber("2026-10-27"), 1);
+  assert.equal(gameNumber("2026-10-28"), 2);
 });
 
 test("Showdown team imports are normalized and invalid sets are rejected", () => {
@@ -68,7 +69,7 @@ test("queued trainers can be reordered and publish one immutable snapshot per da
 
   const first = await store.current();
   assert.equal(first.date, "2026-10-23");
-  assert.equal(first.number, 2);
+  assert.equal(first.number, 1);
   assert.equal(first.trainer.name, "Brock");
   assert.deepEqual(first.trainer.pokemon[0].types, ["Steel", "Ground"]);
   assert.ok(first.trainer.pokemon[0].possibleAbilities.includes("Sturdy"));

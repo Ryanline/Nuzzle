@@ -1,5 +1,5 @@
 const defaultTimeZone = "America/New_York";
-const defaultLaunchDate = "2026-10-22";
+const defaultLaunchDate = "2026-10-27";
 
 function localParts(now, timeZone = defaultTimeZone) {
   const parts = new Intl.DateTimeFormat("en-US", {

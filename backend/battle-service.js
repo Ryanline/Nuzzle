@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { createRequire } from "node:module";
 import { buildBrockTeam, buildPlayerTeam } from "./teams.js";
+import { defaultLaunchDate } from "./game-clock.js";
 
 const require = createRequire(import.meta.url);
 const { BattleStream, Dex, Teams, getPlayerStreams, toID } = require("pokemon-showdown");
@@ -790,7 +791,9 @@ export class BattleService {
       if (!user) continue;
       let streak = 0;
       let date = challengeDate;
-      while (attempts.get(date)?.won) {
+      const streakStartDate = process.env.NUZZLE_STREAK_START_DATE || defaultLaunchDate;
+      const hasSeasonBoundary = challengeDate >= streakStartDate;
+      while ((!hasSeasonBoundary || date >= streakStartDate) && attempts.get(date)?.won) {
         streak++;
         date = previousDate(date);
       }
