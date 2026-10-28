@@ -25,6 +25,8 @@
   --blue-b: #287ac4;
   --slate-a: #b8c4d1;
   --slate-b: #77879a;
+  --crystal-a: #c6f3ff;
+  --crystal-b: #55b8d8;
   --purple-a: #d4a2ea;
   --purple-b: #8d43ad;
 }
@@ -131,6 +133,7 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .green { background: linear-gradient(var(--green-a), var(--green-b)); }
 .blue { background: linear-gradient(var(--blue-a), var(--blue-b)); }
 .slate { background: linear-gradient(var(--slate-a), var(--slate-b)); }
+.crystal { border-color: #4d8494; background: linear-gradient(var(--crystal-a), var(--crystal-b)); color: #f9feff; }
 .purple { background: linear-gradient(var(--purple-a), var(--purple-b)); }
 .neutral { border-color: #858b90; background: linear-gradient(#f7f8f9, #ccd1d5); color: #2f363c; text-shadow: none; }
 
@@ -1258,6 +1261,15 @@ html[data-theme="dark"] .auth-error { color: #ff9297; }
   .home-header .header-title-group { bottom: 5px; }
   .home-screen .landing { grid-template-rows: minmax(42px, .62fr) minmax(86px, 1fr) auto; }
   .home-screen .home-actions .gloss-button { min-height: 35px; font-size: 16px; }
+  .more-stage { gap: 5px; }
+  .more-stage > .more-actions { gap: 4px; }
+  .more-stage > .more-actions .gloss-button { min-height: 38px; padding-top: 2px; padding-bottom: 4px; font-size: 17px; }
+  .more-developer { gap: 3px; margin-top: 3px; }
+  .more-developer .more-actions { gap: 4px; }
+  .more-developer .gloss-button { min-height: 33px; padding-top: 1px; padding-bottom: 3px; font-size: 15px; }
+  .more-developer h3 { font-size: 10px; }
+  .more-status { min-height: 12px; font-size: 10px; }
+  .more-stage .page-back { min-height: 36px; margin-top: 2px; margin-bottom: 4px; }
   .lead-arena { height: 240px; }
   .lead-choice { height: 50px; }
   .lead-choice img { height: 48px; }

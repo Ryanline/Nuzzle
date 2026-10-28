@@ -618,6 +618,7 @@ export class BattleController {
   }
 
   async choose(action, rqid) {
+    if (this.record.dailyAttemptReset) choiceError("This battle has been reset.", 409);
     if (this.stream.battle?.ended) choiceError("This battle is already over.", 409);
     if (Number(rqid) !== this.currentRequest?.nuzzleRqid) choiceError("That choice belongs to an earlier turn. Please choose again.", 409);
     const choice = this.validateChoice(action);
@@ -633,6 +634,7 @@ export class BattleController {
   }
 
   async forfeit() {
+    if (this.record.dailyAttemptReset) choiceError("This battle has been reset.", 409);
     if (!this.stream.battle?.ended) {
       this.record.forfeited = true;
       await this.persist(this.record);
@@ -646,7 +648,7 @@ export class BattleController {
   }
 
   async settleIfEnded() {
-    if (!this.stream.battle?.ended || this.record.itemsSettled) return;
+    if (this.record.dailyAttemptReset || !this.stream.battle?.ended || this.record.itemsSettled) return;
     this.record.completedAt ||= new Date().toISOString();
     for (let attempt = 0; attempt < 20 && !this.log.some((entry) => entry.category === "result"); attempt++) {
       await new Promise((resolve) => setImmediate(resolve));

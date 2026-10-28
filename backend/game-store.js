@@ -498,6 +498,15 @@ export class GameStore {
     });
   }
 
+  async resetForTesting(userId) {
+    return this.mutate(userId, (run) => {
+      const replacement = newRun(userId, run.month);
+      ensureDaily(replacement, run.daily.date);
+      this.data.runs[userId] = replacement;
+      return this.publicState(replacement);
+    });
+  }
+
   async useTrainingItem(userId, pokemonId, itemId, options = {}) {
     return this.mutate(userId, (run) => {
       let pokemon = run.roster.find((candidate) => candidate.id === pokemonId);

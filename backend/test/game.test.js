@@ -166,6 +166,23 @@ test("a wipe defers twelve fresh-run encounters until the next day without addin
   assert.equal(followingDay.encounters.every((encounter) => encounter.kind === "single" && !encounter.claimed), true);
 });
 
+test("the developer wipe immediately creates a clean run with twelve encounters", async () => {
+  const { store: wipeStore } = await fixture();
+  let wipeState = await wipeStore.get("developer-wipe-user");
+  for (let slot = 0; slot < 12; slot++) wipeState = await wipeStore.claimEncounter("developer-wipe-user", slot);
+  wipeState = await wipeStore.buy("developer-wipe-user", "leftovers", 1);
+  const previousRunId = wipeState.runId;
+  const wiped = await wipeStore.resetForTesting("developer-wipe-user");
+  assert.notEqual(wiped.runId, previousRunId);
+  assert.equal(wiped.roster.length, 0);
+  assert.equal(wiped.teamIds.length, 0);
+  assert.equal(wiped.money, 50000);
+  assert.deepEqual(wiped.inventory, {});
+  assert.deepEqual(wiped.purchasedUnique, []);
+  assert.equal(wiped.encounters.length, 12);
+  assert.equal(wiped.encounters.every((encounter) => encounter.kind === "opening" && !encounter.claimed), true);
+});
+
 test("Sunday provides four persisted encounters and restoring the store does not reroll them", async () => {
   let now = new Date("2026-10-24T16:00:00Z");
   const directory = await mkdtemp(path.join(os.tmpdir(), "nuzzle-sunday-"));

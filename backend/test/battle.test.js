@@ -235,7 +235,7 @@ test("a saved battle belongs only to the account that created it", async () => {
 test("daily attempts are limited to one and a reset survives restart", async () => {
   const { directory, service } = await serviceFixture();
   const challenge = { partyIds: defaultParty, leadId: "vaporeon", challengeDate: "2026-10-23", challengeNumber: 2 };
-  await service.create(challenge, "daily-player");
+  const initial = await service.create(challenge, "daily-player");
   assert.equal(service.hasDailyAttempt("daily-player", "2026-10-23"), true);
   assert.equal(service.dailyBattle("daily-player", "2026-10-23")?.record.challengeNumber, 2);
   await assert.rejects(
@@ -245,6 +245,8 @@ test("daily attempts are limited to one and a reset survives restart", async () 
   await service.resetDailyAttempt("daily-player", "2026-10-23");
   assert.equal(service.hasDailyAttempt("daily-player", "2026-10-23"), false);
   assert.equal(service.dailyBattle("daily-player", "2026-10-23"), null);
+  await assert.rejects(service.get(initial.id).choose({ type: "move", slot: 1 }, initial.rqid), /has been reset/i);
+  await assert.rejects(service.get(initial.id).forfeit(), /has been reset/i);
 
   const restoredService = new BattleService(new BattleStore(directory));
   await restoredService.initialize();

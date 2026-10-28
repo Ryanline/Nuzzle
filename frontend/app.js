@@ -131,6 +131,8 @@
   let configError = "";
   let battleResetBusy = false;
   let battleResetMessage = "";
+  let wipeMeBusy = false;
+  let wipeMeMessage = "";
   let moreCardOpen = null;
   let leaderboardView = "daily";
   let leaderboardData = null;
@@ -1072,7 +1074,7 @@
 
   function settingsScreen() {
     const adminActions = currentUser?.isAdmin
-      ? `<section class="more-developer" aria-labelledby="developer-actions-title"><h3 id="developer-actions-title">Developer</h3><div class="more-actions"><button class="gloss-button gold" type="button" data-route="config">Scheduler</button><button class="gloss-button slate" type="button" data-reset-daily-battle ${battleResetBusy || !gameState?.dailyBattleAttempted ? "disabled" : ""}>${battleResetBusy ? "Resetting…" : "Battle reset"}</button></div><small class="more-status" role="status" aria-live="polite">${escapeHtml(battleResetMessage)}</small></section>`
+      ? `<section class="more-developer" aria-labelledby="developer-actions-title"><h3 id="developer-actions-title">Developer</h3><div class="more-actions"><button class="gloss-button gold" type="button" data-route="config">Scheduler</button><button class="gloss-button slate" type="button" data-reset-daily-battle ${battleResetBusy || wipeMeBusy || !gameState?.dailyBattleAttempted ? "disabled" : ""}>${battleResetBusy ? "Resetting…" : "Battle reset"}</button><button class="gloss-button crystal" type="button" data-wipe-me ${wipeMeBusy || battleResetBusy ? "disabled" : ""}>${wipeMeBusy ? "Wiping…" : "Wipe me"}</button></div><small class="more-status" role="status" aria-live="polite">${escapeHtml(wipeMeMessage || battleResetMessage)}</small></section>`
       : "";
     return `<section class="screen">${header()}<div class="simple-stage more-stage"><h2>More</h2><div class="more-actions"><button class="gloss-button red" type="button" data-open-more-card="how-to-play">How to play</button><button class="gloss-button yellow" type="button" data-open-more-card="nuzlocke">What a Nuzlocke is</button><button class="gloss-button green" type="button" data-open-more-card="schedule">Schedule</button><button class="gloss-button blue" type="button" data-open-more-card="affiliation">Affiliation</button></div>${adminActions}${backButton()}</div>${moreCard()}</section>`;
   }
@@ -1106,6 +1108,7 @@
     if (!currentUser?.isAdmin || battleResetBusy || !gameState?.dailyBattleAttempted) return;
     battleResetBusy = true;
     battleResetMessage = "";
+    wipeMeMessage = "";
     render();
     try {
       await apiRequest("/api/admin/battle/reset", { method: "POST" });
@@ -1120,6 +1123,30 @@
       battleResetMessage = error.message;
     } finally {
       battleResetBusy = false;
+      render();
+    }
+  }
+
+  async function wipeMe() {
+    if (!currentUser?.isAdmin || wipeMeBusy || battleResetBusy) return;
+    if (!confirm("Wipe your run, remove today's battle and streak, and generate 12 fresh encounters?")) return;
+    wipeMeBusy = true;
+    wipeMeMessage = "";
+    battleResetMessage = "";
+    render();
+    try {
+      applyGameState(await apiRequest("/api/admin/wipe-me", { method: "POST" }));
+      battleState = null;
+      resultOverlayOpen = false;
+      selectedPcId = null;
+      encountersRevealedThisVisit = new Set();
+      encounterListScrollTop = 0;
+      localStorage.removeItem("nuzzleBattleId");
+      wipeMeMessage = "Run wiped. Your 12 fresh encounters are ready.";
+    } catch (error) {
+      wipeMeMessage = error.message;
+    } finally {
+      wipeMeBusy = false;
       render();
     }
   }
@@ -1755,6 +1782,7 @@
       requestAnimationFrame(() => document.querySelector("[data-open-result]")?.focus({ preventScroll: true }));
     }));
     document.querySelector("[data-reset-daily-battle]")?.addEventListener("click", resetDailyBattle);
+    document.querySelector("[data-wipe-me]")?.addEventListener("click", wipeMe);
     document.querySelector("[data-toggle-battle-log]")?.addEventListener("click", () => {
       battleLogExpanded = !battleLogExpanded;
       render();

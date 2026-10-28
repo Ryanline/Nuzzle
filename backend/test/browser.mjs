@@ -351,8 +351,8 @@ await assertDesktopLayout("More screen", [], [
   { first: ".more-actions button:nth-child(1)", second: ".more-actions button:nth-child(2)", direction: "above" },
 ]);
 const moreButtons = await page.locator(".more-stage button").evaluateAll((buttons) => buttons.map((button) => ({ label: button.textContent.trim(), classes: button.className })));
-if (moreButtons.map(({ label }) => label).join(",") !== "How to play,What a Nuzlocke is,Schedule,Affiliation,Scheduler,Battle reset,Back") throw new Error("The More actions were not rendered in the requested order.");
-for (const [index, color] of ["red", "yellow", "green", "blue", "gold", "slate", "purple"].entries()) {
+if (moreButtons.map(({ label }) => label).join(",") !== "How to play,What a Nuzlocke is,Schedule,Affiliation,Scheduler,Battle reset,Wipe me,Back") throw new Error("The More actions were not rendered in the requested order.");
+for (const [index, color] of ["red", "yellow", "green", "blue", "gold", "slate", "crystal", "purple"].entries()) {
   if (!moreButtons[index].classes.includes(color)) throw new Error(`${moreButtons[index].label} did not use the requested ${color} palette.`);
 }
 await page.setViewportSize({ width: 320, height: 568 });
@@ -1072,6 +1072,22 @@ if ((await freshBattleButton.textContent())?.trim() !== "Battle") throw new Erro
 await freshBattleButton.click();
 if (await page.locator("[data-encounter]").count()) throw new Error("A forfeit granted fresh-run encounters before the next day.");
 if (!(await page.locator(".encounter-empty").textContent())?.includes("New encounters in")) throw new Error("The post-wipe encounter screen did not show the next-day countdown.");
+
+await page.click(".page-back");
+await page.click('[data-route="settings"]');
+const wipeButton = page.locator("[data-wipe-me]");
+if (await wipeButton.count() !== 1 || !(await wipeButton.getAttribute("class"))?.includes("crystal")) throw new Error("The admin settings did not expose the Crystal-colored Wipe me action.");
+page.once("dialog", (dialog) => dialog.accept());
+const wipeResponse = page.waitForResponse((response) => response.url().endsWith("/api/admin/wipe-me") && response.request().method() === "POST");
+await wipeButton.click();
+if (!(await wipeResponse).ok()) throw new Error("Wiping the admin test run failed.");
+if (!(await page.locator(".more-developer").textContent())?.includes("12 fresh encounters are ready")) throw new Error("The developer wipe did not report success.");
+const wipedGame = await page.evaluate(() => fetch("/api/game").then((response) => response.json()));
+if (wipedGame.roster.length || wipedGame.teamIds.length || wipedGame.encounters.length !== 12 || wipedGame.encounters.some((encounter) => encounter.claimed || encounter.kind !== "opening") || wipedGame.dailyBattleAttempted) throw new Error(`The developer wipe did not create the expected clean testing run: ${JSON.stringify(wipedGame)}`);
+await page.click('.more-stage [data-route="home"]');
+await page.click('.home-actions [data-route="encounters"]');
+if (await page.locator("[data-encounter]").count() !== 12) throw new Error("The developer wipe did not expose all 12 fresh encounters immediately.");
+await page.waitForFunction(() => [...document.querySelectorAll("[data-encounter] img")].every((image) => image.complete && image.naturalWidth > 0));
 
 const imageFailures = await page.locator("img").evaluateAll((images) => images.filter((image) => !image.complete || image.naturalWidth === 0).map((image) => image.src));
 await browser.close();

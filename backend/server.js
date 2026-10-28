@@ -336,6 +336,19 @@ async function api(request, response, pathname) {
     json(response, 200, { date: state.date, reset: true });
     return true;
   }
+  if (request.method === "POST" && pathname === "/api/admin/wipe-me") {
+    const user = requireAdmin(request);
+    const state = await game.get(user.id);
+    await service.resetDailyAttempt(user.id, state.date);
+    const wiped = await game.resetForTesting(user.id);
+    json(response, 200, {
+      ...wiped,
+      dailyBattleAttempted: false,
+      dailyBattleId: null,
+      dailyBattleEnded: false,
+    });
+    return true;
+  }
   const encounterMatch = pathname.match(/^\/api\/game\/encounters\/(\d+)$/);
   if (request.method === "POST" && encounterMatch) {
     const user = requireUser(request);
