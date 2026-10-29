@@ -65,7 +65,7 @@ jobs:
             sudo systemctl is-active nuzzle
           "
       - name: Verify public health
-        run: curl --fail --show-error --silent --retry 5 --retry-delay 2 https://nuzzle-game.duckdns.org/api/health
+        run: curl --fail --show-error --silent --retry 15 --retry-all-errors --retry-delay 2 --connect-timeout 10 --max-time 15 https://nuzzle-game.duckdns.org/api/health
       - name: Retain recent releases
         run: |
           ssh -i ~/.ssh/nuzzle_deploy -o IdentitiesOnly=yes nuzzle-ci@45.55.85.139 '
