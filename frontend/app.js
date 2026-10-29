@@ -1101,7 +1101,7 @@
       },
       discord: {
         title: "Discord",
-        content: `<p><strong>Join the <a href="https://discord.gg/nwWpFZHv7c" target="_blank" rel="noopener noreferrer">discord</a>.</strong></p><p>Share your runs, report bugs, follow game updates, and hang out with the Nuzzle community.</p>`,
+        content: `<p><strong>Join the <a href="https://discord.gg/nwWpFZHv7c" target="_blank" rel="noopener noreferrer">discord</a>!</strong></p><p>Share your runs, report bugs, follow game updates, and hang out with the Nuzzle community.</p>`,
       },
     };
     const card = cards[moreCardOpen];
