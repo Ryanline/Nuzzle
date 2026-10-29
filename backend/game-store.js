@@ -315,6 +315,7 @@ export class GameStore {
     this.timeZone = timeZone;
     this.now = now;
     this.data = { version: 2, runs: {} };
+    this.guestIds = new Set();
     this.pending = Promise.resolve();
     this.writeSequence = 0;
   }
@@ -341,10 +342,18 @@ export class GameStore {
     this.pending = this.pending.catch(() => {}).then(async () => {
       const date = gameDate(this.now(), this.timeZone);
       const month = date.slice(0, 7);
-      let run = this.data.runs[userId] ||= newRun(userId, month);
+      const guest = this.guestIds.has(userId);
+      let run = this.data.runs[userId];
+      if (!run || (guest && run.guestDate !== date)) {
+        run = this.data.runs[userId] = newRun(userId, month);
+        if (guest) run.guestDate = date;
+      }
       migrateOpeningEncounters(run);
       if (!run.month) run.month = month;
-      if (run.month !== month) run = this.data.runs[userId] = newRun(userId, month);
+      if (run.month !== month) {
+        run = this.data.runs[userId] = newRun(userId, month);
+        if (guest) run.guestDate = date;
+      }
       migrateDirectTraining(run);
       ensureDaily(run, date);
       result = operation(run);
@@ -377,6 +386,18 @@ export class GameStore {
 
   async get(userId) {
     return this.mutate(userId, (run) => this.publicState(run));
+  }
+
+  identifyGuest(userId) {
+    this.guestIds.add(userId);
+  }
+
+  async promoteGuest(userId) {
+    this.guestIds.delete(userId);
+    return this.mutate(userId, (run) => {
+      delete run.guestDate;
+      return this.publicState(run);
+    });
   }
 
   async claimEncounter(userId, slot) {
@@ -486,6 +507,7 @@ export class GameStore {
     return this.mutate(userId, (run) => {
       if (run.resetFromBattleId === battleId) return this.publicState(run);
       const replacement = newRun(userId, run.month);
+      if (run.guestDate) replacement.guestDate = run.guestDate;
       replacement.resetFromBattleId = battleId;
       replacement.daily = { date: run.daily.date, encounters: [] };
       this.data.runs[userId] = replacement;

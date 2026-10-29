@@ -46,6 +46,7 @@ await service.initialize();
 
 const loginAttempts = new Map();
 const sessionCookie = "nuzzle_session";
+const guestCookie = "nuzzle_guest";
 const showdownOrigin = "https://play.pokemonshowdown.com/sprites";
 const showdownDownloads = new Map();
 const pngSignature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
@@ -79,9 +80,29 @@ function sessionToken(request) {
   return cookies(request)[sessionCookie] || "";
 }
 
+function guestToken(request) {
+  return cookies(request)[guestCookie] || "";
+}
+
 function sessionHeader(token, maxAge = Math.floor(SESSION_LIFETIME_MS / 1000)) {
   const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
   return `${sessionCookie}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure}`;
+}
+
+function guestHeader(token, maxAge = Math.floor(SESSION_LIFETIME_MS / 1000)) {
+  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+  return `${guestCookie}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure}`;
+}
+
+function playerForRequest(request) {
+  return auth.userForToken(sessionToken(request)) || auth.guestForToken(guestToken(request));
+}
+
+function requirePlayer(request) {
+  const player = playerForRequest(request);
+  if (!player) throw Object.assign(new Error("Please reload to start a guest session."), { statusCode: 401 });
+  if (player.isGuest) game.identifyGuest(player.id);
+  return player;
 }
 
 function requireUser(request) {
@@ -221,21 +242,35 @@ async function api(request, response, pathname) {
     return true;
   }
   if (request.method === "GET" && pathname === "/api/auth/me") {
-    json(response, 200, { user: auth.userForToken(sessionToken(request)) });
+    const user = auth.userForToken(sessionToken(request));
+    if (user) {
+      json(response, 200, { user });
+      return true;
+    }
+    const guest = auth.guestForToken(guestToken(request));
+    if (guest) {
+      json(response, 200, { user: guest });
+      return true;
+    }
+    const created = await auth.createGuest();
+    json(response, 200, { user: created.user }, { "Set-Cookie": guestHeader(created.token) });
     return true;
   }
   if (request.method === "POST" && pathname === "/api/auth/register") {
     rateLimitLogin(request);
     const body = await requestBody(request);
-    const result = await auth.register(body.username, body.password);
-    json(response, 201, { user: result.user }, { "Set-Cookie": sessionHeader(result.token) });
+    const guest = auth.guestForToken(guestToken(request));
+    const today = await trainers.current();
+    const result = await auth.register(body.username, body.password, { guestId: guest?.id || null, streakStartDate: today.date });
+    if (guest?.id === result.user.id) await game.promoteGuest(result.user.id);
+    json(response, 201, { user: result.user }, { "Set-Cookie": [sessionHeader(result.token), guestHeader("", 0)] });
     return true;
   }
   if (request.method === "POST" && pathname === "/api/auth/login") {
     rateLimitLogin(request);
     const body = await requestBody(request);
     const result = await auth.login(body.username, body.password);
-    json(response, 200, { user: result.user }, { "Set-Cookie": sessionHeader(result.token) });
+    json(response, 200, { user: result.user }, { "Set-Cookie": [sessionHeader(result.token), guestHeader("", 0)] });
     return true;
   }
   if (request.method === "POST" && pathname === "/api/auth/logout") {
@@ -273,20 +308,29 @@ async function api(request, response, pathname) {
     return true;
   }
   if (request.method === "GET" && pathname === "/api/leaderboard/daily") {
-    requireUser(request);
+    requirePlayer(request);
     const today = await trainers.current();
     json(response, 200, {
       date: today.date,
-      entries: service.dailyLeaderboard(today.date, (userId) => auth.userById(userId)),
+      entries: service.dailyLeaderboard(today.date, (userId) => auth.identityById(userId)),
     });
     return true;
   }
   if (request.method === "GET" && pathname === "/api/leaderboard/streak") {
-    requireUser(request);
+    requirePlayer(request);
     const today = await trainers.current();
     json(response, 200, {
       date: today.date,
-      entries: service.streakLeaderboard(today.date, (userId) => auth.userById(userId)),
+      entries: service.streakLeaderboard(today.date, (userId) => auth.identityById(userId)),
+    });
+    return true;
+  }
+  if (request.method === "GET" && pathname === "/api/leaderboard") {
+    requirePlayer(request);
+    const today = await trainers.current();
+    json(response, 200, {
+      date: today.date,
+      entries: service.combinedLeaderboard(today.date, (playerId) => auth.identityById(playerId)),
     });
     return true;
   }
@@ -318,7 +362,7 @@ async function api(request, response, pathname) {
     return true;
   }
   if (request.method === "GET" && pathname === "/api/game") {
-    const user = requireUser(request);
+    const user = requirePlayer(request);
     const state = await game.get(user.id);
     const dailyBattle = service.dailyBattle(user.id, state.date);
     json(response, 200, {
@@ -351,26 +395,26 @@ async function api(request, response, pathname) {
   }
   const encounterMatch = pathname.match(/^\/api\/game\/encounters\/(\d+)$/);
   if (request.method === "POST" && encounterMatch) {
-    const user = requireUser(request);
+    const user = requirePlayer(request);
     json(response, 200, await game.claimEncounter(user.id, Number(encounterMatch[1])));
     return true;
   }
   if (request.method === "PUT" && pathname === "/api/game/team") {
-    const user = requireUser(request);
+    const user = requirePlayer(request);
     const body = await requestBody(request);
     json(response, 200, await game.setTeam(user.id, body.teamIds));
     return true;
   }
   const shopMatch = pathname.match(/^\/api\/game\/shop\/([a-z0-9-]+)$/);
   if (request.method === "POST" && shopMatch) {
-    const user = requireUser(request);
+    const user = requirePlayer(request);
     const body = await requestBody(request);
     json(response, 200, await game.buy(user.id, shopMatch[1], body.quantity));
     return true;
   }
   const pokemonItemMatch = pathname.match(/^\/api\/game\/pokemon\/([a-z0-9]+)\/(equip|unequip|train)$/);
   if (request.method === "POST" && pokemonItemMatch) {
-    const user = requireUser(request);
+    const user = requirePlayer(request);
     const body = await requestBody(request);
     const result = pokemonItemMatch[2] === "equip"
       ? await game.equip(user.id, pokemonItemMatch[1], body.itemId)
@@ -382,7 +426,7 @@ async function api(request, response, pathname) {
   }
   const pokemonTrainingMatch = pathname.match(/^\/api\/game\/pokemon\/([a-z0-9]+)\/training\/(quote|apply)$/);
   if (request.method === "POST" && pokemonTrainingMatch) {
-    const user = requireUser(request);
+    const user = requirePlayer(request);
     const body = await requestBody(request);
     const result = pokemonTrainingMatch[2] === "quote"
       ? await game.quoteTrainingBuild(user.id, pokemonTrainingMatch[1], body.build)
@@ -391,7 +435,7 @@ async function api(request, response, pathname) {
     return true;
   }
   if (request.method === "POST" && pathname === "/api/battles") {
-    const user = requireUser(request);
+    const user = requirePlayer(request);
     const body = await requestBody(request);
     const playerTeam = await game.battleTeam(user.id, body.partyIds, body.leadId);
     const today = await trainers.current();
@@ -408,7 +452,7 @@ async function api(request, response, pathname) {
   }
   const match = pathname.match(/^\/api\/battles\/([0-9a-f-]+)(?:\/(choices|forfeit))?$/i);
   if (!match) return false;
-  const user = requireUser(request);
+  const user = requirePlayer(request);
   const battle = service.get(match[1], user.id);
   if (request.method === "GET" && !match[2]) {
     json(response, 200, battle.state());

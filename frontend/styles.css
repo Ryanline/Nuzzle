@@ -738,6 +738,7 @@ button.encounter-card:active .encounter-mark img { transform: translateY(1px) sc
 .leaderboard-list { margin: 0; padding: 0; list-style: none; }
 .leaderboard-row { display: grid; grid-template-columns: 32px minmax(0, 1fr); align-items: center; gap: 7px; min-height: 76px; padding: 7px 4px; border-bottom: 1px solid #d4d8dd; }
 .leaderboard-rank { color: #526474; font-size: 20px; font-weight: 700; text-align: center; }
+.leaderboard-trophy { display: block; width: 30px; height: 30px; margin: auto; image-rendering: pixelated; object-fit: contain; }
 .leaderboard-identity { display: flex; min-width: 0; align-items: center; gap: 7px; }
 .leaderboard-avatar { display: grid; width: 42px; height: 50px; flex: 0 0 auto; place-items: center; }
 .leaderboard-avatar img { width: 40px; height: 48px; }
@@ -745,6 +746,9 @@ button.encounter-card:active .encounter-mark img { transform: translateY(1px) sc
 .leaderboard-identity > strong { display: block; min-width: 0; overflow: hidden; font-size: 14px; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
 .leaderboard-identity > strong small { margin-left: 6px; color: #a34449; font-size: 10px; font-weight: 700; text-transform: uppercase; }
 .leaderboard-player-name { display: block; margin-bottom: 2px; overflow: hidden; font-size: 14px; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
+.leaderboard-player-line { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 8px; }
+.leaderboard-player-line .leaderboard-player-name { min-width: 0; margin-bottom: 2px; }
+.guest-label { margin-left: 5px; color: var(--muted); font-size: 9px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
 .leaderboard-player-name small { margin-left: 6px; color: #a34449; font-size: 10px; font-weight: 700; text-transform: uppercase; }
 .leaderboard-roster { display: grid; grid-template-columns: 38px minmax(0, 1fr); align-items: center; gap: 4px; }
 .leaderboard-roster .leaderboard-avatar { width: 38px; height: 43px; }
@@ -760,6 +764,9 @@ button.encounter-card:active .encounter-mark img { transform: translateY(1px) sc
 .leaderboard-empty strong { color: var(--ink); font-size: 18px; font-weight: 400; }
 .leaderboard-empty span { font-size: 12px; }
 .leaderboard-stage .page-back { flex: 0 0 auto; margin-top: 8px; margin-bottom: 12px; }
+
+.guest-account-card > p { margin: 4px 0 10px; color: var(--muted); font-size: 13px; text-align: center; }
+.guest-account-card .auth-primary { margin-top: 5px; }
 
 .more-stage { gap: 12px; text-align: center; }
 .simple-stage.more-stage h2 { margin: 5px 0 2px; }

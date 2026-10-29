@@ -134,7 +134,6 @@
   let wipeMeBusy = false;
   let wipeMeMessage = "";
   let moreCardOpen = null;
-  let leaderboardView = "daily";
   let leaderboardData = null;
   let leaderboardLoading = false;
   let leaderboardError = "";
@@ -234,11 +233,7 @@
     leaderboardError = "";
     render();
     try {
-      const [daily, streak] = await Promise.all([
-        apiRequest("/api/leaderboard/daily"),
-        apiRequest("/api/leaderboard/streak"),
-      ]);
-      leaderboardData = { ...daily, streakEntries: streak.entries };
+      leaderboardData = await apiRequest("/api/leaderboard");
     } catch (error) {
       leaderboardError = error.message;
     } finally {
@@ -283,7 +278,6 @@
         leaderboardData = {
           ...leaderboardData,
           entries: (leaderboardData.entries || []).map(withAvatar),
-          streakEntries: (leaderboardData.streakEntries || []).map(withAvatar),
         };
       }
     } catch (error) {
@@ -441,8 +435,14 @@
       pcOrder = [];
       inventory = {};
       authOpen = false;
-      authLoading = false;
       route = "home";
+      localStorage.removeItem("nuzzleBattleId");
+      try {
+        const result = await apiRequest("/api/auth/me");
+        currentUser = result.user;
+        await loadGame();
+      } catch {}
+      authLoading = false;
       render();
     }
   }
@@ -563,7 +563,8 @@
 
   function authCard() {
     if (currentUser && avatarPickerOpen) return `<div class="auth-backdrop" data-close-auth><section class="auth-card account-card avatar-picker-card" role="dialog" aria-modal="true" aria-labelledby="account-title"><button class="auth-close" type="button" aria-label="Close account" data-close-auth>×</button><div class="avatar-picker-head"><h2 id="account-title">Choose an avatar</h2><button type="button" data-cancel-avatar>Cancel</button></div><label class="avatar-search"><span>Find a trainer</span><input type="search" value="${escapeHtml(avatarQuery)}" placeholder="Type to narrow the list" autocomplete="off" data-avatar-search></label>${avatarError ? `<p class="auth-error" role="alert">${escapeHtml(avatarError)}</p>` : ""}<div class="avatar-grid" data-avatar-grid>${avatarLoading ? '<p class="avatar-empty">Loading avatars…</p>' : avatarChoices()}</div></section></div>`;
-    if (currentUser) return `<div class="auth-backdrop" data-close-auth><section class="auth-card account-card" role="dialog" aria-modal="true" aria-labelledby="account-title"><button class="auth-close" type="button" aria-label="Close account" data-close-auth>×</button><h2 id="account-title">Account</h2><div class="account-profile"><span class="account-avatar">${avatarContent(currentUser)}</span><strong class="account-name">${escapeHtml(currentUser.username)}</strong><button class="profile-link" type="button" data-edit-avatar>Choose avatar</button></div>${avatarError ? `<p class="auth-error" role="alert">${escapeHtml(avatarError)}</p>` : ""}<button class="auth-primary logout-button" type="button" data-logout ${authLoading ? "disabled" : ""}>${authLoading ? "Logging out…" : "Log out"}</button></section></div>`;
+    if (currentUser?.isGuest && authMode === "guest") return `<div class="auth-backdrop" data-close-auth><section class="auth-card account-card guest-account-card" role="dialog" aria-modal="true" aria-labelledby="account-title"><button class="auth-close" type="button" aria-label="Close guest account" data-close-auth>×</button><h2 id="account-title">${escapeHtml(currentUser.username)}</h2><p>Playing as a guest gives you a fresh run each day.</p><p>Create an account to keep today’s run and continue your progress tomorrow.</p><button class="auth-primary" type="button" data-guest-register>Create account</button><button class="auth-mode-link" type="button" data-guest-login>Log in to an existing account</button></section></div>`;
+    if (currentUser && !currentUser.isGuest) return `<div class="auth-backdrop" data-close-auth><section class="auth-card account-card" role="dialog" aria-modal="true" aria-labelledby="account-title"><button class="auth-close" type="button" aria-label="Close account" data-close-auth>×</button><h2 id="account-title">Account</h2><div class="account-profile"><span class="account-avatar">${avatarContent(currentUser)}</span><strong class="account-name">${escapeHtml(currentUser.username)}</strong><button class="profile-link" type="button" data-edit-avatar>Choose avatar</button></div>${avatarError ? `<p class="auth-error" role="alert">${escapeHtml(avatarError)}</p>` : ""}<button class="auth-primary logout-button" type="button" data-logout ${authLoading ? "disabled" : ""}>${authLoading ? "Logging out…" : "Log out"}</button></section></div>`;
     const registering = authMode === "register";
     return `<div class="auth-backdrop" data-close-auth><section class="auth-card" role="dialog" aria-modal="true" aria-labelledby="auth-title"><button class="auth-close" type="button" aria-label="Close login" data-close-auth>×</button><h2 id="auth-title">${registering ? "Create account" : "Log in"}</h2><form data-auth-form><label for="auth-username">Username</label><input id="auth-username" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" minlength="3" maxlength="20" pattern="[A-Za-z0-9_]+" required><label for="auth-password">Password</label><input id="auth-password" name="password" type="password" autocomplete="${registering ? "new-password" : "current-password"}" minlength="7" maxlength="128" required>${registering ? '<label for="auth-password-confirmation">Confirm password</label><input id="auth-password-confirmation" name="passwordConfirmation" type="password" autocomplete="new-password" minlength="7" maxlength="128" required><small class="password-help">Use at least 7 characters.</small>' : ""}${authError ? `<p class="auth-error" role="alert">${escapeHtml(authError)}</p>` : ""}<button class="auth-primary" type="submit" ${authLoading ? "disabled" : ""}>${authLoading ? "Please wait…" : registering ? "Register" : "Log in"}</button></form><button class="auth-mode-link" type="button" data-auth-mode="${registering ? "login" : "register"}">${registering ? "Already have an account? Log in" : "Don't have an account? Register"}</button></section></div>`;
   }
@@ -1054,23 +1055,15 @@
 
   function leaderboardScreen() {
     const entries = leaderboardData?.entries || [];
-    const streakEntries = leaderboardData?.streakEntries || [];
-    const dailyContent = leaderboardLoading
+    const trophyNames = ["", "gold", "silver", "bronze"];
+    const content = leaderboardLoading
       ? '<div class="leaderboard-empty"><strong>Loading leaderboard…</strong></div>'
       : leaderboardError
         ? `<div class="leaderboard-empty"><strong>Could not load leaderboard</strong><span>${escapeHtml(leaderboardError)}</span></div>`
         : entries.length
-          ? `<ol class="leaderboard-list">${entries.map((entry) => `<li class="leaderboard-row${entry.won ? "" : " leaderboard-loss"}"><span class="leaderboard-rank" aria-label="Rank ${entry.rank}">${entry.rank}</span><div class="leaderboard-entry"><strong class="leaderboard-player-name">${escapeHtml(entry.username)}</strong><div class="leaderboard-roster"><span class="leaderboard-avatar" aria-hidden="true">${avatarContent(entry)}</span><div class="leaderboard-team" aria-label="${entry.team.length - entry.fainted} surviving Pokémon and ${entry.fainted} fainted Pokémon">${entry.team.map((pokemon) => `<span class="leaderboard-mon ${pokemon.fainted ? "fainted" : "survived"}" title="${escapeHtml(pokemon.name)} — ${pokemon.fainted ? "fainted" : "survived"}"><img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId, pokemon.shiny)}" alt="${escapeHtml(pokemon.name)}"></span>`).join("")}</div></div></div></li>`).join("")}</ol>`
+          ? `<ol class="leaderboard-list">${entries.map((entry) => { const trophy = trophyNames[entry.rank]; const rank = trophy ? `<img class="leaderboard-trophy" src="assets/leaderboard/trophy-${trophy}.png" alt="">` : entry.rank; return `<li class="leaderboard-row${entry.won ? "" : " leaderboard-loss"}"><span class="leaderboard-rank" aria-label="Rank ${entry.rank}">${rank}</span><div class="leaderboard-entry"><div class="leaderboard-player-line"><strong class="leaderboard-player-name">${escapeHtml(entry.username)}${entry.isGuest ? '<small class="guest-label">guest</small>' : ""}</strong><strong class="streak-count">${entry.streak}-day streak</strong></div><div class="leaderboard-roster"><span class="leaderboard-avatar" aria-hidden="true">${avatarContent(entry)}</span><div class="leaderboard-team" aria-label="${entry.survivors} surviving Pokémon and ${entry.fainted} fainted Pokémon">${entry.team.map((pokemon) => `<span class="leaderboard-mon ${pokemon.fainted ? "fainted" : "survived"}" title="${escapeHtml(pokemon.name)} — ${pokemon.fainted ? "fainted" : "survived"}"><img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId, pokemon.shiny)}" alt="${escapeHtml(pokemon.name)}"></span>`).join("")}</div></div></div></li>`; }).join("")}</ol>`
           : '<div class="leaderboard-empty"><strong>No results yet</strong><span>Today’s first completed battle will appear here.</span></div>';
-    const streakContent = leaderboardLoading
-      ? '<div class="leaderboard-empty"><strong>Loading leaderboard…</strong></div>'
-      : leaderboardError
-        ? `<div class="leaderboard-empty"><strong>Could not load leaderboard</strong><span>${escapeHtml(leaderboardError)}</span></div>`
-        : streakEntries.length
-          ? `<ol class="leaderboard-list streak-list">${streakEntries.map((entry) => `<li class="leaderboard-row streak-row"><span class="leaderboard-rank" aria-label="Rank ${entry.rank}">${entry.rank}</span><div class="leaderboard-entry"><div class="leaderboard-identity"><span class="leaderboard-avatar" aria-hidden="true">${avatarContent(entry)}</span><strong>${escapeHtml(entry.username)}</strong></div></div><strong class="streak-count">${entry.streak}-day streak</strong></li>`).join("")}</ol>`
-          : '<div class="leaderboard-empty"><strong>No active streaks yet</strong><span>Win today to start one.</span></div>';
-    const content = leaderboardView === "daily" ? dailyContent : streakContent;
-    return `<section class="screen">${header()}<div class="leaderboard-stage"><h2>Leaderboard</h2><div class="pc-detail-tabs leaderboard-tabs" role="tablist" aria-label="Leaderboard type"><button type="button" role="tab" aria-selected="${leaderboardView === "streak"}" class="${leaderboardView === "streak" ? "selected" : ""}" data-leaderboard-view="streak">Streak</button><button type="button" role="tab" aria-selected="${leaderboardView === "daily"}" class="${leaderboardView === "daily" ? "selected" : ""}" data-leaderboard-view="daily">Daily</button></div><div class="leaderboard-content" role="tabpanel">${content}</div>${backButton()}</div></section>`;
+    return `<section class="screen">${header()}<div class="leaderboard-stage"><h2>Leaderboard</h2><div class="leaderboard-content">${content}</div>${backButton()}</div></section>`;
   }
 
   function settingsScreen() {
@@ -1581,14 +1574,14 @@
     document.querySelector("[data-open-account]")?.addEventListener("click", () => {
       resetAuthDialog();
       authOpen = true;
-      authMode = "login";
+      authMode = currentUser?.isGuest ? "guest" : "login";
       authError = "";
       avatarPickerOpen = false;
       avatarQuery = "";
       avatarError = "";
       pendingRoute = null;
       render();
-      requestAnimationFrame(() => document.querySelector(currentUser ? "[data-logout]" : "#auth-username")?.focus({ preventScroll: true }));
+      requestAnimationFrame(() => document.querySelector(currentUser?.isGuest ? "[data-guest-register]" : currentUser ? "[data-logout]" : "#auth-username")?.focus({ preventScroll: true }));
     });
     document.querySelectorAll("[data-close-auth]").forEach((element) => element.addEventListener("click", (event) => {
       if (element.classList.contains("auth-backdrop") && event.target !== element) return;
@@ -1601,6 +1594,18 @@
     }));
     document.querySelector("[data-auth-mode]")?.addEventListener("click", (event) => {
       authMode = event.currentTarget.dataset.authMode;
+      authError = "";
+      render();
+      requestAnimationFrame(() => document.querySelector("#auth-username")?.focus({ preventScroll: true }));
+    });
+    document.querySelector("[data-guest-register]")?.addEventListener("click", () => {
+      authMode = "register";
+      authError = "";
+      render();
+      requestAnimationFrame(() => document.querySelector("#auth-username")?.focus({ preventScroll: true }));
+    });
+    document.querySelector("[data-guest-login]")?.addEventListener("click", () => {
+      authMode = "login";
       authError = "";
       render();
       requestAnimationFrame(() => document.querySelector("#auth-username")?.focus({ preventScroll: true }));
@@ -1667,10 +1672,6 @@
       scrollTo(0, 0);
       if (route === "config" && !adminConfig) void loadAdminConfig();
       if (route === "leaderboard") void loadLeaderboard();
-    }));
-    document.querySelectorAll("[data-leaderboard-view]").forEach((button) => button.addEventListener("click", () => {
-      leaderboardView = button.dataset.leaderboardView;
-      render();
     }));
     document.querySelectorAll("[data-open-more-card]").forEach((button) => button.addEventListener("click", () => {
       moreCardOpen = button.dataset.openMoreCard;
@@ -2213,7 +2214,7 @@
     if (!currentUser) return;
     const battleId = gameState?.dailyBattleAttempted && gameState?.dailyBattleId
       ? gameState.dailyBattleId
-      : localStorage.getItem("nuzzleBattleId");
+      : currentUser.isGuest ? null : localStorage.getItem("nuzzleBattleId");
     if (!battleId) return;
     try {
       acceptBattleState(await apiRequest(`/api/battles/${battleId}`));

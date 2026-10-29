@@ -355,6 +355,34 @@ test("streak leaderboard counts consecutive wins ending today", async () => {
   assert.equal(entries[0].avatarSpriteId, "red");
 });
 
+test("combined leaderboard uses dense survivor and streak ranks with time only ordering ties", async () => {
+  const { service } = await serviceFixture();
+  const addBattle = ({ id, userId, date, completedAt, fainted = 0, winner = "Player" }) => service.battles.set(id, {
+    record: { id, userId, challengeDate: date, completedAt, createdAt: completedAt },
+    state: () => ({
+      ended: true,
+      winner,
+      player: { team: Array.from({ length: 6 }, (_, index) => ({ id: `${id}-${index}`, name: `Mon ${index}`, spriteId: `mon-${index}`, fainted: index < fainted })) },
+    }),
+  });
+  addBattle({ id: "a-prev", userId: "a", date: "2026-10-23", completedAt: "2026-10-23T12:00:00.000Z" });
+  addBattle({ id: "b-prev", userId: "b", date: "2026-10-23", completedAt: "2026-10-23T12:00:00.000Z" });
+  addBattle({ id: "d-prev", userId: "d", date: "2026-10-23", completedAt: "2026-10-23T12:00:00.000Z" });
+  addBattle({ id: "b-today", userId: "b", date: "2026-10-24", completedAt: "2026-10-24T13:00:00.000Z", fainted: 1 });
+  addBattle({ id: "a-today", userId: "a", date: "2026-10-24", completedAt: "2026-10-24T14:00:00.000Z", fainted: 1 });
+  addBattle({ id: "c-today", userId: "c", date: "2026-10-24", completedAt: "2026-10-24T12:00:00.000Z", fainted: 1 });
+  addBattle({ id: "guest-today", userId: "guest", date: "2026-10-24", completedAt: "2026-10-24T11:00:00.000Z", fainted: 1 });
+  addBattle({ id: "d-today", userId: "d", date: "2026-10-24", completedAt: "2026-10-24T10:00:00.000Z", fainted: 2 });
+  const entries = service.combinedLeaderboard("2026-10-24", (id) => ({ username: id === "guest" ? "Guest 7" : id.toUpperCase(), isGuest: id === "guest" }));
+  assert.deepEqual(entries.map(({ rank, username, survivors, streak }) => ({ rank, username, survivors, streak })), [
+    { rank: 1, username: "B", survivors: 5, streak: 2 },
+    { rank: 1, username: "A", survivors: 5, streak: 2 },
+    { rank: 2, username: "C", survivors: 5, streak: 1 },
+    { rank: 3, username: "Guest 7", survivors: 5, streak: 0 },
+    { rank: 4, username: "D", survivors: 4, streak: 2 },
+  ]);
+});
+
 test("a new numbered season caps today's winning streaks at one without removing battles", async () => {
   const { service } = await serviceFixture();
   for (const date of ["2026-10-25", "2026-10-26", "2026-10-27"]) {

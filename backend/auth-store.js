@@ -20,7 +20,21 @@ function publicUser(user) {
     avatarSpriteId: avatarSpriteIds.has(user.avatarSpriteId) ? user.avatarSpriteId : null,
     welcomeSeen: Boolean(user.welcomeSeenAt),
     createdAt: user.createdAt,
+    streakStartDate: user.streakStartDate || null,
     isAdmin: user.usernameKey === ADMIN_USERNAME_KEY,
+    isGuest: false,
+  };
+}
+
+function publicGuest(guest) {
+  return {
+    id: guest.id,
+    username: `Guest ${guest.number}`,
+    avatarSpriteId: null,
+    welcomeSeen: true,
+    createdAt: guest.createdAt,
+    isAdmin: false,
+    isGuest: true,
   };
 }
 
@@ -47,7 +61,7 @@ async function passwordMatches(password, encoded) {
 export class AuthStore {
   constructor(filename) {
     this.filename = filename;
-    this.data = { users: [], sessions: [] };
+    this.data = { users: [], sessions: [], guests: [], nextGuestNumber: 1 };
     this.pendingUsernames = new Set();
     this.pendingWrite = Promise.resolve();
     this.writeSequence = 0;
@@ -59,6 +73,8 @@ export class AuthStore {
       const stored = JSON.parse(await readFile(this.filename, "utf8"));
       this.data.users = Array.isArray(stored.users) ? stored.users.map((user) => ({ ...user, usernameKey: user.usernameKey || String(user.username || "").toLowerCase() })) : [];
       this.data.sessions = Array.isArray(stored.sessions) ? stored.sessions : [];
+      this.data.guests = Array.isArray(stored.guests) ? stored.guests : [];
+      this.data.nextGuestNumber = Math.max(Number(stored.nextGuestNumber) || 1, ...this.data.guests.map((guest) => Number(guest.number) + 1));
     } catch (error) {
       if (error.code !== "ENOENT") throw error;
     }
@@ -79,12 +95,13 @@ export class AuthStore {
   validateRegistration(username, password) {
     const trimmedUsername = String(username || "").trim();
     if (!/^[A-Za-z0-9_]{3,20}$/.test(trimmedUsername)) authError("Username must be 3–20 characters using only letters, numbers, or underscores.");
+    if (/^guest\d+$/i.test(trimmedUsername)) authError("Usernames in the Guest number format are reserved.");
     if (String(password || "").length < 7) authError("Password must be at least 7 characters.");
     if (String(password).length > 128) authError("Password must be 128 characters or fewer.");
     return trimmedUsername;
   }
 
-  async register(username, password) {
+  async register(username, password, { guestId = null, streakStartDate = null } = {}) {
     const displayUsername = this.validateRegistration(username, password);
     const usernameKey = displayUsername.toLowerCase();
     if (this.pendingUsernames.has(usernameKey) || this.data.users.some((user) => user.usernameKey === usernameKey)) {
@@ -93,14 +110,16 @@ export class AuthStore {
     this.pendingUsernames.add(usernameKey);
     try {
       const user = {
-        id: crypto.randomUUID(),
+        id: this.data.guests.some((guest) => guest.id === guestId) ? guestId : crypto.randomUUID(),
         username: displayUsername,
         usernameKey,
         avatarSpriteId: null,
         passwordHash: await passwordHash(String(password)),
         createdAt: new Date().toISOString(),
+        streakStartDate,
       };
       this.data.users.push(user);
+      this.data.guests = this.data.guests.filter((guest) => guest.id !== user.id);
       const session = this.createSession(user.id);
       await this.persist();
       return { user: publicUser(user), ...session };
@@ -125,6 +144,26 @@ export class AuthStore {
     return { token, expiresAt };
   }
 
+  async createGuest() {
+    const token = crypto.randomBytes(32).toString("base64url");
+    const guest = {
+      id: crypto.randomUUID(),
+      number: this.data.nextGuestNumber++,
+      tokenHash: sessionHash(token),
+      createdAt: new Date().toISOString(),
+    };
+    this.data.guests.push(guest);
+    await this.persist();
+    return { user: publicGuest(guest), token };
+  }
+
+  guestForToken(token) {
+    if (!token) return null;
+    const hash = sessionHash(token);
+    const guest = this.data.guests.find((candidate) => candidate.tokenHash === hash);
+    return guest ? publicGuest(guest) : null;
+  }
+
   userForToken(token) {
     if (!token) return null;
     const now = Date.now();
@@ -138,6 +177,13 @@ export class AuthStore {
   userById(userId) {
     const user = this.data.users.find((candidate) => candidate.id === userId);
     return user ? publicUser(user) : null;
+  }
+
+  identityById(playerId) {
+    return this.userById(playerId) || (() => {
+      const guest = this.data.guests.find((candidate) => candidate.id === playerId);
+      return guest ? publicGuest(guest) : null;
+    })();
   }
 
   async updateAvatar(userId, spriteId) {

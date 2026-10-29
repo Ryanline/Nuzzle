@@ -288,11 +288,15 @@ await assertDesktopLayout("landing page", [], [
 await assertContainedLandscape("landing page", ".landing");
 await page.setViewportSize({ width: 390, height: 844 });
 if (await page.locator(".menu-toggle").count()) throw new Error("The obsolete hamburger menu is still rendered.");
+await page.waitForFunction(() => document.querySelector(".account-button")?.getAttribute("aria-label")?.includes("Guest "));
 await page.click('[data-route="pc"]');
-await page.waitForSelector(".auth-card");
-if (await page.locator(".pc-stage").count()) throw new Error("A logged-out user reached the PC without authenticating.");
-await assertMobileLayout("login dialog", [".auth-card"]);
-await page.click('[data-auth-mode="register"]');
+await page.waitForSelector(".pc-stage");
+if (await page.locator(".auth-card").count()) throw new Error("A guest was blocked from using the PC.");
+const guestGame = await page.evaluate(() => fetch("/api/game").then((response) => response.json()));
+await page.click("[data-open-account]");
+if (!/^Guest \d+$/.test((await page.locator(".guest-account-card h2").textContent())?.trim() || "")) throw new Error("The anonymous player did not receive a numbered guest identity.");
+await assertMobileLayout("guest account dialog", [".auth-card"]);
+await page.click("[data-guest-register]");
 await assertMobileLayout("registration dialog", [".auth-card"]);
 if (await page.locator("#auth-password").getAttribute("minlength") !== "7" || await page.locator("#auth-password-confirmation").getAttribute("minlength") !== "7" || !(await page.locator(".password-help").textContent())?.includes("7 characters")) throw new Error("Registration did not expose the seven-character password minimum.");
 const username = "ryanline";
@@ -305,6 +309,8 @@ await page.locator("[data-auth-form]").evaluate((form) => form.requestSubmit());
 if (!(await registrationResponse).ok()) throw new Error("Registering the browser-test account failed.");
 await page.waitForSelector(".pc-stage");
 await page.waitForSelector(".welcome-card");
+const convertedGame = await page.evaluate(() => fetch("/api/game").then((response) => response.json()));
+if (convertedGame.runId !== guestGame.runId) throw new Error("Registration did not preserve the guest run identity.");
 if ((await page.locator(".welcome-card h2").textContent())?.trim() !== "Welcome to Nuzzle!") throw new Error("A new account did not receive the welcome message.");
 if (!(await page.locator(".welcome-card").textContent())?.includes("daily puzzle game")) throw new Error("The welcome message did not explain Nuzzle.");
 const welcomeResponse = page.waitForResponse((response) => response.url().endsWith("/api/account/welcome") && response.request().method() === "PUT");
@@ -1047,18 +1053,18 @@ await page.click('.home-actions [data-route="battle"]');
 await page.waitForSelector(".result-modal");
 await page.click(".result-close");
 await page.click('.battle-result-actions [data-route="home"]');
-const leaderboardResponses = Promise.all([
-  page.waitForResponse((response) => response.url().endsWith("/api/leaderboard/daily") && response.request().method() === "GET"),
-  page.waitForResponse((response) => response.url().endsWith("/api/leaderboard/streak") && response.request().method() === "GET"),
-]);
+const leaderboardResponse = page.waitForResponse((response) => response.url().endsWith("/api/leaderboard") && response.request().method() === "GET");
 await page.click('[data-route="leaderboard"]');
-if ((await leaderboardResponses).some((response) => !response.ok())) throw new Error("Loading the leaderboards failed.");
-await page.waitForSelector('.leaderboard-tabs [data-leaderboard-view="daily"].selected');
+if (!(await leaderboardResponse).ok()) throw new Error("Loading the leaderboard failed.");
+await page.waitForSelector(".leaderboard-row");
 await assertMobileLayout("leaderboard", [".leaderboard-content"]);
 await assertDesktopLayout("leaderboard", [".leaderboard-content"]);
-if (await page.locator(".leaderboard-row.leaderboard-loss").count() !== 1) throw new Error("A completed loss did not appear on the daily leaderboard.");
-if (!(await page.locator(".leaderboard-row.leaderboard-loss").textContent())?.includes(username)) throw new Error("The daily loss row did not show the account name.");
-if (!(await page.locator(".leaderboard-row.leaderboard-loss .leaderboard-avatar img").getAttribute("src"))?.includes("/trainers/misty.png")) throw new Error("The selected account avatar did not appear on the daily leaderboard.");
+if (await page.locator(".leaderboard-tabs").count()) throw new Error("The merged leaderboard retained the old Daily and Streak tabs.");
+if (await page.locator(".leaderboard-row.leaderboard-loss").count() !== 1) throw new Error("A completed loss did not appear on the leaderboard.");
+if (!(await page.locator(".leaderboard-row.leaderboard-loss").textContent())?.includes(username)) throw new Error("The leaderboard row did not show the account name.");
+if (!(await page.locator(".leaderboard-row.leaderboard-loss").textContent())?.includes("0-day streak")) throw new Error("The merged leaderboard row did not show its streak.");
+if (!(await page.locator(".leaderboard-row.leaderboard-loss .leaderboard-avatar img").getAttribute("src"))?.includes("/trainers/misty.png")) throw new Error("The selected account avatar did not appear on the leaderboard.");
+if (!(await page.locator('.leaderboard-rank[aria-label="Rank 1"] .leaderboard-trophy').getAttribute("src"))?.endsWith("assets/leaderboard/trophy-gold.png")) throw new Error("First place did not use the CC0 gold trophy.");
 const leaderboardRowLayout = await page.locator(".leaderboard-row.leaderboard-loss").evaluate((row) => {
   const avatar = row.querySelector(".leaderboard-avatar").getBoundingClientRect();
   const team = row.querySelector(".leaderboard-team").getBoundingClientRect();
@@ -1070,10 +1076,8 @@ const leaderboardRowLayout = await page.locator(".leaderboard-row.leaderboard-lo
 });
 if (Math.abs(leaderboardRowLayout.avatarCenter - leaderboardRowLayout.teamCenter) > 2) throw new Error("The leaderboard avatar was not aligned beside the Pokémon team.");
 if (leaderboardRowLayout.height > 85) throw new Error("The daily leaderboard row became too tall.");
-if ((await page.locator(".leaderboard-content").textContent()).toUpperCase().includes("LOSS")) throw new Error("The daily leaderboard still displayed the LOSS label.");
+if ((await page.locator(".leaderboard-content").textContent()).toUpperCase().includes("LOSS")) throw new Error("The leaderboard still displayed the LOSS label.");
 if (await page.locator(".leaderboard-loss .leaderboard-mon.survived").count()) throw new Error("A forfeited battle showed surviving Pokémon on the leaderboard.");
-await page.click('[data-leaderboard-view="streak"]');
-if (!(await page.locator(".streak-row").textContent())?.includes("0-day streak")) throw new Error("A completed loss did not appear as a zero-day streak.");
 await page.click('.leaderboard-stage [data-route="home"]');
 await page.click('[data-route="settings"]');
 if (await page.locator("[data-reset-daily-battle]").count() !== 1) throw new Error("The admin settings did not expose the daily battle reset.");

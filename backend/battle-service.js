@@ -775,6 +775,80 @@ export class BattleService {
       .map((entry, index) => ({ rank: index + 1, ...entry }));
   }
 
+  combinedLeaderboard(challengeDate, identityById) {
+    const previousDate = (date) => {
+      const value = new Date(`${date}T00:00:00Z`);
+      value.setUTCDate(value.getUTCDate() - 1);
+      return value.toISOString().slice(0, 10);
+    };
+    const attemptsByPlayer = new Map();
+    for (const battle of this.battles.values()) {
+      const { userId, challengeDate: date, dailyAttemptReset } = battle.record;
+      if (!userId || !date || dailyAttemptReset) continue;
+      const state = battle.state();
+      if (!state.ended) continue;
+      const attempts = attemptsByPlayer.get(userId) || new Map();
+      const existing = attempts.get(date);
+      if (!existing || String(battle.record.createdAt).localeCompare(String(existing.record.createdAt)) > 0) {
+        attempts.set(date, { record: battle.record, state });
+      }
+      attemptsByPlayer.set(userId, attempts);
+    }
+
+    const entries = [];
+    for (const [playerId, attempts] of attemptsByPlayer) {
+      const today = attempts.get(challengeDate);
+      if (!today) continue;
+      const identity = identityById(playerId);
+      if (!identity) continue;
+      const won = today.state.winner === "Player";
+      const team = today.state.player.team.map((pokemon) => ({
+        id: pokemon.id,
+        name: pokemon.name,
+        spriteId: pokemon.spriteId,
+        shiny: pokemon.shiny,
+        fainted: !won || Boolean(today.record.forfeited) || pokemon.fainted,
+      }));
+      let streak = 0;
+      if (!identity.isGuest) {
+        let date = challengeDate;
+        const identityBoundary = identity.streakStartDate || null;
+        const streakBoundary = identityBoundary && identityBoundary > defaultLaunchDate ? identityBoundary : defaultLaunchDate;
+        const hasSeasonBoundary = challengeDate >= streakBoundary;
+        while ((!hasSeasonBoundary || date >= streakBoundary) && attempts.get(date)?.state.winner === "Player") {
+          streak++;
+          date = previousDate(date);
+        }
+      }
+      const fainted = team.filter((pokemon) => pokemon.fainted).length;
+      entries.push({
+        username: identity.username,
+        avatarSpriteId: identity.avatarSpriteId || null,
+        isGuest: Boolean(identity.isGuest),
+        won,
+        completedAt: today.record.completedAt || today.record.createdAt,
+        fainted,
+        survivors: team.length - fainted,
+        streak,
+        team,
+      });
+    }
+
+    entries.sort((left, right) => right.survivors - left.survivors
+      || right.streak - left.streak
+      || String(left.completedAt).localeCompare(String(right.completedAt)));
+    let rank = 0;
+    let previousScore = null;
+    return entries.map((entry) => {
+      const score = `${entry.survivors}:${entry.streak}`;
+      if (score !== previousScore) {
+        rank++;
+        previousScore = score;
+      }
+      return { rank, ...entry };
+    });
+  }
+
   streakLeaderboard(challengeDate, userById) {
     const previousDate = (date) => {
       const value = new Date(`${date}T00:00:00Z`);

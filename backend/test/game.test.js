@@ -192,6 +192,41 @@ test("the developer wipe immediately creates a clean run with twelve encounters"
   assert.equal(wiped.encounters.every((encounter) => encounter.kind === "opening" && !encounter.claimed), true);
 });
 
+test("guest runs reset to a fresh opening batch each day", async () => {
+  let now = new Date("2026-10-20T16:00:00Z");
+  const { store } = await fixture(() => now);
+  store.identifyGuest("guest-player");
+  let state = await store.get("guest-player");
+  const firstRunId = state.runId;
+  state = await store.claimEncounter("guest-player", 0);
+  assert.equal(state.roster.length, 1);
+
+  now = new Date("2026-10-21T16:00:00Z");
+  state = await store.get("guest-player");
+  assert.notEqual(state.runId, firstRunId);
+  assert.equal(state.roster.length, 0);
+  assert.equal(state.teamIds.length, 0);
+  assert.equal(state.encounters.length, 12);
+  assert.equal(state.encounters.every((encounter) => encounter.kind === "opening" && !encounter.claimed), true);
+});
+
+test("promoting a guest preserves the current run across later days", async () => {
+  let now = new Date("2026-10-20T16:00:00Z");
+  const { store } = await fixture(() => now);
+  store.identifyGuest("converted-player");
+  let state = await store.get("converted-player");
+  state = await store.claimEncounter("converted-player", 0);
+  const guestRunId = state.runId;
+  state = await store.promoteGuest("converted-player");
+  assert.equal(state.runId, guestRunId);
+  assert.equal(state.roster.length, 1);
+
+  now = new Date("2026-10-21T16:00:00Z");
+  state = await store.get("converted-player");
+  assert.equal(state.runId, guestRunId);
+  assert.equal(state.roster.length, 1);
+});
+
 test("Sunday provides four persisted encounters and restoring the store does not reroll them", async () => {
   let now = new Date("2026-10-24T16:00:00Z");
   const directory = await mkdtemp(path.join(os.tmpdir(), "nuzzle-sunday-"));

@@ -96,3 +96,25 @@ test("registration enforces simple usernames and seven-character passwords", asy
   const registration = await auth.register("ValidName", "seven77");
   assert.equal(auth.userForToken(registration.token)?.username, "ValidName");
 });
+
+test("numbered guests persist and registration adopts their player identity", async () => {
+  const { auth, filename } = await authFixture();
+  const first = await auth.createGuest();
+  const second = await auth.createGuest();
+  assert.equal(first.user.username, "Guest 1");
+  assert.equal(first.user.isGuest, true);
+  assert.equal(second.user.username, "Guest 2");
+  assert.deepEqual(auth.guestForToken(first.token), first.user);
+
+  const registration = await auth.register("ConvertedGuest", "correct horse battery staple", { guestId: first.user.id });
+  assert.equal(registration.user.id, first.user.id);
+  assert.equal(registration.user.isGuest, false);
+  assert.equal(auth.guestForToken(first.token), null);
+  assert.equal(auth.identityById(first.user.id)?.username, "ConvertedGuest");
+
+  const restored = new AuthStore(filename);
+  await restored.initialize();
+  assert.equal(restored.identityById(first.user.id)?.username, "ConvertedGuest");
+  assert.equal(restored.guestForToken(second.token)?.username, "Guest 2");
+  await assert.rejects(restored.register("Guest2423", "correct horse battery staple"), /reserved/i);
+});
