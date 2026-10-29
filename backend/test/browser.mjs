@@ -351,8 +351,8 @@ await assertDesktopLayout("More screen", [], [
   { first: ".more-actions button:nth-child(1)", second: ".more-actions button:nth-child(2)", direction: "above" },
 ]);
 const moreButtons = await page.locator(".more-stage button").evaluateAll((buttons) => buttons.map((button) => ({ label: button.textContent.trim(), classes: button.className })));
-if (moreButtons.map(({ label }) => label).join(",") !== "How to play,What a Nuzlocke is,Schedule,Affiliation,Scheduler,Battle reset,Wipe me,Back") throw new Error("The More actions were not rendered in the requested order.");
-for (const [index, color] of ["red", "yellow", "green", "blue", "gold", "slate", "crystal", "purple"].entries()) {
+if (moreButtons.map(({ label }) => label).join(",") !== "How to play,What a Nuzlocke is,Schedule,Affiliation,Discord,Scheduler,Battle reset,Wipe me,Back") throw new Error("The More actions were not rendered in the requested order.");
+for (const [index, color] of ["red", "yellow", "green", "blue", "discord", "gold", "slate", "crystal", "purple"].entries()) {
   if (!moreButtons[index].classes.includes(color)) throw new Error(`${moreButtons[index].label} did not use the requested ${color} palette.`);
 }
 await page.setViewportSize({ width: 320, height: 568 });
@@ -361,6 +361,7 @@ const moreCardChecks = [
   ["nuzlocke", "What a Nuzlocke is", "wipes your entire box and ends your win streak", "bulbapedia.bulbagarden.net/wiki/Nuzlocke_Challenge"],
   ["schedule", "Battle schedule", "12:00 AM Eastern Time (EST)", null],
   ["affiliation", "Affiliation", "not affiliated with or endorsed", "github.com/smogon/pokemon-showdown"],
+  ["discord", "Discord", "Share your runs, report bugs, follow game updates", "discord.gg/nwWpFZHv7c"],
 ];
 for (const [cardId, title, copy, link] of moreCardChecks) {
   await page.click(`[data-open-more-card="${cardId}"]`);

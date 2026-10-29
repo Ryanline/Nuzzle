@@ -1077,7 +1077,7 @@
     const adminActions = currentUser?.isAdmin
       ? `<section class="more-developer" aria-labelledby="developer-actions-title"><h3 id="developer-actions-title">Developer</h3><div class="more-actions"><button class="gloss-button gold" type="button" data-route="config">Scheduler</button><button class="gloss-button slate" type="button" data-reset-daily-battle ${battleResetBusy || wipeMeBusy || !gameState?.dailyBattleAttempted ? "disabled" : ""}>${battleResetBusy ? "Resetting…" : "Battle reset"}</button><button class="gloss-button crystal" type="button" data-wipe-me ${wipeMeBusy || battleResetBusy ? "disabled" : ""}>${wipeMeBusy ? "Wiping…" : "Wipe me"}</button></div><small class="more-status" role="status" aria-live="polite">${escapeHtml(wipeMeMessage || battleResetMessage)}</small></section>`
       : "";
-    return `<section class="screen">${header()}<div class="simple-stage more-stage${currentUser?.isAdmin ? " has-developer-actions" : ""}"><h2>More</h2><div class="more-actions"><button class="gloss-button red" type="button" data-open-more-card="how-to-play">How to play</button><button class="gloss-button yellow" type="button" data-open-more-card="nuzlocke">What a Nuzlocke is</button><button class="gloss-button green" type="button" data-open-more-card="schedule">Schedule</button><button class="gloss-button blue" type="button" data-open-more-card="affiliation">Affiliation</button></div>${adminActions}${backButton()}</div>${moreCard()}</section>`;
+    return `<section class="screen">${header()}<div class="simple-stage more-stage${currentUser?.isAdmin ? " has-developer-actions" : ""}"><h2>More</h2><div class="more-actions"><button class="gloss-button red" type="button" data-open-more-card="how-to-play">How to play</button><button class="gloss-button yellow" type="button" data-open-more-card="nuzlocke">What a Nuzlocke is</button><button class="gloss-button green" type="button" data-open-more-card="schedule">Schedule</button><button class="gloss-button blue" type="button" data-open-more-card="affiliation">Affiliation</button><button class="gloss-button discord" type="button" data-open-more-card="discord">Discord</button></div>${adminActions}${backButton()}</div>${moreCard()}</section>`;
   }
 
   function moreCard() {
@@ -1098,6 +1098,10 @@
       affiliation: {
         title: "Affiliation",
         content: `<p><strong>Nuzzle is an unofficial, fan-made daily <a href="https://bulbapedia.bulbagarden.net/wiki/Nuzlocke_Challenge" target="_blank" rel="noopener noreferrer">Nuzlocke</a> battle simulator.</strong></p><p>It turns the fan-created, self-imposed rules of a Nuzlocke into a daily puzzle, similar in spirit to Wordle or Pokédoku but built around a simulated battle.</p><p>Battles use the open-source <a href="https://github.com/smogon/pokemon-showdown" target="_blank" rel="noopener noreferrer">Pokémon Showdown</a> engine. Sprites are used for identification and readability in place of a text-only display.</p><p>Nuzzle is not affiliated with or endorsed by Nintendo, Creatures Inc., GAME FREAK inc., The Pokémon Company, Smogon, or Pokémon Showdown. Pokémon, Pokémon character names, and sprites are © Nintendo, Creatures Inc., and GAME FREAK inc.</p>`,
+      },
+      discord: {
+        title: "Discord",
+        content: `<p><strong>Join the <a href="https://discord.gg/nwWpFZHv7c" target="_blank" rel="noopener noreferrer">discord</a>.</strong></p><p>Share your runs, report bugs, follow game updates, and hang out with the Nuzzle community.</p>`,
       },
     };
     const card = cards[moreCardOpen];

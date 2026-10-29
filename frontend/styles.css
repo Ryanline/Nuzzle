@@ -23,6 +23,8 @@
   --green-b: #5b9e69;
   --blue-a: #78b8ed;
   --blue-b: #287ac4;
+  --discord-a: #7b86f7;
+  --discord-b: #5865f2;
   --slate-a: #b8c4d1;
   --slate-b: #77879a;
   --crystal-a: #c6f3ff;
@@ -132,6 +134,7 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .gold { background: linear-gradient(var(--gold-a), var(--gold-b)); }
 .green { background: linear-gradient(var(--green-a), var(--green-b)); }
 .blue { background: linear-gradient(var(--blue-a), var(--blue-b)); }
+.discord { border-color: #434ca8; background: linear-gradient(var(--discord-a), var(--discord-b)); }
 .slate { background: linear-gradient(var(--slate-a), var(--slate-b)); }
 .crystal { border-color: #4d8494; background: linear-gradient(var(--crystal-a), var(--crystal-b)); color: #f9feff; }
 .purple { background: linear-gradient(var(--purple-a), var(--purple-b)); }
