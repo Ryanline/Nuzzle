@@ -320,6 +320,10 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .result-modal header p { margin: 4px 0 9px; color: #657078; font-size: 12px; }
 .result-close { position: absolute; z-index: 2; top: 5px; right: 6px; width: 30px; height: 30px; padding: 0; border: 0; background: transparent; color: #555; cursor: pointer; font-size: 25px; line-height: 28px; }
 .result-close:hover { color: #111; }
+.result-standing { display: grid; gap: 2px; margin: 0 auto 9px; padding: 7px 10px; border: 1px solid #a8c5af; border-radius: 7px; background: #f0f7f1; color: #355d40; font-size: 12px; text-align: center; }
+.result-standing strong { font-size: 13px; font-weight: 600; }
+.result-standing b { color: #245d34; }
+.result-standing.loading, .result-standing.unavailable { border-color: #c5cbce; background: #f1f3f4; color: #68737b; }
 .result-legend { display: flex; justify-content: center; gap: 18px; margin: 0 0 9px; padding-top: 7px; border-top: 1px solid #c5cbce; color: #667078; font-size: 9px; font-weight: 700; text-align: center; }
 .result-legend .green-key { color: #31804a; }
 .result-legend .red-key { color: #a84646; }

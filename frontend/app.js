@@ -96,6 +96,10 @@
   let battleLogInitialized = false;
   let battleLogRenderedIds = new Set();
   let resultOverlayOpen = false;
+  let victoryStanding = null;
+  let victoryStandingLoading = false;
+  let victoryStandingError = "";
+  let victoryStandingRequest = 0;
   let balance = 50000;
   let selectedPcId = null;
   let selectedTrainerPokemon = null;
@@ -239,6 +243,31 @@
     } finally {
       leaderboardLoading = false;
       render();
+    }
+  }
+
+  async function refreshVictoryStanding() {
+    const request = ++victoryStandingRequest;
+    victoryStanding = null;
+    victoryStandingError = "";
+    if (battleState?.winner !== "Player") {
+      victoryStandingLoading = false;
+      return;
+    }
+    victoryStandingLoading = true;
+    render();
+    try {
+      const result = await apiRequest("/api/leaderboard");
+      if (request !== victoryStandingRequest) return;
+      victoryStanding = result.standing || null;
+    } catch (error) {
+      if (request !== victoryStandingRequest) return;
+      victoryStandingError = error.message;
+    } finally {
+      if (request === victoryStandingRequest) {
+        victoryStandingLoading = false;
+        render();
+      }
     }
   }
 
@@ -460,6 +489,7 @@
     if (justEnded) {
       resultOverlayOpen = true;
       if (gameState?.dailyBattleId === nextState.id) gameState.dailyBattleEnded = true;
+      void refreshVictoryStanding();
     }
   }
 
@@ -689,6 +719,22 @@
     return `<span class="result-credit ${tone}"><img class="sprite" src="${sprite(profile.id, false, profile.spriteId, profile.shiny)}" alt=""><b>${escapeHtml(profile.nickname || profile.name)}</b></span>`;
   }
 
+  function ordinal(value) {
+    const remainder = value % 100;
+    if (remainder >= 11 && remainder <= 13) return `${value}th`;
+    return `${value}${value % 10 === 1 ? "st" : value % 10 === 2 ? "nd" : value % 10 === 3 ? "rd" : "th"}`;
+  }
+
+  function victoryStandingCard() {
+    if (victoryStandingLoading) return '<section class="result-standing loading" data-victory-standing role="status">Checking today’s standings…</section>';
+    if (victoryStandingError) return '<section class="result-standing unavailable" data-victory-standing role="status">Couldn’t refresh today’s ranking.</section>';
+    if (!victoryStanding) return "";
+    if (victoryStanding.firstFinisher) return '<section class="result-standing" data-victory-standing><strong>You’re today’s first finisher!</strong></section>';
+    const players = `${victoryStanding.total} player${victoryStanding.total === 1 ? "" : "s"}`;
+    const placement = victoryStanding.tied ? "You tied for" : "You ranked";
+    return `<section class="result-standing" data-victory-standing><strong>${placement} <b>${ordinal(victoryStanding.rank)}</b> out of <b>${players}</b>.</strong><span>Better than <b>${victoryStanding.betterThanPercent}%</b> of players so far today!</span></section>`;
+  }
+
   function battleResultOverlay() {
     const knockouts = battleState.knockouts || [];
     const cards = battleState.opponent.team.map((pokemon) => {
@@ -706,7 +752,8 @@
     const heading = victory ? "Victory!" : battleState.winner ? "Defeat" : "Battle complete";
     const challengeNumber = battleState.challengeDate === todayState.date ? todayState.number : battleState.challengeNumber || todayState.number;
     const subheading = battleState.forfeited ? `You forfeited against ${battleState.opponent.name}.` : `${battleState.opponent.name} · Nuzzle #${challengeNumber}`;
-    return `<div class="result-backdrop" data-close-result><section class="result-modal ${victory ? "victory" : "defeat"}" role="dialog" aria-modal="true" aria-labelledby="result-title"><button class="result-close" type="button" aria-label="Close result" data-close-result>×</button><header><span>daily battle result</span><h2 id="result-title">${heading}</h2><p>${escapeHtml(subheading)}</p></header><div class="result-legend"><span class="green-key">▲ your Pokémon that KO'd it</span><span class="red-key">▼ your Pokémon it KO'd</span></div><div class="result-grid">${cards}</div></section></div>`;
+    const standing = victory ? victoryStandingCard() : "";
+    return `<div class="result-backdrop" data-close-result><section class="result-modal ${victory ? "victory" : "defeat"}" role="dialog" aria-modal="true" aria-labelledby="result-title"><button class="result-close" type="button" aria-label="Close result" data-close-result>×</button><header><span>daily battle result</span><h2 id="result-title">${heading}</h2><p>${escapeHtml(subheading)}</p></header>${standing}<div class="result-legend"><span class="green-key">▲ your Pokémon that KO'd it</span><span class="red-key">▼ your Pokémon it KO'd</span></div><div class="result-grid">${cards}</div></section></div>`;
   }
 
   function pc() {
@@ -1665,11 +1712,13 @@
       }
       if (nextRoute !== "settings") moreCardOpen = null;
       route = nextRoute;
-      if (route === "battle" && battleState?.ended) resultOverlayOpen = true;
+      const opensFinishedResult = route === "battle" && battleState?.ended;
+      if (opensFinishedResult) resultOverlayOpen = true;
       if (route === "lead") selectedLeadId = null;
       if (route === "mart") purchaseMessage = "";
       render();
       scrollTo(0, 0);
+      if (opensFinishedResult && battleState.winner === "Player") void refreshVictoryStanding();
       if (route === "config" && !adminConfig) void loadAdminConfig();
       if (route === "leaderboard") void loadLeaderboard();
     }));
@@ -1780,10 +1829,13 @@
     document.querySelector("[data-open-result]")?.addEventListener("click", () => {
       resultOverlayOpen = true;
       render();
+      if (battleState?.winner === "Player") void refreshVictoryStanding();
     });
     document.querySelectorAll("[data-close-result]").forEach((element) => element.addEventListener("click", (event) => {
       if (element.classList.contains("result-backdrop") && event.target !== element) return;
       resultOverlayOpen = false;
+      victoryStandingRequest++;
+      victoryStandingLoading = false;
       render();
       requestAnimationFrame(() => document.querySelector("[data-open-result]")?.focus({ preventScroll: true }));
     }));

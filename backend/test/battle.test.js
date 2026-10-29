@@ -3,7 +3,7 @@ import { mkdtemp } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { acquisitionFromProtocol, BattleService, eventEntry, faintedPlayerIds, playerTeamIds, shuffledTeamOrder, trainerReplacementChoice } from "../battle-service.js";
+import { acquisitionFromProtocol, BattleService, eventEntry, faintedPlayerIds, leaderboardStanding, playerTeamIds, shuffledTeamOrder, trainerReplacementChoice } from "../battle-service.js";
 import { BattleStore } from "../battle-store.js";
 import { buildBrockTeam, buildPlayerTeam, PLAYER_IDS } from "../teams.js";
 
@@ -373,7 +373,7 @@ test("combined leaderboard uses dense survivor and streak ranks with time only o
   addBattle({ id: "c-today", userId: "c", date: "2026-10-24", completedAt: "2026-10-24T12:00:00.000Z", fainted: 1 });
   addBattle({ id: "guest-today", userId: "guest", date: "2026-10-24", completedAt: "2026-10-24T11:00:00.000Z", fainted: 1 });
   addBattle({ id: "d-today", userId: "d", date: "2026-10-24", completedAt: "2026-10-24T10:00:00.000Z", fainted: 2 });
-  const entries = service.combinedLeaderboard("2026-10-24", (id) => ({ username: id === "guest" ? "Guest 7" : id.toUpperCase(), isGuest: id === "guest" }));
+  const entries = service.combinedLeaderboard("2026-10-24", (id) => ({ username: id === "guest" ? "Guest 7" : id.toUpperCase(), isGuest: id === "guest" }), "a");
   assert.deepEqual(entries.map(({ rank, username, survivors, streak }) => ({ rank, username, survivors, streak })), [
     { rank: 1, username: "B", survivors: 5, streak: 2 },
     { rank: 1, username: "A", survivors: 5, streak: 2 },
@@ -381,6 +381,21 @@ test("combined leaderboard uses dense survivor and streak ranks with time only o
     { rank: 3, username: "Guest 7", survivors: 5, streak: 0 },
     { rank: 4, username: "D", survivors: 4, streak: 2 },
   ]);
+  assert.deepEqual(leaderboardStanding(entries), {
+    rank: 1,
+    total: 5,
+    tied: true,
+    firstFinisher: false,
+    betterThanPercent: 60,
+  });
+  assert.equal(leaderboardStanding(entries.map((entry) => ({ ...entry, isCurrentPlayer: entry.username === "D", won: entry.username === "D" ? false : entry.won }))), null);
+  assert.deepEqual(leaderboardStanding([{ rank: 1, won: true, isCurrentPlayer: true }]), {
+    rank: 1,
+    total: 1,
+    tied: false,
+    firstFinisher: true,
+    betterThanPercent: 0,
+  });
 });
 
 test("a new numbered season caps today's winning streaks at one without removing battles", async () => {

@@ -4,7 +4,7 @@ import { mkdir, rename, stat, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { BattleService } from "./battle-service.js";
+import { BattleService, leaderboardStanding } from "./battle-service.js";
 import { BattleStore } from "./battle-store.js";
 import { AuthStore, SESSION_LIFETIME_MS } from "./auth-store.js";
 import { GameStore, publicContent } from "./game-store.js";
@@ -326,11 +326,13 @@ async function api(request, response, pathname) {
     return true;
   }
   if (request.method === "GET" && pathname === "/api/leaderboard") {
-    requirePlayer(request);
+    const player = requirePlayer(request);
     const today = await trainers.current();
+    const entries = service.combinedLeaderboard(today.date, (playerId) => auth.identityById(playerId), player.id);
     json(response, 200, {
       date: today.date,
-      entries: service.combinedLeaderboard(today.date, (playerId) => auth.identityById(playerId)),
+      entries,
+      standing: leaderboardStanding(entries),
     });
     return true;
   }

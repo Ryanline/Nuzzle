@@ -1033,6 +1033,7 @@ await page.waitForFunction(() => document.querySelector(".prompt")?.textContent.
 if (await page.locator("[data-forfeit-battle]").count()) throw new Error("Forfeit remained available after the battle ended.");
 await page.waitForSelector(".result-modal");
 if (!(await page.locator(".result-modal").textContent())?.includes("Defeat")) throw new Error("The result overlay did not report the loss.");
+if (await page.locator("[data-victory-standing]").count()) throw new Error("A loss incorrectly showed a victory standing.");
 await assertMobileLayout("battle result", [".result-modal"]);
 await assertDesktopLayout("battle result", [".result-modal"]);
 const resultCenterOffset = await page.locator(".result-modal").evaluate((modal) => {
@@ -1055,7 +1056,9 @@ await page.click(".result-close");
 await page.click('.battle-result-actions [data-route="home"]');
 const leaderboardResponse = page.waitForResponse((response) => response.url().endsWith("/api/leaderboard") && response.request().method() === "GET");
 await page.click('[data-route="leaderboard"]');
-if (!(await leaderboardResponse).ok()) throw new Error("Loading the leaderboard failed.");
+const loadedLeaderboardResponse = await leaderboardResponse;
+if (!loadedLeaderboardResponse.ok()) throw new Error("Loading the leaderboard failed.");
+if ((await loadedLeaderboardResponse.json()).standing !== null) throw new Error("A losing player received a victory standing.");
 await page.waitForSelector(".leaderboard-row");
 await assertMobileLayout("leaderboard", [".leaderboard-content"]);
 await assertDesktopLayout("leaderboard", [".leaderboard-content"]);

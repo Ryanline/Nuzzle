@@ -45,6 +45,21 @@ export function trainerReplacementChoice(pokemon, choose = randomEntry) {
   return slots.length ? `switch ${choose(slots).slot}` : "pass";
 }
 
+export function leaderboardStanding(entries) {
+  const current = entries.find((entry) => entry.isCurrentPlayer);
+  if (!current?.won) return null;
+  const total = entries.length;
+  const tied = entries.filter((entry) => entry.rank === current.rank).length > 1;
+  const playersBehind = entries.filter((entry) => entry.rank > current.rank).length;
+  return {
+    rank: current.rank,
+    total,
+    tied,
+    firstFinisher: total === 1,
+    betterThanPercent: total ? Math.round(playersBehind / total * 100) : 0,
+  };
+}
+
 function savedTeamOrder(order, length) {
   const fallback = Array.from({ length }, (_, index) => index + 1);
   if (!Array.isArray(order) || order.length !== length) return fallback;
@@ -775,7 +790,7 @@ export class BattleService {
       .map((entry, index) => ({ rank: index + 1, ...entry }));
   }
 
-  combinedLeaderboard(challengeDate, identityById) {
+  combinedLeaderboard(challengeDate, identityById, currentPlayerId = null) {
     const previousDate = (date) => {
       const value = new Date(`${date}T00:00:00Z`);
       value.setUTCDate(value.getUTCDate() - 1);
@@ -825,6 +840,7 @@ export class BattleService {
         username: identity.username,
         avatarSpriteId: identity.avatarSpriteId || null,
         isGuest: Boolean(identity.isGuest),
+        isCurrentPlayer: playerId === currentPlayerId,
         won,
         completedAt: today.record.completedAt || today.record.createdAt,
         fainted,
