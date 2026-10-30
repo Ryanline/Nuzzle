@@ -55,6 +55,17 @@ function publicAssetUrl(publicUrl, relative) {
   return `${String(publicUrl || "").replace(/\/+$/, "")}/${relative.split("/").map(encodeURIComponent).join("/")}`;
 }
 
+function localMinutes(now, timeZone) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(now);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return Number(values.hour) * 60 + Number(values.minute);
+}
+
 export function discordRecapPayload(recap, { publicUrl = "https://nuzzle-game.duckdns.org" } = {}) {
   const title = recap.challengeNumber ? `Nuzzle #${recap.challengeNumber} Daily Report` : "Daily Nuzzle Report";
   const trainerSprite = recap.trainerSpriteId
@@ -110,6 +121,8 @@ export class DiscordRecapScheduler {
     fetchImpl = globalThis.fetch,
     publicUrl = "https://nuzzle-game.duckdns.org",
     intervalMs = 60_000,
+    postHour = 7,
+    postMinute = 30,
     logger = console,
     userById = () => null,
   }) {
@@ -121,6 +134,8 @@ export class DiscordRecapScheduler {
     this.fetchImpl = fetchImpl;
     this.publicUrl = publicUrl;
     this.intervalMs = intervalMs;
+    this.postHour = postHour;
+    this.postMinute = postMinute;
     this.logger = logger;
     this.userById = userById;
     this.data = { version: 1, posted: {} };
@@ -147,6 +162,7 @@ export class DiscordRecapScheduler {
 
   async postPreviousDay() {
     if (!this.webhookUrl) return false;
+    if (localMinutes(this.now(), this.timeZone) < this.postHour * 60 + this.postMinute) return false;
     if (this.running) return this.running;
     this.running = (async () => {
       const date = previousGameDate(gameDate(this.now(), this.timeZone));
@@ -186,6 +202,8 @@ export class DiscordRecapScheduler {
     return {
       enabled: Boolean(this.webhookUrl),
       lastPostedDate: Object.keys(this.data.posted).sort().at(-1) || null,
+      schedule: `${String(this.postHour).padStart(2, "0")}:${String(this.postMinute).padStart(2, "0")}`,
+      timeZone: this.timeZone,
     };
   }
 

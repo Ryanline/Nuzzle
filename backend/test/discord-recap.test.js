@@ -96,7 +96,12 @@ test("the Discord recap scheduler posts the previous day only once across restar
   const scheduler = new DiscordRecapScheduler(options);
   await scheduler.initialize();
   assert.equal(await scheduler.postPreviousDay(), true);
-  assert.deepEqual(scheduler.status(), { enabled: true, lastPostedDate: "2026-10-30" });
+  assert.deepEqual(scheduler.status(), {
+    enabled: true,
+    lastPostedDate: "2026-10-30",
+    schedule: "07:30",
+    timeZone: "America/New_York",
+  });
   assert.equal(await scheduler.postPreviousDay(), false);
   assert.equal(requests.length, 1);
   assert.equal(requests[0].url, options.webhookUrl);
@@ -106,6 +111,29 @@ test("the Discord recap scheduler posts the previous day only once across restar
   const restored = new DiscordRecapScheduler(options);
   await restored.initialize();
   assert.equal(await restored.postPreviousDay(), false);
+  assert.equal(requests.length, 1);
+});
+
+test("the Discord recap scheduler waits until 7:30 AM Eastern", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "nuzzle-discord-schedule-"));
+  const requests = [];
+  let now = new Date("2026-10-31T11:29:59.000Z");
+  const scheduler = new DiscordRecapScheduler({
+    service: recapService(),
+    filename: path.join(directory, "discord-recaps.json"),
+    webhookUrl: "https://discord.example/webhook",
+    now: () => now,
+    fetchImpl: async (url, request) => {
+      requests.push({ url, request });
+      return { ok: true, status: 204 };
+    },
+  });
+  await scheduler.initialize();
+  assert.equal(await scheduler.postPreviousDay(), false);
+  assert.equal(requests.length, 0);
+
+  now = new Date("2026-10-31T11:30:00.000Z");
+  assert.equal(await scheduler.postPreviousDay(), true);
   assert.equal(requests.length, 1);
 });
 
