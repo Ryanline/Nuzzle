@@ -26,6 +26,10 @@ export function nextGameDate(date) {
   return shiftDate(date, 1);
 }
 
+export function previousGameDate(date) {
+  return shiftDate(date, -1);
+}
+
 export function datesAfter(fromDate, throughDate) {
   const dates = [];
   for (let date = nextGameDate(fromDate); date <= throughDate; date = nextGameDate(date)) dates.push(date);

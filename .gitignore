@@ -1,4 +1,5 @@
 .DS_Store
+.discord-webhook-url
 Thumbs.db
 node_modules/
 qa-output/

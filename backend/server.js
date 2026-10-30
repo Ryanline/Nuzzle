@@ -1,11 +1,12 @@
 import { createServer } from "node:http";
 import { createReadStream } from "node:fs";
-import { mkdir, rename, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rename, stat, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { BattleService, leaderboardStanding } from "./battle-service.js";
 import { BattleStore } from "./battle-store.js";
+import { DiscordRecapScheduler } from "./discord-recap.js";
 import { AuthStore, SESSION_LIFETIME_MS } from "./auth-store.js";
 import { GameStore, publicContent } from "./game-store.js";
 import { trainerSprites, TrainerStore } from "./trainer-store.js";
@@ -21,6 +22,10 @@ const showdownAssetsDirectory = path.join(frontendDirectory, "assets", "showdown
 const showdownCacheDirectory = path.join(dataDirectory, "showdown-sprites");
 const port = Number(process.env.PORT || 3000);
 const host = process.env.HOST || "127.0.0.1";
+const discordWebhookUrl = String(process.env.NUZZLE_DISCORD_WEBHOOK_URL || await readFile(path.join(projectDirectory, ".discord-webhook-url"), "utf8").catch((error) => {
+  if (error.code !== "ENOENT") console.error("Could not read the Discord webhook configuration:", error);
+  return "";
+})).trim();
 
 const auth = new AuthStore(path.join(dataDirectory, "auth.json"));
 const game = new GameStore(path.join(dataDirectory, "game.json"));
@@ -39,10 +44,18 @@ const service = new BattleService(new BattleStore(path.join(dataDirectory, "batt
     });
   },
 });
+const discordRecaps = new DiscordRecapScheduler({
+  service,
+  filename: path.join(dataDirectory, "discord-recaps.json"),
+  webhookUrl: discordWebhookUrl,
+  timeZone: process.env.NUZZLE_TIME_ZONE || "America/New_York",
+  publicUrl: process.env.NUZZLE_PUBLIC_URL || "https://nuzzle-game.duckdns.org",
+});
 await auth.initialize();
 await game.initialize();
 await trainers.initialize();
 await service.initialize();
+await discordRecaps.initialize();
 
 const loginAttempts = new Map();
 const sessionCookie = "nuzzle_session";
@@ -510,6 +523,7 @@ const server = createServer(async (request, response) => {
 
 server.listen(port, host, () => {
   console.log(`Nuzzle is running at http://${host}:${port}`);
+  discordRecaps.start();
   if (process.env.NODE_ENV === "production" && process.env.NUZZLE_DISABLE_SPRITE_WARMUP !== "1") {
     void warmShowdownCache().catch((error) => console.error("Showdown sprite warmup failed:", error));
   }

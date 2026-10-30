@@ -836,6 +836,7 @@ if (!(await page.locator(".pc-item-feedback").textContent())?.includes("now hold
 const unequipResponse = page.waitForResponse((response) => response.url().includes(`/api/game/pokemon/${outgoingId}/unequip`) && response.request().method() === "POST");
 await page.click("[data-pc-unequip]");
 if (!(await unequipResponse).ok()) throw new Error("Removing a held item failed.");
+await page.waitForSelector(".pc-held-item", { state: "detached" });
 if (!await page.locator(".pc-item-chooser").count()) throw new Error("Taking a held item closed the item view.");
 if (await page.locator(".pc-held-item").count()) throw new Error("The taken held item remained on the Pokémon.");
 if (await page.locator('[data-pc-item="leftovers"]').count() !== 1) throw new Error("The taken held item did not return to the available item list.");

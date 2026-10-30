@@ -51,6 +51,16 @@ jobs:
             --exclude='backend/data/' \
             -e 'ssh -i ~/.ssh/nuzzle_deploy -o IdentitiesOnly=yes' \
             ./ nuzzle-ci@45.55.85.139:"$RELEASE/"
+      - name: Configure Discord webhook
+        env:
+          RELEASE: /opt/nuzzle/releases/${{ github.sha }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.NUZZLE_DISCORD_WEBHOOK_URL }}
+        run: |
+          if [ -n "$DISCORD_WEBHOOK_URL" ]; then
+            printf '%s\n' "$DISCORD_WEBHOOK_URL" \
+              | ssh -i ~/.ssh/nuzzle_deploy -o IdentitiesOnly=yes nuzzle-ci@45.55.85.139 \
+                  "umask 077; cat > '$RELEASE/.discord-webhook-url'; if chgrp nuzzle '$RELEASE/.discord-webhook-url' 2>/dev/null; then chmod 640 '$RELEASE/.discord-webhook-url'; else chmod 644 '$RELEASE/.discord-webhook-url'; fi"
+          fi
       - name: Activate release
         env:
           RELEASE: /opt/nuzzle/releases/${{ github.sha }}
