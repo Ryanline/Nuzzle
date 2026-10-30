@@ -109,6 +109,7 @@
   let pcItemMode = false;
   let activePcItemGroup = "Held Items";
   let pendingPcItemId = null;
+  let pendingPcItemTransfer = null;
   let selectedNature = null;
   let pcItemMessage = "";
   let trainingDraft = null;
@@ -764,12 +765,14 @@
       const id = party[index];
       if (!id) return `<div class="party-slot empty" aria-label="Empty team slot"><span>empty</span></div>`;
       const mon = mons[id];
-      return `<div class="party-card"><button class="party-slot" type="button" data-pc-detail="${id}" aria-label="View ${mon.name}"><img class="sprite" src="${sprite(id)}" alt=""/><span>${mon.name}</span></button><button class="pc-quick-action remove" type="button" data-quick-team-remove="${id}" aria-label="Remove ${mon.name} from team">×</button></div>`;
+      const heldItem = mon.heldItemId ? shopItems.find((item) => item.id === mon.heldItemId) : null;
+      return `<div class="party-card"><button class="party-slot" type="button" data-pc-detail="${id}" aria-label="View ${mon.name}${heldItem ? `, holding ${escapeHtml(heldItem.name)}` : ""}"><img class="sprite" src="${sprite(id)}" alt=""/><span>${mon.name}</span></button>${pcHeldItemBadge(heldItem)}<button class="pc-quick-action remove" type="button" data-quick-team-remove="${id}" aria-label="Remove ${mon.name} from team">×</button></div>`;
     }).join("");
     const boxIds = pcOrder.filter((id) => !team.has(id));
     const boxMons = boxIds.map((id) => {
       const mon = mons[id];
-      return `<div class="pc-mon-card"><button class="pc-mon" type="button" draggable="false" data-pc-mon="${id}" aria-label="View ${mon.name}"><img class="sprite" src="${sprite(id)}" alt=""/><span class="pc-mon-name">${mon.name}</span></button><button class="pc-quick-action add" type="button" data-quick-team-add="${id}" aria-label="Add ${mon.name} to team">+</button></div>`;
+      const heldItem = mon.heldItemId ? shopItems.find((item) => item.id === mon.heldItemId) : null;
+      return `<div class="pc-mon-card"><button class="pc-mon" type="button" draggable="false" data-pc-mon="${id}" aria-label="View ${mon.name}${heldItem ? `, holding ${escapeHtml(heldItem.name)}` : ""}"><img class="sprite" src="${sprite(id)}" alt=""/><span class="pc-mon-name">${mon.name}</span></button>${pcHeldItemBadge(heldItem)}<button class="pc-quick-action add" type="button" data-quick-team-add="${id}" aria-label="Add ${mon.name} to team">+</button></div>`;
     }).join("");
     return `<section class="screen">${header()}<div class="pc-stage">
       <section class="pc-section trainer-reference-section" aria-labelledby="trainer-team-heading"><div class="pc-section-head"><h2 id="trainer-team-heading">${escapeHtml(trainer.name)}</h2><span>${trainer.pokemon.length} Pokémon</span></div><div class="party-strip">${trainerSlots}</div></section>
@@ -991,15 +994,41 @@
     { name: "Bashful" }, { name: "Docile" }, { name: "Hardy" }, { name: "Quirky" }, { name: "Serious" },
   ];
 
+  function heldItemSprite(item) {
+    return `<i class="held-item-sprite" style="background-position:-${(item.spriteNumber % 16) * 24}px -${Math.floor(item.spriteNumber / 16) * 24}px"></i>`;
+  }
+
+  function pcHeldItemBadge(item) {
+    if (!item || !Number.isInteger(item.spriteNumber)) return "";
+    return `<span class="pc-held-item-badge" data-held-item="${item.id}" title="Holding ${escapeHtml(item.name)}" aria-hidden="true">${heldItemSprite(item)}</span>`;
+  }
+
   function itemIcon(item) {
     const iconClass = item.group === "Held Items" ? "held" : item.group === "TMs" ? "tm" : "training";
     const sprite = item.group === "Held Items" && Number.isInteger(item.spriteNumber)
-      ? `<i class="held-item-sprite" style="background-position:-${(item.spriteNumber % 16) * 24}px -${Math.floor(item.spriteNumber / 16) * 24}px"></i>`
+      ? heldItemSprite(item)
       : escapeHtml(item.icon);
     return `<span class="item-icon ${iconClass}" aria-hidden="true">${sprite}</span>`;
   }
 
+  function itemHolders(itemId, excludingPokemonId = null) {
+    return Object.values(mons).filter((pokemon) => pokemon.id !== excludingPokemonId && pokemon.heldItemId === itemId);
+  }
+
   function pcItemPanel(mon) {
+    if (pendingPcItemTransfer) {
+      const item = shopItems.find((candidate) => candidate.id === pendingPcItemTransfer.itemId);
+      const holders = item ? itemHolders(item.id, mon.id) : [];
+      const currentItem = mon.heldItemId ? shopItems.find((candidate) => candidate.id === mon.heldItemId) : null;
+      if (!item || !holders.length) pendingPcItemTransfer = null;
+      else {
+        const replacement = currentItem ? `<p class="pc-transfer-note">${escapeHtml(mon.name)}'s ${escapeHtml(currentItem.name)} will return to the Bag.</p>` : "";
+        const controls = holders.length === 1
+          ? `<p><strong>${escapeHtml(holders[0].name)}</strong> is holding ${escapeHtml(item.name)}. Move it to <strong>${escapeHtml(mon.name)}</strong>?</p>${replacement}<div class="pc-transfer-actions"><button class="gloss-button blue" type="button" data-confirm-pc-transfer="${holders[0].id}">Move item</button><button class="plain-button" type="button" data-cancel-pc-transfer>Keep item</button></div>`
+          : `<p>Every copy of ${escapeHtml(item.name)} is being held. Choose which Pokémon should give theirs to <strong>${escapeHtml(mon.name)}</strong>.</p>${replacement}<div class="pc-transfer-holders">${holders.map((holder) => `<button class="plain-button" type="button" data-confirm-pc-transfer="${holder.id}">Move from ${escapeHtml(holder.name)}</button>`).join("")}</div><button class="plain-button pc-transfer-cancel" type="button" data-cancel-pc-transfer>Back to items</button>`;
+        return `<section class="pc-item-chooser pc-transfer-confirm" aria-labelledby="pc-item-heading"><h3 id="pc-item-heading">Move ${escapeHtml(item.name)}?</h3>${controls}</section>`;
+      }
+    }
     if (pendingPcItemId) {
       const item = shopItems.find((candidate) => candidate.id === pendingPcItemId);
       let controls = "";
@@ -1028,7 +1057,10 @@
     const rows = ownedItems.length ? ownedItems.map((item) => {
       const action = item.group === "Held Items" ? "Give" : "Use";
       const incompatible = item.group === "TMs" && !mon.learnableMoveIds?.includes(item.moveId);
-      return `<div class="pc-item-row${incompatible ? " incompatible" : ""}">${itemIcon(item)}<span class="item-copy"><strong>${escapeHtml(item.name)}</strong><small>${incompatible ? `Cannot be learned by ${escapeHtml(mon.name)}` : escapeHtml(item.detail)}</small></span><span class="item-quantity">×${inventory[item.id]}</span><button class="item-action" type="button" data-pc-item="${item.id}" ${incompatible ? "disabled" : ""}>${action}</button></div>`;
+      const holders = item.group === "Held Items" ? itemHolders(item.id, mon.id) : [];
+      const available = (inventory[item.id] || 0) - holders.length;
+      const detail = incompatible ? `Cannot be learned by ${escapeHtml(mon.name)}` : item.group === "Held Items" && available < 1 && holders.length ? `Held by ${holders.map((holder) => escapeHtml(holder.name)).join(", ")}` : escapeHtml(item.detail);
+      return `<div class="pc-item-row${incompatible ? " incompatible" : ""}">${itemIcon(item)}<span class="item-copy"><strong>${escapeHtml(item.name)}</strong><small>${detail}</small></span><span class="item-quantity">×${inventory[item.id]}</span><button class="item-action" type="button" data-pc-item="${item.id}" ${incompatible ? "disabled" : ""}>${action}</button></div>`;
     }).join("") : `<div class="pc-item-empty"><strong>No items</strong><span>This category is empty.</span></div>`;
     return `<section class="pc-item-chooser" aria-labelledby="pc-item-heading"><h3 id="pc-item-heading">Use item on ${mon.name}</h3>${pcItemMessage ? `<p class="pc-item-feedback" role="status">${escapeHtml(pcItemMessage)}</p>` : ""}${heldItemControl}<div class="shop-segments pc-item-segments" data-active-index="${activeGroupIndex}" role="tablist" aria-label="Item categories">${pcItemGroupOrder.map((group) => { const selected = group === activePcItemGroup; return `<button id="pc-item-tab-${group.toLowerCase().replaceAll(" ", "-")}" type="button" role="tab" aria-selected="${selected}" data-pc-item-group="${group}" class="${selected ? "selected" : ""}">${itemGroupLabel(group)}</button>`; }).join("")}</div><div class="pc-item-list" role="tabpanel" aria-labelledby="${activeTabId}">${rows}</div></section>`;
   }
@@ -1481,13 +1513,17 @@
     }
   }
 
-  async function equipItem(item) {
+  async function equipItem(item, sourcePokemonId = null) {
     if (gameBusy) return;
     gameBusy = true;
+    const targetName = mons[selectedPcId].name;
+    const sourceName = sourcePokemonId ? mons[sourcePokemonId]?.name : null;
     try {
-      applyGameState(await apiRequest(`/api/game/pokemon/${selectedPcId}/equip`, { method: "POST", body: JSON.stringify({ itemId: item.id }) }));
-      pcItemMessage = `${mons[selectedPcId].name} is now holding ${item.name}.`;
+      applyGameState(await apiRequest(`/api/game/pokemon/${selectedPcId}/equip`, { method: "POST", body: JSON.stringify({ itemId: item.id, sourcePokemonId }) }));
+      pendingPcItemTransfer = null;
+      pcItemMessage = sourceName ? `Moved ${item.name} from ${sourceName} to ${targetName}.` : `${targetName} is now holding ${item.name}.`;
     } catch (error) {
+      pendingPcItemTransfer = null;
       pcItemMessage = error.message;
     } finally {
       gameBusy = false;
@@ -1984,7 +2020,7 @@
       selectedTrainerPokemon = null;
       render();
     }));
-    document.querySelectorAll("[data-pc-detail]").forEach((button) => button.addEventListener("click", () => { selectedPcId = button.dataset.pcDetail; pcDetailView = "summary"; pcSummaryMoveId = null; pcSwapMode = false; pcItemMode = false; pendingPcItemId = null; selectedNature = null; pcItemMessage = ""; trainingDraft = null; trainingMoveSlot = null; trainingMessage = ""; render(); }));
+    document.querySelectorAll("[data-pc-detail]").forEach((button) => button.addEventListener("click", () => { selectedPcId = button.dataset.pcDetail; pcDetailView = "summary"; pcSummaryMoveId = null; pcSwapMode = false; pcItemMode = false; pendingPcItemId = null; pendingPcItemTransfer = null; selectedNature = null; pcItemMessage = ""; trainingDraft = null; trainingMoveSlot = null; trainingMessage = ""; render(); }));
     document.querySelectorAll("[data-pc-detail-view]").forEach((button) => button.addEventListener("click", () => {
       pcDetailView = button.dataset.pcDetailView;
       if (pcDetailView === "training" && !trainingDraft) beginTraining(mons[selectedPcId]);
@@ -1998,6 +2034,7 @@
       pcSwapMode = false;
       pcItemMode = false;
       pendingPcItemId = null;
+      pendingPcItemTransfer = null;
       selectedNature = null;
       trainingDraft = null;
       trainingMoveSlot = null;
@@ -2013,6 +2050,7 @@
       pcSwapMode = false;
       pcItemMode = true;
       pendingPcItemId = null;
+      pendingPcItemTransfer = null;
       selectedNature = null;
       pcItemMessage = "";
       render();
@@ -2031,8 +2069,20 @@
         render();
         return;
       }
+      const holders = itemHolders(item.id, selectedPcId);
+      if ((inventory[item.id] || 0) - holders.length < 1 && holders.length) {
+        pendingPcItemTransfer = { itemId: item.id };
+        pcItemMessage = "";
+        render();
+        return;
+      }
       void equipItem(item);
     }));
+    document.querySelectorAll("[data-confirm-pc-transfer]").forEach((button) => button.addEventListener("click", () => {
+      const item = shopItems.find((candidate) => candidate.id === pendingPcItemTransfer?.itemId);
+      if (item) void equipItem(item, button.dataset.confirmPcTransfer);
+    }));
+    document.querySelector("[data-cancel-pc-transfer]")?.addEventListener("click", () => { pendingPcItemTransfer = null; render(); });
     document.querySelector("[data-pc-unequip]")?.addEventListener("click", () => void unequipItem());
     document.querySelector("[data-train-form]")?.addEventListener("submit", (event) => {
       event.preventDefault();
@@ -2134,6 +2184,7 @@
       pcSwapMode = true;
       pcItemMode = false;
       pendingPcItemId = null;
+      pendingPcItemTransfer = null;
       selectedNature = null;
       pcItemMessage = "";
       trainingDraft = null;
@@ -2147,6 +2198,7 @@
         pcSwapMode = false;
         pcItemMode = false;
         pendingPcItemId = null;
+        pendingPcItemTransfer = null;
         selectedNature = null;
         render();
         void persistTeam(nextTeam);
@@ -2172,6 +2224,7 @@
     document.querySelector("[data-cancel-pc-items]")?.addEventListener("click", () => {
       pcItemMode = false;
       pendingPcItemId = null;
+      pendingPcItemTransfer = null;
       selectedNature = null;
       render();
     });
@@ -2200,7 +2253,7 @@
       } else if (event.key === "Escape" && selectedPcId) {
         if (pcSummaryMoveId) pcSummaryMoveId = null;
         else if (pcSwapMode) pcSwapMode = false;
-        else if (pcItemMode) { pcItemMode = false; pendingPcItemId = null; selectedNature = null; }
+        else if (pcItemMode) { pcItemMode = false; pendingPcItemId = null; pendingPcItemTransfer = null; selectedNature = null; }
         else selectedPcId = null;
         render();
       }
@@ -2252,6 +2305,7 @@
         pcSwapMode = false;
         pcItemMode = false;
         pendingPcItemId = null;
+        pendingPcItemTransfer = null;
         selectedNature = null;
         pcItemMessage = "";
         trainingDraft = null;

@@ -389,6 +389,8 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .pc-section-head span { color: var(--muted); font-size: 12px; }
 .party-strip { display: grid; width: 100%; min-width: 0; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; padding: 8px; }
 .party-card, .pc-mon-card { position: relative; min-width: 0; }
+.pc-held-item-badge { position: absolute; z-index: 2; top: -3px; left: -3px; display: grid; width: 24px; height: 24px; place-items: center; overflow: hidden; border: 1px solid var(--page); border-radius: 6px; background: #f1f4f6; pointer-events: none; }
+.pc-held-item-badge .held-item-sprite { transform: scale(.9); }
 .party-slot { display: flex; min-width: 0; height: 78px; flex-direction: column; align-items: center; justify-content: center; padding: 2px; overflow: hidden; border: 1px solid #aaa; border-radius: 6px; background: #fff; cursor: pointer; }
 .party-card .party-slot { width: 100%; }
 .party-slot:hover { border-color: #777; background: #f7fbff; }
@@ -612,6 +614,11 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .pc-held-item small { color: var(--muted); font-size: 11px; }
 .pc-held-item strong { font-size: 14px; font-weight: 600; }
 .pc-held-item .take { border-color: #9a5555; color: #8a3333; }
+.pc-transfer-confirm > p { margin: 10px 0; font-size: 14px; line-height: 1.45; }
+.pc-transfer-note { color: var(--muted); }
+.pc-transfer-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
+.pc-transfer-holders { display: grid; gap: 7px; margin-top: 12px; }
+.pc-transfer-cancel { width: 100%; margin-top: 8px; }
 .pc-item-segments { flex: 0 0 auto; }
 .pc-item-list { min-height: 0; flex: 1; overflow-y: auto; overscroll-behavior: contain; }
 .pc-item-row { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto auto; min-height: 54px; align-items: center; gap: 6px; border-bottom: 1px solid #d4d8dd; font-size: 13px; }
@@ -996,6 +1003,7 @@ html[data-theme="dark"] .battle-log-entry.opponent { background: #3b292c; }
 html[data-theme="dark"] .battle-log-card header button,
 html[data-theme="dark"] .item-action { border-color: #6c7a85; background: #292f35; color: #b9daf4; }
 html[data-theme="dark"] .item-icon.held { border-color: #56616a; background: #282e33; color: #c7d0d7; }
+html[data-theme="dark"] .pc-held-item-badge { border-color: var(--page); background: #282e33; }
 html[data-theme="dark"] .item-quantity { border-color: #66717a; background: #292f35; color: #eef3f6; }
 html[data-theme="dark"] .pokemon-facts p,
 html[data-theme="dark"] .shop-item,

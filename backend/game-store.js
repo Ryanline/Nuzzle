@@ -444,14 +444,20 @@ export class GameStore {
     });
   }
 
-  async equip(userId, pokemonId, itemId) {
+  async equip(userId, pokemonId, itemId, sourcePokemonId = null) {
     return this.mutate(userId, (run) => {
       const pokemon = run.roster.find((candidate) => candidate.id === pokemonId);
       const item = itemById.get(itemId);
       if (!pokemon) gameError("Pokémon not found.", 404);
       if (!item || item.group !== "Held Items") gameError("That is not a held item.");
       if (pokemon.heldItemId === itemId) gameError(`${pokemon.name} is already holding ${item.name}.`, 409);
-      if (availableItemCount(run, itemId, pokemon.id) < 1) gameError(`No unequipped ${item.name} is available.`, 409);
+      if (sourcePokemonId) {
+        const source = run.roster.find((candidate) => candidate.id === sourcePokemonId);
+        if (!source || source.id === pokemon.id || source.heldItemId !== itemId) gameError(`The selected Pokémon is no longer holding ${item.name}.`, 409);
+        source.heldItemId = null;
+      } else if (availableItemCount(run, itemId, pokemon.id) < 1) {
+        gameError(`No unequipped ${item.name} is available.`, 409);
+      }
       pokemon.heldItemId = itemId;
       return this.publicState(run);
     });

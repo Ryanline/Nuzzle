@@ -77,9 +77,9 @@ The game is intentionally Nuzlocke-like and can be harsh. It should create inter
 - Shows today's trainer team first as a preparation reference, then the player's Team, then boxed Pokémon.
 - A Pokémon appears in Team or Box, never both. Team size is at most six.
 - Supports adding/removing team members and drag reordering.
-- The detail drawer has Summary and Training sections. Summary shows identity, types, ability, nature, held item, calculated battle stats, and moves. Its Remove, Held item, and Close actions reuse the home screen's Battle, Mart, and Settings colors in both themes.
+- The detail drawer has Summary and Training sections. Summary shows identity, types, ability, nature, held item, calculated battle stats, and moves. Its Remove, Held item, and Close actions reuse the home screen's Battle, Mart, and Settings colors in both themes. Player team and box cards show a held-item sprite badge in their upper-left corner.
 - Training provides a compact, non-scrolling, Showdown-inspired mobile editor in a drawer that shares its height, Pokémon header sizing, and normalized bottom actions with Summary. Each horizontal stat row shows the stat name, base value, synchronized numeric EV and slider controls, numeric IV with a compact Max IV shortcut, and final calculated value. Nature choices are grouped by the stat they raise, followed by neutral natures; ability, eligible forms, and a searchable legal-move catalog follow below. Changes and resulting stats are previewed before purchase, then applied together in one server-authoritative transaction.
-- Held items can be given or taken without closing the item view; the holder and Bag update immediately.
+- Held items can be given or taken without closing the item view; the holder and Bag update immediately. Giving an item that has no free copy prompts for confirmation and then transfers it atomically from its current holder.
 - Training shows the pending-change count, total cost, and resulting balance. Lowering EVs or IVs is free; only values raised above their persisted baseline are charged. Resetting or restoring a value before applying costs nothing.
 - There is currently no box capacity, release action, filtering, or selling.
 

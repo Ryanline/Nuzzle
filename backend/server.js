@@ -419,7 +419,7 @@ async function api(request, response, pathname) {
     const user = requirePlayer(request);
     const body = await requestBody(request);
     const result = pokemonItemMatch[2] === "equip"
-      ? await game.equip(user.id, pokemonItemMatch[1], body.itemId)
+      ? await game.equip(user.id, pokemonItemMatch[1], body.itemId, body.sourcePokemonId)
       : pokemonItemMatch[2] === "unequip"
         ? await game.unequip(user.id, pokemonItemMatch[1])
         : await game.useTrainingItem(user.id, pokemonItemMatch[1], body.itemId, body.options);
