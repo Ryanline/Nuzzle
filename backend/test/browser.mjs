@@ -493,12 +493,12 @@ for (const pokemon of boxedGame.roster.slice(0, 6)) {
 }
 const generatedGame = await page.evaluate(() => fetch("/api/game").then((response) => response.json()));
 if (generatedGame.roster.length !== 12 || generatedGame.teamIds.length !== 6 || !generatedGame.battleUnlocked) throw new Error("Building a team explicitly from the PC failed.");
-const outgoingId = generatedGame.teamIds[0];
+const outgoingId = generatedGame.teamIds.find((id) => !generatedGame.roster.find((pokemon) => pokemon.id === id).heldItemId);
 const outgoingPokemon = generatedGame.roster.find((pokemon) => pokemon.id === outgoingId);
 const content = await page.evaluate(() => fetch("/api/content").then((response) => response.json()));
 const teachableTm = content.items.find((item) => item.group === "TMs" && outgoingPokemon.learnableMoveIds.includes(item.moveId) && !outgoingPokemon.moves.some((move) => move.toLowerCase().replace(/[^a-z0-9]+/g, "") === item.moveId));
 if (!teachableTm) throw new Error("No compatible TM was available for the PC teaching flow.");
-const replacementId = generatedGame.roster.find((pokemon) => !generatedGame.teamIds.includes(pokemon.id) && pokemon.ability !== "Illusion").id;
+const replacementId = generatedGame.roster.find((pokemon) => !generatedGame.teamIds.includes(pokemon.id) && pokemon.ability !== "Illusion" && !pokemon.heldItemId).id;
 const replacementName = generatedGame.roster.find((pokemon) => pokemon.id === replacementId).name;
 await page.click(".page-back");
 await page.click('[data-route="encounters"]');
@@ -824,6 +824,8 @@ if (summaryHeader.actionButtonHeight !== trainingLayout.footerButtonHeights[0]) 
 await page.setViewportSize({ width: 390, height: 844 });
 await page.click("[data-open-pc-items]");
 await page.click('[data-pc-item-group="Held Items"]');
+const heldItemQuantity = await page.evaluate(() => fetch("/api/game").then((response) => response.json()).then((game) => game.inventory.leftovers));
+if (!Number.isInteger(heldItemQuantity) || heldItemQuantity < 1) throw new Error("The purchased held item was missing from inventory.");
 const equipResponse = page.waitForResponse((response) => response.url().includes(`/api/game/pokemon/${outgoingId}/equip`) && response.request().method() === "POST");
 await page.click('[data-pc-item="leftovers"]');
 if (!(await equipResponse).ok()) throw new Error("Giving a held item failed.");
@@ -838,13 +840,13 @@ if (!await page.locator(".pc-item-chooser").count()) throw new Error("Taking a h
 if (await page.locator(".pc-held-item").count()) throw new Error("The taken held item remained on the Pokémon.");
 if (await page.locator('[data-pc-item="leftovers"]').count() !== 1) throw new Error("The taken held item did not return to the available item list.");
 if (!(await page.locator(".pc-item-feedback").textContent())?.includes("returned to the Bag")) throw new Error("Taking a held item did not show confirmation feedback.");
-await page.waitForFunction(async (pokemonId) => {
+await page.waitForFunction(async ({ pokemonId, quantity }) => {
   const game = await fetch("/api/game").then((response) => response.json());
-  return !game.roster.find((pokemon) => pokemon.id === pokemonId)?.heldItemId && game.inventory.leftovers === 1;
-}, outgoingId);
+  return !game.roster.find((pokemon) => pokemon.id === pokemonId)?.heldItemId && game.inventory.leftovers === quantity;
+}, { pokemonId: outgoingId, quantity: heldItemQuantity });
 const unequippedGame = await page.evaluate(() => fetch("/api/game").then((response) => response.json()));
 if (unequippedGame.roster.find((pokemon) => pokemon.id === outgoingId).heldItemId) throw new Error("The Pokémon kept its removed held item.");
-if (unequippedGame.inventory.leftovers !== 1) throw new Error("Removing a held item changed its owned quantity.");
+if (unequippedGame.inventory.leftovers !== heldItemQuantity) throw new Error("Removing a held item changed its owned quantity.");
 
 const reEquipResponse = page.waitForResponse((response) => response.url().includes(`/api/game/pokemon/${outgoingId}/equip`) && response.request().method() === "POST");
 await page.click('[data-pc-item="leftovers"]');
@@ -859,7 +861,7 @@ const heldItemAppearance = await page.locator(`[data-pc-detail="${outgoingId}"]`
   const style = getComputedStyle(badge);
   return { left: badgeBounds.left - cardBounds.left, top: badgeBounds.top - cardBounds.top, right: cardBounds.right - badgeBounds.right, nameGap: nameBounds.top - badgeBounds.bottom, background: style.backgroundColor, border: style.borderTopWidth, width: badgeBounds.width, height: badgeBounds.height };
 });
-if (heldItemAppearance.left < 0 || heldItemAppearance.top < 0 || heldItemAppearance.right < 0 || heldItemAppearance.nameGap < 0 || heldItemAppearance.background !== "rgba(0, 0, 0, 0)" || heldItemAppearance.border !== "0px" || heldItemAppearance.width !== 24 || heldItemAppearance.height !== 24) throw new Error(`The held-item sprite was not transparent, full-size, inset, and clear of the PokÃ©mon name: ${JSON.stringify(heldItemAppearance)}`);
+if (heldItemAppearance.left < 0 || heldItemAppearance.top < 0 || heldItemAppearance.right < 0 || heldItemAppearance.nameGap < 0 || heldItemAppearance.background !== "rgba(0, 0, 0, 0)" || heldItemAppearance.border !== "0px" || heldItemAppearance.width !== 24 || heldItemAppearance.height !== 24) throw new Error(`The held-item sprite was not transparent, full-size, inset, and clear of the Pokémon name: ${JSON.stringify(heldItemAppearance)}`);
 await page.click("[data-cancel-pc-items]");
 await page.click(".sheet-close");
 await page.click(`[data-pc-mon="${replacementId}"]`);
@@ -878,7 +880,7 @@ if (!(await page.locator(".pc-item-feedback").textContent())?.includes(`Moved Le
 if (await page.locator(`[data-pc-detail="${outgoingId}"]`).locator("xpath=..").locator('[data-held-item="leftovers"]').count()) throw new Error("The held-item badge remained on the old holder.");
 if (await page.locator(`[data-pc-mon="${replacementId}"]`).locator("xpath=..").locator('[data-held-item="leftovers"]').count() !== 1) throw new Error("The held-item badge did not move to the new holder.");
 const transferGame = await page.evaluate(() => fetch("/api/game").then((response) => response.json()));
-if (transferGame.roster.find((pokemon) => pokemon.id === outgoingId).heldItemId || transferGame.roster.find((pokemon) => pokemon.id === replacementId).heldItemId !== "leftovers" || transferGame.inventory.leftovers !== 1) throw new Error("The held-item transfer did not remain atomic.");
+if (transferGame.roster.find((pokemon) => pokemon.id === outgoingId).heldItemId || transferGame.roster.find((pokemon) => pokemon.id === replacementId).heldItemId !== "leftovers" || transferGame.inventory.leftovers !== heldItemQuantity) throw new Error("The held-item transfer did not remain atomic.");
 const cleanupUnequipResponse = page.waitForResponse((response) => response.url().includes(`/api/game/pokemon/${replacementId}/unequip`) && response.request().method() === "POST");
 await page.click("[data-pc-unequip]");
 if (!(await cleanupUnequipResponse).ok()) throw new Error("Cleaning up the transferred held item failed.");
