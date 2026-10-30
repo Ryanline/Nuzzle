@@ -87,6 +87,7 @@ test("the Discord recap scheduler posts the previous day only once across restar
   const scheduler = new DiscordRecapScheduler(options);
   await scheduler.initialize();
   assert.equal(await scheduler.postPreviousDay(), true);
+  assert.deepEqual(scheduler.status(), { enabled: true, lastPostedDate: "2026-10-30" });
   assert.equal(await scheduler.postPreviousDay(), false);
   assert.equal(requests.length, 1);
   assert.equal(requests[0].url, options.webhookUrl);

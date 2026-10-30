@@ -251,7 +251,7 @@ async function warmShowdownCache() {
 
 async function api(request, response, pathname) {
   if (request.method === "GET" && pathname === "/api/health") {
-    json(response, 200, { ok: true, engine: "pokemon-showdown", format: "gen9customgame" });
+    json(response, 200, { ok: true, engine: "pokemon-showdown", format: "gen9customgame", discordRecap: discordRecaps.status() });
     return true;
   }
   if (request.method === "GET" && pathname === "/api/auth/me") {

@@ -192,4 +192,11 @@ export class DiscordRecapScheduler {
     clearInterval(this.timer);
     this.timer = null;
   }
+
+  status() {
+    return {
+      enabled: Boolean(this.webhookUrl),
+      lastPostedDate: Object.keys(this.data.posted).sort().at(-1) || null,
+    };
+  }
 }
