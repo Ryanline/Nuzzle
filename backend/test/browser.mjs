@@ -854,14 +854,16 @@ if (!(await reEquipResponse).ok()) throw new Error("Preparing the held-item tran
 if (await page.locator(`[data-pc-detail="${outgoingId}"]`).locator("xpath=..").locator('[data-held-item="leftovers"]').count() !== 1) throw new Error("The team card did not show its held-item badge.");
 const heldItemAppearance = await page.locator(`[data-pc-detail="${outgoingId}"]`).locator("xpath=..").evaluate((card) => {
   const badge = card.querySelector("[data-held-item]");
+  const pokemon = card.querySelector(".party-slot > img");
   const name = card.querySelector(".party-slot > span");
   const cardBounds = card.getBoundingClientRect();
   const badgeBounds = badge.getBoundingClientRect();
+  const pokemonBounds = pokemon.getBoundingClientRect();
   const nameBounds = name.getBoundingClientRect();
   const style = getComputedStyle(badge);
-  return { left: badgeBounds.left - cardBounds.left, top: badgeBounds.top - cardBounds.top, right: cardBounds.right - badgeBounds.right, nameGap: nameBounds.top - badgeBounds.bottom, background: style.backgroundColor, border: style.borderTopWidth, width: badgeBounds.width, height: badgeBounds.height };
+  return { left: badgeBounds.left - cardBounds.left, top: badgeBounds.top - cardBounds.top, right: cardBounds.right - badgeBounds.right, spriteSpill: badgeBounds.bottom - pokemonBounds.bottom, nameGap: nameBounds.top - badgeBounds.bottom, background: style.backgroundColor, border: style.borderTopWidth, width: badgeBounds.width, height: badgeBounds.height };
 });
-if (heldItemAppearance.left < 0 || heldItemAppearance.top < 0 || heldItemAppearance.right < 0 || heldItemAppearance.nameGap < 0 || heldItemAppearance.background !== "rgba(0, 0, 0, 0)" || heldItemAppearance.border !== "0px" || heldItemAppearance.width !== 24 || heldItemAppearance.height !== 24) throw new Error(`The held-item sprite was not transparent, full-size, inset, and clear of the Pokémon name: ${JSON.stringify(heldItemAppearance)}`);
+if (heldItemAppearance.left < 0 || heldItemAppearance.top < 0 || heldItemAppearance.right < 0 || heldItemAppearance.spriteSpill < 1 || heldItemAppearance.spriteSpill > 2 || heldItemAppearance.nameGap < -2 || heldItemAppearance.background !== "rgba(0, 0, 0, 0)" || heldItemAppearance.border !== "0px" || heldItemAppearance.width !== 21 || heldItemAppearance.height !== 21) throw new Error(`The held-item sprite was not transparent, slightly below the Pokémon sprite, inset, and clear of the name: ${JSON.stringify(heldItemAppearance)}`);
 await page.click("[data-cancel-pc-items]");
 await page.click(".sheet-close");
 await page.click(`[data-pc-mon="${replacementId}"]`);

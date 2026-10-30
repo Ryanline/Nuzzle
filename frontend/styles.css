@@ -389,8 +389,8 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .pc-section-head span { color: var(--muted); font-size: 12px; }
 .party-strip { display: grid; width: 100%; min-width: 0; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; padding: 8px; }
 .party-card, .pc-mon-card { position: relative; min-width: 0; }
-.pc-held-item-badge { position: absolute; z-index: 2; bottom: 18px; left: 3px; display: grid; width: 24px; height: 24px; place-items: center; pointer-events: none; }
-.pc-held-item-badge .held-item-sprite { transform: scale(1); }
+.pc-held-item-badge { position: absolute; z-index: 2; bottom: 14px; left: 4px; display: grid; width: 21px; height: 21px; place-items: center; pointer-events: none; }
+.pc-held-item-badge .held-item-sprite { transform: scale(.875); }
 .party-slot { display: flex; min-width: 0; height: 78px; flex-direction: column; align-items: center; justify-content: center; padding: 2px; overflow: hidden; border: 1px solid #aaa; border-radius: 6px; background: #fff; cursor: pointer; }
 .party-card .party-slot { width: 100%; }
 .party-slot:hover { border-color: #777; background: #f7fbff; }
