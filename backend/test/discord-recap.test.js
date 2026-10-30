@@ -46,7 +46,7 @@ function recapService() {
   };
 }
 
-test("daily Discord recaps aggregate trainer results, KOs, survivors, users, and team usage", () => {
+test("daily Discord recaps aggregate trainer results, KOs, survivors, and users", () => {
   const recap = dailyDiscordRecap(recapService(), "2026-10-30", (id) => ({ username: id === "win" ? "Emerl" : id }));
   assert.deepEqual(recap, {
     date: "2026-10-30",
@@ -61,7 +61,6 @@ test("daily Discord recaps aggregate trainer results, KOs, survivors, users, and
     averageSurvivors: 2,
     flawlessWins: 1,
     flawlessWinners: ["Emerl"],
-    popularPokemon: { id: "crobat", name: "Crobat", spriteId: "crobat", teams: 2 },
   });
   const payload = discordRecapPayload(recap, { publicUrl: "https://nuzzle.example/" });
   assert.equal(payload.allowed_mentions.parse.length, 0);
@@ -71,11 +70,11 @@ test("daily Discord recaps aggregate trainer results, KOs, survivors, users, and
   assert.match(payload.embeds[0].description, /deadliest Pokémon.*Lucario.*3.*player Pokémon/);
   assert.equal(payload.embeds[0].thumbnail.url, "https://nuzzle.example/assets/showdown/trainers/maylene.png");
   assert.equal(payload.embeds[0].image.url, "https://nuzzle.example/assets/showdown/gen5/lucario.png");
-  assert.match(payload.embeds[1].description, /2\.0 survivors/);
-  assert.match(payload.embeds[1].description, /1.*victory was flawless.*Emerl/);
-  assert.match(payload.embeds[1].description, /most popular Pokémon.*Crobat.*2 teams/);
-  assert.equal(payload.embeds[1].image.url, "https://nuzzle.example/assets/showdown/gen5/crobat.png");
-  assert.equal(payload.embeds[1].footer.text, "October 30, 2026");
+  assert.equal(payload.embeds.length, 1);
+  assert.match(payload.embeds[0].description, /2\.0 survivors/);
+  assert.match(payload.embeds[0].description, /1.*victory was flawless.*Emerl.*🏆/);
+  assert.doesNotMatch(payload.embeds[0].description, /most popular/);
+  assert.equal(payload.embeds[0].footer.text, "October 30, 2026");
   assert.equal(JSON.stringify(payload).includes("—"), false);
 });
 

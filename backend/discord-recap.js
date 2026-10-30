@@ -9,22 +9,6 @@ function completedBattles(service, date) {
     .filter(({ state }) => state.ended);
 }
 
-function mostPopularPokemon(attempts) {
-  const counts = new Map();
-  for (const { state } of attempts) {
-    const seen = new Set();
-    for (const pokemon of state.player.team) {
-      const id = pokemon.id || pokemon.name;
-      if (!id || seen.has(id)) continue;
-      seen.add(id);
-      const current = counts.get(id) || { id, name: pokemon.name || id, spriteId: pokemon.spriteId || id, teams: 0 };
-      current.teams += 1;
-      counts.set(id, current);
-    }
-  }
-  return [...counts.values()].sort((left, right) => right.teams - left.teams || left.name.localeCompare(right.name))[0] || null;
-}
-
 export function dailyDiscordRecap(service, date, userById = () => null) {
   const attempts = completedBattles(service, date);
   const first = attempts[0];
@@ -47,7 +31,6 @@ export function dailyDiscordRecap(service, date, userById = () => null) {
   const survivorCounts = playerWins.map(({ state }) => state.player.team.filter((pokemon) => !pokemon.fainted).length);
   const flawlessAttempts = playerWins.filter(({ state }) => state.player.team.length > 0 && state.player.team.every((pokemon) => !pokemon.fainted));
   const flawlessWinners = flawlessAttempts.map(({ battle }) => userById(battle.record.userId)?.username).filter(Boolean);
-  const popularPokemon = mostPopularPokemon(attempts);
   return {
     date,
     challengeNumber,
@@ -61,7 +44,6 @@ export function dailyDiscordRecap(service, date, userById = () => null) {
     averageSurvivors: survivorCounts.length ? survivorCounts.reduce((sum, value) => sum + value, 0) / survivorCounts.length : null,
     flawlessWins: flawlessAttempts.length,
     flawlessWinners,
-    popularPokemon,
   };
 }
 
@@ -80,9 +62,6 @@ export function discordRecapPayload(recap, { publicUrl = "https://nuzzle-game.du
     : null;
   const deadliestSprite = recap.deadliestPokemon?.spriteId
     ? publicAssetUrl(publicUrl, `assets/showdown/gen5/${recap.deadliestPokemon.spriteId}.png`)
-    : null;
-  const popularSprite = recap.popularPokemon?.spriteId
-    ? publicAssetUrl(publicUrl, `assets/showdown/gen5/${recap.popularPokemon.spriteId}.png`)
     : null;
   if (!recap.challengers) {
     return {
@@ -105,29 +84,19 @@ export function discordRecapPayload(recap, { publicUrl = "https://nuzzle-game.du
     ? `Winning teams escaped with an average of **${recap.averageSurvivors.toFixed(1)} survivors**.`
     : `No challenger defeated **${recap.trainerName}**.`;
   const flawlessNames = recap.flawlessWinners.length ? ` including those of: ${recap.flawlessWinners.join(", ")}.` : ".";
-  const flawlessLine = `**${recap.flawlessWins}** ${plural(recap.flawlessWins, "victory", "victories")} ${recap.flawlessWins === 1 ? "was" : "were"} flawless${flawlessNames}`;
-  const popularLine = recap.popularPokemon
-    ? `The **most popular Pokémon** was **${recap.popularPokemon.name}** being on **${recap.popularPokemon.teams} ${plural(recap.popularPokemon.teams, "team")}**.`
-    : "No team usage was recorded.";
+  const flawlessLine = `**${recap.flawlessWins}** ${plural(recap.flawlessWins, "victory", "victories")} ${recap.flawlessWins === 1 ? "was" : "were"} flawless${flawlessNames} 🏆`;
   const reportDate = new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" }).format(new Date(`${recap.date}T12:00:00Z`));
   return {
     username: "Nuzzle",
     allowed_mentions: { parse: [] },
-    embeds: [
-      {
-        title,
-        description: `${resultLine}\n\n${deadliestLine}`,
-        color: 0xc28e4a,
-        ...(trainerSprite ? { thumbnail: { url: trainerSprite } } : {}),
-        ...(deadliestSprite ? { image: { url: deadliestSprite } } : {}),
-      },
-      {
-        description: `${survivorLine}\n\n${flawlessLine}\n\n${popularLine}`,
-        color: 0xc28e4a,
-        ...(popularSprite ? { image: { url: popularSprite } } : {}),
-        footer: { text: reportDate },
-      },
-    ],
+    embeds: [{
+      title,
+      description: `${resultLine}\n\n${deadliestLine}\n\n${survivorLine}\n\n${flawlessLine}`,
+      color: 0xc28e4a,
+      ...(trainerSprite ? { thumbnail: { url: trainerSprite } } : {}),
+      ...(deadliestSprite ? { image: { url: deadliestSprite } } : {}),
+      footer: { text: reportDate },
+    }],
   };
 }
 
