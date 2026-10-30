@@ -50,6 +50,7 @@ const discordRecaps = new DiscordRecapScheduler({
   webhookUrl: discordWebhookUrl,
   timeZone: process.env.NUZZLE_TIME_ZONE || "America/New_York",
   publicUrl: process.env.NUZZLE_PUBLIC_URL || "https://nuzzle-game.duckdns.org",
+  userById: (userId) => auth.identityById(userId),
 });
 await auth.initialize();
 await game.initialize();
@@ -250,6 +251,10 @@ async function warmShowdownCache() {
 }
 
 async function api(request, response, pathname) {
+  if (request.method === "GET" && pathname === "/api/recap/previous") {
+    json(response, 200, discordRecaps.previousRecap());
+    return true;
+  }
   if (request.method === "GET" && pathname === "/api/health") {
     json(response, 200, { ok: true, engine: "pokemon-showdown", format: "gen9customgame", discordRecap: discordRecaps.status() });
     return true;

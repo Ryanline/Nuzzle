@@ -16,6 +16,7 @@ function battle({ id, winner, lead, fainted, knockouts = [], date = "2026-10-30"
   return {
     record: {
       id,
+      userId: id,
       challengeDate: date,
       challengeNumber: 4,
       trainerName: "Maylene",
@@ -26,7 +27,9 @@ function battle({ id, winner, lead, fainted, knockouts = [], date = "2026-10-30"
       ended: true,
       winner,
       opponent: { name: "Maylene", spriteId: "maylene" },
-      player: { team: fainted.map((value, index) => ({ name: `Player ${index + 1}`, fainted: value })) },
+      player: { team: fainted.map((value, index) => index === 0
+        ? { id: lead.toLowerCase(), name: lead, spriteId: lead.toLowerCase(), fainted: value }
+        : { id: `${id}-support-${index}`, name: `${id} Support ${index}`, spriteId: "ditto", fainted: value }) },
       knockouts,
       challengeNumber: 4,
     }),
@@ -43,8 +46,8 @@ function recapService() {
   };
 }
 
-test("daily Discord recaps aggregate trainer results, KOs, survivors, and leads", () => {
-  const recap = dailyDiscordRecap(recapService(), "2026-10-30");
+test("daily Discord recaps aggregate trainer results, KOs, survivors, users, and team usage", () => {
+  const recap = dailyDiscordRecap(recapService(), "2026-10-30", (id) => ({ username: id === "win" ? "Emerl" : id }));
   assert.deepEqual(recap, {
     date: "2026-10-30",
     challengeNumber: 4,
@@ -57,17 +60,23 @@ test("daily Discord recaps aggregate trainer results, KOs, survivors, and leads"
     deadliestPokemon: { id: "lucario", name: "Lucario", spriteId: "lucario", kos: 3 },
     averageSurvivors: 2,
     flawlessWins: 1,
-    popularLead: { name: "Crobat", count: 2 },
+    flawlessWinners: ["Emerl"],
+    popularPokemon: { id: "crobat", name: "Crobat", spriteId: "crobat", teams: 2 },
   });
   const payload = discordRecapPayload(recap, { publicUrl: "https://nuzzle.example/" });
   assert.equal(payload.allowed_mentions.parse.length, 0);
-  assert.equal(payload.embeds[0].title, "Daily Recap — Nuzzle #4");
-  assert.match(payload.embeds[0].description, /Maylene.*67% of 3 challengers.*2 trainer wins.*1 player win/);
-  assert.match(payload.embeds[0].fields[0].value, /Lucario.*3 Pokémon/);
-  assert.match(payload.embeds[0].fields[1].value, /2\.0 survivors.*victory was flawless/);
-  assert.match(payload.embeds[0].fields[2].value, /Crobat.*2 teams/);
+  assert.equal(payload.embeds[0].title, "Nuzzle #4 Daily Report");
+  assert.equal(payload.embeds[0].color, 0xc28e4a);
+  assert.match(payload.embeds[0].description, /Maylene.*67%.*3 challengers.*1 player won and 2 lost/);
+  assert.match(payload.embeds[0].description, /deadliest Pokémon.*Lucario.*3.*player Pokémon/);
   assert.equal(payload.embeds[0].thumbnail.url, "https://nuzzle.example/assets/showdown/trainers/maylene.png");
   assert.equal(payload.embeds[0].image.url, "https://nuzzle.example/assets/showdown/gen5/lucario.png");
+  assert.match(payload.embeds[1].description, /2\.0 survivors/);
+  assert.match(payload.embeds[1].description, /1.*victory was flawless.*Emerl/);
+  assert.match(payload.embeds[1].description, /most popular Pokémon.*Crobat.*2 teams/);
+  assert.equal(payload.embeds[1].image.url, "https://nuzzle.example/assets/showdown/gen5/crobat.png");
+  assert.equal(payload.embeds[1].footer.text, "October 30, 2026");
+  assert.equal(JSON.stringify(payload).includes("—"), false);
 });
 
 test("the Discord recap scheduler posts the previous day only once across restarts", async () => {
@@ -83,6 +92,7 @@ test("the Discord recap scheduler posts the previous day only once across restar
       requests.push({ url, request });
       return { ok: true, status: 204 };
     },
+    userById: (id) => ({ username: id }),
   };
   const scheduler = new DiscordRecapScheduler(options);
   await scheduler.initialize();
@@ -92,7 +102,7 @@ test("the Discord recap scheduler posts the previous day only once across restar
   assert.equal(requests.length, 1);
   assert.equal(requests[0].url, options.webhookUrl);
   assert.match(requests[0].request.headers["Content-Type"], /json/);
-  assert.equal(JSON.parse(requests[0].request.body).embeds[0].title, "Daily Recap — Nuzzle #4");
+  assert.equal(JSON.parse(requests[0].request.body).embeds[0].title, "Nuzzle #4 Daily Report");
 
   const restored = new DiscordRecapScheduler(options);
   await restored.initialize();

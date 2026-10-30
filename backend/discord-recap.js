@@ -9,15 +9,23 @@ function completedBattles(service, date) {
     .filter(({ state }) => state.ended);
 }
 
-function mostCommon(values) {
+function mostPopularPokemon(attempts) {
   const counts = new Map();
-  for (const value of values.filter(Boolean)) counts.set(value, (counts.get(value) || 0) + 1);
-  return [...counts.entries()]
-    .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
-    .map(([name, count]) => ({ name, count }))[0] || null;
+  for (const { state } of attempts) {
+    const seen = new Set();
+    for (const pokemon of state.player.team) {
+      const id = pokemon.id || pokemon.name;
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      const current = counts.get(id) || { id, name: pokemon.name || id, spriteId: pokemon.spriteId || id, teams: 0 };
+      current.teams += 1;
+      counts.set(id, current);
+    }
+  }
+  return [...counts.values()].sort((left, right) => right.teams - left.teams || left.name.localeCompare(right.name))[0] || null;
 }
 
-export function dailyDiscordRecap(service, date) {
+export function dailyDiscordRecap(service, date, userById = () => null) {
   const attempts = completedBattles(service, date);
   const first = attempts[0];
   const trainerName = first?.battle.record.trainerName || first?.state.opponent.name || "Today's trainer";
@@ -37,8 +45,9 @@ export function dailyDiscordRecap(service, date) {
   }
   const deadliestPokemon = [...koCounts.values()].sort((left, right) => right.kos - left.kos || left.name.localeCompare(right.name))[0] || null;
   const survivorCounts = playerWins.map(({ state }) => state.player.team.filter((pokemon) => !pokemon.fainted).length);
-  const flawlessWins = playerWins.filter(({ state }) => state.player.team.length > 0 && state.player.team.every((pokemon) => !pokemon.fainted)).length;
-  const popularLead = mostCommon(attempts.map(({ battle }) => battle.record.playerTeam?.[0]?.species || battle.record.playerTeam?.[0]?.name));
+  const flawlessAttempts = playerWins.filter(({ state }) => state.player.team.length > 0 && state.player.team.every((pokemon) => !pokemon.fainted));
+  const flawlessWinners = flawlessAttempts.map(({ battle }) => userById(battle.record.userId)?.username).filter(Boolean);
+  const popularPokemon = mostPopularPokemon(attempts);
   return {
     date,
     challengeNumber,
@@ -50,8 +59,9 @@ export function dailyDiscordRecap(service, date) {
     trainerWinPercent: attempts.length ? Math.round(trainerWins / attempts.length * 100) : 0,
     deadliestPokemon,
     averageSurvivors: survivorCounts.length ? survivorCounts.reduce((sum, value) => sum + value, 0) / survivorCounts.length : null,
-    flawlessWins,
-    popularLead,
+    flawlessWins: flawlessAttempts.length,
+    flawlessWinners,
+    popularPokemon,
   };
 }
 
@@ -64,12 +74,15 @@ function publicAssetUrl(publicUrl, relative) {
 }
 
 export function discordRecapPayload(recap, { publicUrl = "https://nuzzle-game.duckdns.org" } = {}) {
-  const title = recap.challengeNumber ? `Daily Recap — Nuzzle #${recap.challengeNumber}` : "Daily Nuzzle Recap";
+  const title = recap.challengeNumber ? `Nuzzle #${recap.challengeNumber} Daily Report` : "Daily Nuzzle Report";
   const trainerSprite = recap.trainerSpriteId
     ? publicAssetUrl(publicUrl, recap.trainerSpriteId === "brock" ? "assets/trainers/brock.png" : `assets/showdown/trainers/${recap.trainerSpriteId}.png`)
     : null;
   const deadliestSprite = recap.deadliestPokemon?.spriteId
     ? publicAssetUrl(publicUrl, `assets/showdown/gen5/${recap.deadliestPokemon.spriteId}.png`)
+    : null;
+  const popularSprite = recap.popularPokemon?.spriteId
+    ? publicAssetUrl(publicUrl, `assets/showdown/gen5/${recap.popularPokemon.spriteId}.png`)
     : null;
   if (!recap.challengers) {
     return {
@@ -78,38 +91,43 @@ export function discordRecapPayload(recap, { publicUrl = "https://nuzzle-game.du
       embeds: [{
         title,
         description: `No challengers completed the battle against **${recap.trainerName}**.`,
-        color: 0x52606e,
+        color: 0xc28e4a,
         ...(trainerSprite ? { thumbnail: { url: trainerSprite } } : {}),
         footer: { text: recap.date },
       }],
     };
   }
-  const deadliest = recap.deadliestPokemon
-    ? `**${recap.deadliestPokemon.name}** knocked out **${recap.deadliestPokemon.kos} ${plural(recap.deadliestPokemon.kos, "Pokémon", "Pokémon")}**.`
+  const resultLine = `**${recap.trainerName}** defeated **${recap.trainerWinPercent}%** of **${recap.challengers} ${plural(recap.challengers, "challenger")}**! ${recap.playerWins} ${plural(recap.playerWins, "player")} won and ${recap.trainerWins} lost.`;
+  const deadliestLine = recap.deadliestPokemon
+    ? `Their **deadliest Pokémon** was **${recap.deadliestPokemon.name}** who knocked out **${recap.deadliestPokemon.kos}** player ${plural(recap.deadliestPokemon.kos, "Pokémon", "Pokémon")}.`
     : "No knockouts were attributed to the trainer's Pokémon.";
-  const survival = recap.playerWins
-    ? `Winning teams escaped with an average of **${recap.averageSurvivors.toFixed(1)} survivors**. **${recap.flawlessWins}** ${plural(recap.flawlessWins, "victory", "victories")} ${recap.flawlessWins === 1 ? "was" : "were"} flawless.`
+  const survivorLine = recap.playerWins
+    ? `Winning teams escaped with an average of **${recap.averageSurvivors.toFixed(1)} survivors**.`
     : `No challenger defeated **${recap.trainerName}**.`;
-  const fields = [
-    { name: "Deadliest Pokémon", value: deadliest },
-    { name: "Survival report", value: survival },
-  ];
-  if (recap.popularLead) fields.push({
-    name: "Most popular lead",
-    value: `**${recap.popularLead.name}** led **${recap.popularLead.count} ${plural(recap.popularLead.count, "team")}** into battle.`,
-  });
+  const flawlessNames = recap.flawlessWinners.length ? ` including those of: ${recap.flawlessWinners.join(", ")}.` : ".";
+  const flawlessLine = `**${recap.flawlessWins}** ${plural(recap.flawlessWins, "victory", "victories")} ${recap.flawlessWins === 1 ? "was" : "were"} flawless${flawlessNames}`;
+  const popularLine = recap.popularPokemon
+    ? `The **most popular Pokémon** was **${recap.popularPokemon.name}** being on **${recap.popularPokemon.teams} ${plural(recap.popularPokemon.teams, "team")}**.`
+    : "No team usage was recorded.";
+  const reportDate = new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" }).format(new Date(`${recap.date}T12:00:00Z`));
   return {
     username: "Nuzzle",
     allowed_mentions: { parse: [] },
-    embeds: [{
-      title,
-      description: `**${recap.trainerName}** defeated **${recap.trainerWinPercent}% of ${recap.challengers} ${plural(recap.challengers, "challenger")}** — ${recap.trainerWins} trainer ${plural(recap.trainerWins, "win")} and ${recap.playerWins} player ${plural(recap.playerWins, "win")}.`,
-      color: 0x8d3035,
-      fields,
-      ...(trainerSprite ? { thumbnail: { url: trainerSprite } } : {}),
-      ...(deadliestSprite ? { image: { url: deadliestSprite } } : {}),
-      footer: { text: recap.date },
-    }],
+    embeds: [
+      {
+        title,
+        description: `${resultLine}\n\n${deadliestLine}`,
+        color: 0xc28e4a,
+        ...(trainerSprite ? { thumbnail: { url: trainerSprite } } : {}),
+        ...(deadliestSprite ? { image: { url: deadliestSprite } } : {}),
+      },
+      {
+        description: `${survivorLine}\n\n${flawlessLine}\n\n${popularLine}`,
+        color: 0xc28e4a,
+        ...(popularSprite ? { image: { url: popularSprite } } : {}),
+        footer: { text: reportDate },
+      },
+    ],
   };
 }
 
@@ -124,6 +142,7 @@ export class DiscordRecapScheduler {
     publicUrl = "https://nuzzle-game.duckdns.org",
     intervalMs = 60_000,
     logger = console,
+    userById = () => null,
   }) {
     this.service = service;
     this.filename = filename;
@@ -134,6 +153,7 @@ export class DiscordRecapScheduler {
     this.publicUrl = publicUrl;
     this.intervalMs = intervalMs;
     this.logger = logger;
+    this.userById = userById;
     this.data = { version: 1, posted: {} };
     this.timer = null;
     this.running = null;
@@ -162,7 +182,7 @@ export class DiscordRecapScheduler {
     this.running = (async () => {
       const date = previousGameDate(gameDate(this.now(), this.timeZone));
       if (this.data.posted[date]) return false;
-      const recap = dailyDiscordRecap(this.service, date);
+      const recap = dailyDiscordRecap(this.service, date, this.userById);
       const response = await this.fetchImpl(this.webhookUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -198,5 +218,11 @@ export class DiscordRecapScheduler {
       enabled: Boolean(this.webhookUrl),
       lastPostedDate: Object.keys(this.data.posted).sort().at(-1) || null,
     };
+  }
+
+  previousRecap() {
+    const date = previousGameDate(gameDate(this.now(), this.timeZone));
+    const recap = dailyDiscordRecap(this.service, date, this.userById);
+    return { recap, payload: discordRecapPayload(recap, { publicUrl: this.publicUrl }) };
   }
 }
