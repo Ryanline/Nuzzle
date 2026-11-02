@@ -318,7 +318,7 @@ await page.click("[data-dismiss-welcome]");
 if (!(await welcomeResponse).ok()) throw new Error("Acknowledging the welcome message failed.");
 if (await page.locator(".welcome-card").count()) throw new Error("The acknowledged welcome message remained open.");
 if (!(await page.locator(".account-button").getAttribute("aria-label"))?.includes(username)) throw new Error("The account control did not show the authenticated user.");
-if (!(await page.locator(".run-status").textContent())?.includes("Run Day 1 of 7") || !(await page.locator(".run-status").textContent())?.includes("Streak continues")) throw new Error("The registered player did not receive a clear seven-day run indicator.");
+if (!(await page.locator(".pc-stage .run-status").textContent())?.includes("Run Day 1 of 7") || (await page.locator(".pc-stage .run-status").textContent())?.includes("Streak continues") || (await page.locator(".pc-stage .run-status").textContent())?.includes("resets in")) throw new Error("The PC did not receive the compact seven-day run indicator.");
 await page.click("[data-open-run-info]");
 if (!(await page.locator(".run-info-card").textContent())?.includes("scheduled run reset does not break it")) throw new Error("The run details did not explain streak persistence.");
 await page.click('[data-preview-run-day="6"]');
@@ -375,7 +375,7 @@ await page.setViewportSize({ width: 320, height: 568 });
 const moreCardChecks = [
   ["how-to-play", "How to play", "Challenge the daily trainer", null],
   ["nuzlocke", "What a Nuzlocke is", "wipes your entire box and ends your win streak", "bulbapedia.bulbagarden.net/wiki/Nuzlocke_Challenge"],
-  ["schedule", "Battle schedule", "12:00 AM Eastern Time (EST)", null],
+  ["schedule", "Battle schedule", "12:00 AM Eastern Time", null],
   ["affiliation", "Affiliation", "not affiliated with or endorsed", "github.com/smogon/pokemon-showdown"],
   ["discord", "Discord", "Share your runs, report bugs, follow game updates", "discord.gg/nwWpFZHv7c"],
 ];
@@ -390,6 +390,7 @@ for (const [cardId, title, copy, link] of moreCardChecks) {
   if (cardId === "how-to-play" && (!(await card.textContent())?.includes("Complete a seven-day run") || !(await card.textContent())?.includes("Scheduled box resets preserve it"))) throw new Error("How to play did not explain the personal run lifecycle.");
   if (cardId === "schedule" && (await card.locator(".battle-schedule dd").allTextContents()).join(",") !== "Theme teams,Regular trainers,Ace trainers,Rival battles,Gym leaders,Elite 4,Champions") throw new Error("The battle schedule did not use the requested labels and capitalization.");
   if (cardId === "schedule" && !(await card.locator(".schedule-note").textContent())?.includes("holiday-themed trainer")) throw new Error("The battle schedule did not explain the holiday exception.");
+  if (cardId === "schedule" && (!(await card.locator(".schedule-reset").textContent())?.includes("seven game dates") || !(await card.locator(".schedule-reset").textContent())?.includes("without breaking its win streak"))) throw new Error("The battle schedule did not reinforce the personal run lifecycle.");
   if (cardId === "affiliation" && (await card.locator(".more-card-content > p").count() !== 4 || !(await card.locator(".more-card-content > p").last().textContent())?.includes("sprites are © Nintendo"))) throw new Error("The affiliation and ownership notices were not combined into one paragraph.");
   await card.locator(".more-card-back").click();
   if (await page.locator(".more-card").count()) throw new Error(`${title} remained open after using Back.`);
@@ -1164,6 +1165,8 @@ if (await page.locator("[data-encounter]").count() !== 12) throw new Error("The 
 await page.waitForFunction(() => [...document.querySelectorAll("[data-encounter] img")].every((image) => image.complete && image.naturalWidth > 0));
 
 await page.click(".page-back");
+if (await page.locator(".home-screen .run-status").count()) throw new Error("The landing page still displayed the run indicator.");
+await page.click('[data-route="pc"]');
 await page.click("[data-open-run-info]");
 const expireButton = page.locator("[data-expire-run]");
 if (await expireButton.count() !== 1) throw new Error("Local run testing did not expose the scheduled-reset preview control.");

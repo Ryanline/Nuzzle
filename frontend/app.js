@@ -630,7 +630,6 @@
   function home() {
     const trainer = todayState.trainer;
     return `<section class="screen home-screen">${header()}<div class="landing">
-      ${runStatusCard()}
       <div class="trainer-wrap"><img class="sprite trainer" src="${trainerSprite(trainer.spriteId)}" alt="${escapeHtml(trainer.name)}" /></div>
       <div class="opponent-team" aria-label="${escapeHtml(trainer.name)}'s team">${trainer.pokemon.map((pokemon) => `<button type="button" aria-label="${escapeHtml(pokemon.name)}${pokemon.shiny ? ", shiny" : ""}"><img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId, pokemon.shiny)}" alt="${escapeHtml(pokemon.name)}" /></button>`).join("")}</div>
       ${navigation()}
@@ -657,11 +656,8 @@
     const soon = !finalDay && lifecycle.daysRemaining <= 2;
     const dots = Array.from({ length: lifecycle.lifespanDays }, (_, index) => `<i class="${index < activeDay ? "complete" : ""}" aria-hidden="true"></i>`).join("");
     const headline = finalDay ? "Final day with this box" : `Run Day ${activeDay} of ${lifecycle.lifespanDays}`;
-    const detail = finalDay
-      ? "Your run resets tomorrow. Your streak continues."
-      : `Box resets in ${lifecycle.daysRemaining} day${lifecycle.daysRemaining === 1 ? "" : "s"} · Streak continues`;
-    return `<button class="run-status${finalDay ? " final" : soon ? " soon" : ""}" type="button" data-open-run-info aria-label="${escapeHtml(headline)}. ${escapeHtml(detail)}">
-      <span><strong>${escapeHtml(headline)}</strong><small>${escapeHtml(detail)}</small></span>
+    return `<button class="run-status${finalDay ? " final" : soon ? " soon" : ""}" type="button" data-open-run-info aria-label="${escapeHtml(headline)}">
+      <span><strong>${escapeHtml(headline)}</strong></span>
       <span class="run-progress" aria-label="${activeDay} of ${lifecycle.lifespanDays} run days complete">${dots}</span>
       <b>Details</b>
     </button>`;
@@ -1221,7 +1217,7 @@
     const cards = {
       "how-to-play": {
         title: "How to play",
-        content: `<ol class="more-card-steps"><li><strong>Claim encounters.</strong> Each one joins your PC.</li><li><strong>Build a team.</strong> Choose up to six Pokémon, then adjust their training, moves, and held items.</li><li><strong>Challenge the daily trainer.</strong> Pick your lead and play out the simulated battle.</li><li><strong>Complete a seven-day run.</strong> Your personal box sees each day of the weekly schedule once, then your Pokémon, money, items, and purchases reset.</li><li><strong>Keep your streak alive.</strong> Scheduled box resets preserve it. Missing a daily win, losing, or forfeiting ends it; a loss also wipes the run immediately.</li></ol>`,
+        content: `<ol class="more-card-steps"><li><strong>Claim encounters.</strong> Each one joins your PC.</li><li><strong>Build a team.</strong> Choose up to six Pokémon, then adjust their training, moves, and held items.</li><li><strong>Challenge the daily trainer.</strong> Pick your lead and play out the simulated battle.</li><li><strong>Complete a seven-day run.</strong> Your personal box faces each day of the weekly schedule once, then resets before Day 8. The Run Day indicator warns you as the reset approaches.</li><li><strong>Keep your streak alive.</strong> Scheduled box resets preserve it. Missing a daily win, losing, or forfeiting ends it; a loss also wipes the run immediately.</li></ol>`,
       },
       nuzlocke: {
         title: "What a Nuzlocke is",
@@ -1229,7 +1225,7 @@
       },
       schedule: {
         title: "Battle schedule",
-        content: `<dl class="battle-schedule"><div><dt>Sunday</dt><dd>Theme teams</dd></div><div><dt>Monday</dt><dd>Regular trainers</dd></div><div><dt>Tuesday</dt><dd>Ace trainers</dd></div><div><dt>Wednesday</dt><dd>Rival battles</dd></div><div><dt>Thursday</dt><dd>Gym leaders</dd></div><div><dt>Friday</dt><dd>Elite 4</dd></div><div><dt>Saturday</dt><dd>Champions</dd></div></dl><p class="schedule-note">On holidays, a special holiday-themed trainer may appear instead of the regularly scheduled opponent.</p><p class="schedule-reset">Battles reset each day at 12:00 AM Eastern Time (EST).</p>`,
+        content: `<dl class="battle-schedule"><div><dt>Sunday</dt><dd>Theme teams</dd></div><div><dt>Monday</dt><dd>Regular trainers</dd></div><div><dt>Tuesday</dt><dd>Ace trainers</dd></div><div><dt>Wednesday</dt><dd>Rival battles</dd></div><div><dt>Thursday</dt><dd>Gym leaders</dd></div><div><dt>Friday</dt><dd>Elite 4</dd></div><div><dt>Saturday</dt><dd>Champions</dd></div></dl><p class="schedule-note">On holidays, a special holiday-themed trainer may appear instead of the regularly scheduled opponent.</p><p class="schedule-reset">Battles reset daily at 12:00 AM Eastern Time. A personal box lasts seven game dates—one of each category—then resets without breaking its win streak.</p>`,
       },
       affiliation: {
         title: "Affiliation",
