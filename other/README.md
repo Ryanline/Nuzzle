@@ -135,12 +135,13 @@ The game is intentionally Nuzlocke-like and can be harsh. It should create inter
 
 ## Runs, Calendar, and Campaign Direction
 
-A **party** is the ordered selection of up to six living Pokémon. The **box** contains other owned living Pokémon. The **roster** is party plus box. A **run** contains the living roster, money, inventory, and purchase restrictions since the most recent wipe or monthly reset.
+A **party** is the ordered selection of up to six living Pokémon. The **box** contains other owned living Pokémon. The **roster** is party plus box. A **run** contains the living roster, money, inventory, and purchase restrictions for one personal seven-day lifecycle or until an earlier loss wipe.
 
 - The game date rolls over at midnight in `America/New_York`.
 - Joining late gives the ordinary fresh-run package and the current trainer; there is no opponent scaling or catch-up subsidy.
 - Missing a day breaks a computed win streak but does not wipe the run.
-- The first request in a new calendar month resets the run and presents twelve opening encounters. A streak can conceptually cross the boundary because a monthly reset alone is not a loss.
+- A registered run is playable on its personal start date and the following six game dates. The first request on day eight archives the complete prior run, resets the box, and presents twelve opening encounters.
+- Scheduled seven-day resets preserve battle history and win streaks. Compressed run archives are retained for seven days for support recovery.
 - Battles that cross midnight and other exceptional rollover races need further hardening before a larger launch.
 
 Approved campaign direction, not yet automatically implemented:
@@ -311,7 +312,7 @@ The trainer commits before seeing the player's current action, begins each new b
 
 - `frontend/` is a framework-free HTML/CSS/JavaScript single-page mobile UI.
 - `backend/server.js` serves the frontend and JSON API.
-- `backend/game-store.js` owns runs, encounters, rosters, teams, money, inventory, purchases, training, monthly resets, and wipe resets.
+- `backend/game-store.js` owns runs, encounters, rosters, teams, money, inventory, purchases, training, personal seven-day resets, compressed run archives, and wipe resets.
 - `backend/battle-service.js` owns Showdown sessions, commands, trainer AI, battle records, leaderboards, results, casualties, and persistent item acquisition.
 - `backend/trainer-store.js` owns trainer drafts, scheduling, and published daily opponents.
 - `backend/auth-store.js` owns accounts, avatars, and sessions.
@@ -377,7 +378,7 @@ Open or deferred work:
 
 - Casualties and wipes by trainer tier and roster strength.
 - Streak distribution and roster size over time.
-- Whether strong teams become effectively unchallenged before month-end.
+- Whether strong teams become effectively unchallenged late in their seven-day lifecycle.
 - Whether weak starts still create decisions instead of predictable failure.
 - Frequency of redundant or low-value encounters and generated movesets.
 - Currency accumulation and the tradeoff between coverage, stats, abilities, and held items.

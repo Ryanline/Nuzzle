@@ -138,6 +138,10 @@
   let battleResetMessage = "";
   let wipeMeBusy = false;
   let wipeMeMessage = "";
+  let runInfoOpen = false;
+  let runResetBusy = false;
+  let runExpireBusy = false;
+  let runDayPreview = null;
   let moreCardOpen = null;
   let leaderboardData = null;
   let leaderboardLoading = false;
@@ -177,6 +181,7 @@
   }
 
   function applyGameState(nextState) {
+    if (nextState.canExpireRunForTesting == null && gameState?.canExpireRunForTesting) nextState.canExpireRunForTesting = true;
     gameState = nextState;
     balance = nextState.money;
     inventory = { ...nextState.inventory };
@@ -602,7 +607,7 @@
 
   function welcomeCard() {
     if (!welcomeOpen || !currentUser) return "";
-    return `<div class="auth-backdrop welcome-backdrop"><section class="auth-card welcome-card" role="dialog" aria-modal="true" aria-labelledby="welcome-title"><h2 id="welcome-title">Welcome to Nuzzle!</h2><p>Nuzzle is a daily puzzle game built around simulated Nuzlocke battles. Start a fresh run, claim encounters, build your team, and challenge the daily Trainer.</p><p>Win to earn money and new encounters to grow your box. Lose, and your run is wiped—but tomorrow brings a fresh start and another chance!</p>${welcomeError ? `<p class="auth-error" role="alert">${escapeHtml(welcomeError)}</p>` : ""}<button class="auth-primary" type="button" data-dismiss-welcome ${welcomeLoading ? "disabled" : ""}>${welcomeLoading ? "Please wait…" : "Let’s go"}</button></section></div>`;
+    return `<div class="auth-backdrop welcome-backdrop"><section class="auth-card welcome-card" role="dialog" aria-modal="true" aria-labelledby="welcome-title"><h2 id="welcome-title">Welcome to Nuzzle!</h2><p>Nuzzle is a daily puzzle game built around simulated Nuzlocke battles. Start a fresh run, claim encounters, build your team, and challenge the daily Trainer.</p><p>Your personal box lasts seven game dates. The scheduled reset starts a fresh run without breaking your win streak; losing wipes the run and ends the streak immediately.</p>${welcomeError ? `<p class="auth-error" role="alert">${escapeHtml(welcomeError)}</p>` : ""}<button class="auth-primary" type="button" data-dismiss-welcome ${welcomeLoading ? "disabled" : ""}>${welcomeLoading ? "Please wait…" : "Let’s go"}</button></section></div>`;
   }
 
   async function dismissWelcome() {
@@ -625,16 +630,75 @@
   function home() {
     const trainer = todayState.trainer;
     return `<section class="screen home-screen">${header()}<div class="landing">
+      ${runStatusCard()}
       <div class="trainer-wrap"><img class="sprite trainer" src="${trainerSprite(trainer.spriteId)}" alt="${escapeHtml(trainer.name)}" /></div>
       <div class="opponent-team" aria-label="${escapeHtml(trainer.name)}'s team">${trainer.pokemon.map((pokemon) => `<button type="button" aria-label="${escapeHtml(pokemon.name)}${pokemon.shiny ? ", shiny" : ""}"><img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId, pokemon.shiny)}" alt="${escapeHtml(pokemon.name)}" /></button>`).join("")}</div>
       ${navigation()}
     </div></section>`;
   }
 
+  function formattedGameDate(date) {
+    const [year, month, day] = String(date || "").split("-").map(Number);
+    if (!year || !month || !day) return "";
+    return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date(Date.UTC(year, month - 1, day, 12)));
+  }
+
+  function visibleRunLifecycle() {
+    const lifecycle = gameState?.runLifecycle;
+    if (!lifecycle || !gameState?.canExpireRunForTesting || !runDayPreview) return lifecycle;
+    return { ...lifecycle, runDay: runDayPreview, daysRemaining: lifecycle.lifespanDays - runDayPreview + 1 };
+  }
+
+  function runStatusCard() {
+    const lifecycle = visibleRunLifecycle();
+    if (!currentUser || currentUser.isGuest || !lifecycle) return "";
+    const activeDay = Math.max(1, lifecycle.runDay || 1);
+    const finalDay = activeDay === lifecycle.lifespanDays;
+    const soon = !finalDay && lifecycle.daysRemaining <= 2;
+    const dots = Array.from({ length: lifecycle.lifespanDays }, (_, index) => `<i class="${index < activeDay ? "complete" : ""}" aria-hidden="true"></i>`).join("");
+    const headline = finalDay ? "Final day with this box" : `Run Day ${activeDay} of ${lifecycle.lifespanDays}`;
+    const detail = finalDay
+      ? "Your run resets tomorrow. Your streak continues."
+      : `Box resets in ${lifecycle.daysRemaining} day${lifecycle.daysRemaining === 1 ? "" : "s"} · Streak continues`;
+    return `<button class="run-status${finalDay ? " final" : soon ? " soon" : ""}" type="button" data-open-run-info aria-label="${escapeHtml(headline)}. ${escapeHtml(detail)}">
+      <span><strong>${escapeHtml(headline)}</strong><small>${escapeHtml(detail)}</small></span>
+      <span class="run-progress" aria-label="${activeDay} of ${lifecycle.lifespanDays} run days complete">${dots}</span>
+      <b>Details</b>
+    </button>`;
+  }
+
+  function runInfoCard() {
+    if (!runInfoOpen || !gameState?.runLifecycle) return "";
+    const lifecycle = visibleRunLifecycle();
+    const previewControls = gameState?.canExpireRunForTesting ? `<div class="run-preview-days" aria-label="Local run UI previews"><span>Local preview</span><button type="button" data-preview-run-day="6">Day 6</button><button type="button" data-preview-run-day="7">Day 7</button><button type="button" data-preview-run-day="live">Live</button></div>` : "";
+    const previewButton = gameState?.canExpireRunForTesting ? `<button class="run-preview-reset" type="button" data-expire-run ${runExpireBusy ? "disabled" : ""}>${runExpireBusy ? "Expiring…" : "Preview scheduled reset"}</button>` : "";
+    return `<div class="auth-backdrop run-info-backdrop"><section class="auth-card run-info-card" role="dialog" aria-modal="true" aria-labelledby="run-info-title"><button class="auth-close" type="button" aria-label="Close run details" data-close-run-info>×</button><span class="run-kicker">personal seven-day run</span><h2 id="run-info-title">Run Day ${Math.max(1, lifecycle.runDay)} of ${lifecycle.lifespanDays}</h2><p>This box can play through ${formattedGameDate(lifecycle.expiresOn)}. Before that date’s challenge begins, your Pokémon, money, items, and purchases reset.</p><p><strong>Your win streak is separate.</strong> A scheduled run reset does not break it. Losing, forfeiting, or missing a daily win still does.</p><small>All run dates use Eastern Time.</small>${previewControls}${previewButton}<button class="gloss-button purple" type="button" data-close-run-info>Got it</button></section></div>`;
+  }
+
+  function runResetCard() {
+    const notice = gameState?.runLifecycle?.resetNotice;
+    if (!notice || currentUser?.isGuest) return "";
+    return `<div class="auth-backdrop run-reset-backdrop"><section class="auth-card run-reset-card" role="dialog" aria-modal="true" aria-labelledby="run-reset-title"><span class="run-kicker">seven-day run complete</span><h2 id="run-reset-title">Your fresh box is ready!</h2><p>Your previous box of <strong>${notice.pokemonCount} Pokémon</strong> completed its seven-day run and has been cleared.</p><div class="streak-preserved"><strong>Your win streak continues.</strong><span>Scheduled box resets never break a streak.</span></div><p class="archive-note">The previous run is archived for support recovery through ${formattedGameDate(notice.archiveUntil)}.</p><button class="auth-primary" type="button" data-acknowledge-run-reset ${runResetBusy ? "disabled" : ""}>${runResetBusy ? "Starting…" : "Start my new run"}</button></section></div>`;
+  }
+
+  async function acknowledgeRunReset() {
+    if (runResetBusy) return;
+    runResetBusy = true;
+    render();
+    try {
+      applyGameState(await apiRequest("/api/game/run-reset/acknowledge", { method: "PUT", body: "{}" }));
+    } finally {
+      runResetBusy = false;
+      render();
+    }
+  }
+
   function lead() {
     const chosen = [...team].slice(0, 6);
     const trainer = todayState.trainer;
-    return `<section class="screen lead-screen">${header()}<div class="arena battle-arena lead-arena"><div class="battle-platform enemy" aria-hidden="true"></div><div class="battle-platform player" aria-hidden="true"></div><img class="sprite trainer trainer-${escapeHtml(trainer.spriteId)}" src="${trainerSprite(trainer.spriteId)}" alt="${escapeHtml(trainer.name)}" /></div>
+    const visibleLifecycle = visibleRunLifecycle();
+    const finalRunDay = !currentUser?.isGuest && visibleLifecycle?.runDay === visibleLifecycle?.lifespanDays;
+    return `<section class="screen lead-screen">${header()}${finalRunDay ? '<div class="final-run-reminder"><strong>Final battle day for this box</strong><span>Your streak continues after the scheduled reset.</span></div>' : ""}<div class="arena battle-arena lead-arena"><div class="battle-platform enemy" aria-hidden="true"></div><div class="battle-platform player" aria-hidden="true"></div><img class="sprite trainer trainer-${escapeHtml(trainer.spriteId)}" src="${trainerSprite(trainer.spriteId)}" alt="${escapeHtml(trainer.name)}" /></div>
       <div class="lead-prompt"><p class="prompt">How will you start the battle?</p><h2 class="section-label">Choose Lead</h2>
       <div class="lead-grid">${chosen.map(monButton).join("")}</div><div class="lead-details-slot" data-lead-details aria-live="polite">${leadDetails(selectedLeadId)}</div></div>
       ${battleError ? `<p class="battle-error" role="alert">${escapeHtml(battleError)}</p>` : ""}
@@ -774,7 +838,7 @@
       const heldItem = mon.heldItemId ? shopItems.find((item) => item.id === mon.heldItemId) : null;
       return `<div class="pc-mon-card"><button class="pc-mon" type="button" draggable="false" data-pc-mon="${id}" aria-label="View ${mon.name}${heldItem ? `, holding ${escapeHtml(heldItem.name)}` : ""}"><img class="sprite" src="${sprite(id)}" alt=""/><span class="pc-mon-name">${mon.name}</span></button>${pcHeldItemBadge(heldItem)}<button class="pc-quick-action add" type="button" data-quick-team-add="${id}" aria-label="Add ${mon.name} to team">+</button></div>`;
     }).join("");
-    return `<section class="screen">${header()}<div class="pc-stage">
+    return `<section class="screen">${header()}<div class="pc-stage">${runStatusCard()}
       <section class="pc-section trainer-reference-section" aria-labelledby="trainer-team-heading"><div class="pc-section-head"><h2 id="trainer-team-heading">${escapeHtml(trainer.name)}</h2><span>${trainer.pokemon.length} Pokémon</span></div><div class="party-strip">${trainerSlots}</div></section>
       <section class="pc-section party-section" aria-labelledby="party-heading"><div class="pc-section-head"><h2 id="party-heading">team</h2><span>${party.length}/6</span></div><div class="party-strip">${partySlots}</div></section>
       <section class="pc-section box-section" aria-labelledby="box-heading"><div class="pc-section-head"><h2 id="box-heading">box</h2><span>${boxIds.length} Pokémon</span></div><div class="pc-box">${boxMons}</div></section>
@@ -1157,7 +1221,7 @@
     const cards = {
       "how-to-play": {
         title: "How to play",
-        content: `<ol class="more-card-steps"><li><strong>Claim encounters.</strong> Each one joins your PC.</li><li><strong>Build a team.</strong> Choose up to six Pokémon, then adjust their training, moves, and held items.</li><li><strong>Challenge the daily trainer.</strong> Pick your lead and play out the simulated battle.</li><li><strong>Protect your run.</strong> A win earns money and encounters. A loss wipes your run... But you can always start fresh tomorrow!</li></ol>`,
+        content: `<ol class="more-card-steps"><li><strong>Claim encounters.</strong> Each one joins your PC.</li><li><strong>Build a team.</strong> Choose up to six Pokémon, then adjust their training, moves, and held items.</li><li><strong>Challenge the daily trainer.</strong> Pick your lead and play out the simulated battle.</li><li><strong>Complete a seven-day run.</strong> Your personal box sees each day of the weekly schedule once, then your Pokémon, money, items, and purchases reset.</li><li><strong>Keep your streak alive.</strong> Scheduled box resets preserve it. Missing a daily win, losing, or forfeiting ends it; a loss also wipes the run immediately.</li></ol>`,
       },
       nuzlocke: {
         title: "What a Nuzlocke is",
@@ -1224,6 +1288,24 @@
       wipeMeMessage = error.message;
     } finally {
       wipeMeBusy = false;
+      render();
+    }
+  }
+
+  async function expireRunForTesting() {
+    if (!gameState?.canExpireRunForTesting || runExpireBusy) return;
+    if (!confirm("Archive and expire your current run now to preview the scheduled reset experience?")) return;
+    runExpireBusy = true;
+    render();
+    try {
+      applyGameState(await apiRequest("/api/admin/run/expire", { method: "POST", body: "{}" }));
+      runDayPreview = null;
+      battleState = null;
+      resultOverlayOpen = false;
+      localStorage.removeItem("nuzzleBattleId");
+      route = "home";
+    } finally {
+      runExpireBusy = false;
       render();
     }
   }
@@ -1345,7 +1427,7 @@
     }
     hideTooltip();
     const screens = { home, lead, battle, pc, bag, encounters: encountersScreen, mart, leaderboard: leaderboardScreen, settings: settingsScreen, config: configScreen };
-    app.innerHTML = `${screens[route] ? screens[route]() : simpleScreen(route)}${welcomeCard()}`;
+    app.innerHTML = `${screens[route] ? screens[route]() : simpleScreen(route)}${welcomeCard()}${runInfoCard()}${runResetCard()}`;
     bind();
     updateCountdown();
   }
@@ -1699,6 +1781,23 @@
     });
     document.querySelector("[data-logout]")?.addEventListener("click", () => void logout());
     document.querySelector("[data-dismiss-welcome]")?.addEventListener("click", () => void dismissWelcome());
+    document.querySelectorAll("[data-open-run-info]").forEach((element) => element.addEventListener("click", () => {
+      runInfoOpen = true;
+      render();
+      requestAnimationFrame(() => document.querySelector(".run-info-card .auth-close")?.focus({ preventScroll: true }));
+    }));
+    document.querySelectorAll("[data-close-run-info]").forEach((element) => element.addEventListener("click", () => {
+      runInfoOpen = false;
+      render();
+      requestAnimationFrame(() => document.querySelector("[data-open-run-info]")?.focus({ preventScroll: true }));
+    }));
+    document.querySelectorAll("[data-preview-run-day]").forEach((element) => element.addEventListener("click", () => {
+      runDayPreview = element.dataset.previewRunDay === "live" ? null : Number(element.dataset.previewRunDay);
+      runInfoOpen = false;
+      render();
+      requestAnimationFrame(() => document.querySelector("[data-open-run-info]")?.focus({ preventScroll: true }));
+    }));
+    document.querySelector("[data-acknowledge-run-reset]")?.addEventListener("click", () => void acknowledgeRunReset());
     document.querySelector("[data-edit-avatar]")?.addEventListener("click", () => {
       avatarPickerOpen = true;
       avatarQuery = "";
@@ -1877,6 +1976,7 @@
     }));
     document.querySelector("[data-reset-daily-battle]")?.addEventListener("click", resetDailyBattle);
     document.querySelector("[data-wipe-me]")?.addEventListener("click", wipeMe);
+    document.querySelector("[data-expire-run]")?.addEventListener("click", expireRunForTesting);
     document.querySelector("[data-toggle-battle-log]")?.addEventListener("click", () => {
       battleLogExpanded = !battleLogExpanded;
       render();

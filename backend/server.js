@@ -390,7 +390,13 @@ async function api(request, response, pathname) {
       dailyBattleAttempted: service.hasDailyAttempt(user.id, state.date),
       dailyBattleId: dailyBattle?.record.id || null,
       dailyBattleEnded: Boolean(dailyBattle?.stream.battle?.ended),
+      canExpireRunForTesting: Boolean(user.isAdmin && process.env.NUZZLE_ENABLE_RUN_TEST_CONTROLS === "1"),
     });
+    return true;
+  }
+  if (request.method === "PUT" && pathname === "/api/game/run-reset/acknowledge") {
+    const user = requirePlayer(request);
+    json(response, 200, await game.acknowledgeRunReset(user.id));
     return true;
   }
   if (request.method === "POST" && pathname === "/api/admin/battle/reset") {
@@ -410,6 +416,21 @@ async function api(request, response, pathname) {
       dailyBattleAttempted: false,
       dailyBattleId: null,
       dailyBattleEnded: false,
+    });
+    return true;
+  }
+  if (request.method === "POST" && pathname === "/api/admin/run/expire") {
+    if (process.env.NUZZLE_ENABLE_RUN_TEST_CONTROLS !== "1") throw Object.assign(new Error("Run test controls are disabled."), { statusCode: 404 });
+    const user = requireAdmin(request);
+    const state = await game.get(user.id);
+    await service.resetDailyAttempt(user.id, state.date);
+    const expired = await game.expireForTesting(user.id);
+    json(response, 200, {
+      ...expired,
+      dailyBattleAttempted: false,
+      dailyBattleId: null,
+      dailyBattleEnded: false,
+      canExpireRunForTesting: true,
     });
     return true;
   }

@@ -1,7 +1,9 @@
 import crypto from "node:crypto";
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rename, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { createRequire } from "node:module";
+import { gzip } from "node:zlib";
+import { promisify } from "node:util";
 import {
   encounterPokemon,
   itemById,
@@ -13,7 +15,7 @@ import {
   starterPokemon,
 } from "./content.js";
 import { generateEncounterMoves } from "./movesets.js";
-import { gameDate } from "./game-clock.js";
+import { gameDate, nextGameDate } from "./game-clock.js";
 
 const require = createRequire(import.meta.url);
 const { Dex, toID } = require("pokemon-showdown");
@@ -22,6 +24,26 @@ const statLabels = { hp: "HP", atk: "Atk", def: "Def", spa: "SpA", spd: "SpD", s
 const startingMoney = 50000;
 const victoryReward = 15000;
 const directTrainingVersion = 1;
+const runLifespanDays = 7;
+const runArchiveRetentionDays = 7;
+const gzipAsync = promisify(gzip);
+
+function shiftGameDate(date, days) {
+  let shifted = date;
+  for (let count = 0; count < Math.abs(days); count++) {
+    if (days > 0) shifted = nextGameDate(shifted);
+    else {
+      const value = new Date(`${shifted}T12:00:00Z`);
+      value.setUTCDate(value.getUTCDate() - 1);
+      shifted = value.toISOString().slice(0, 10);
+    }
+  }
+  return shifted;
+}
+
+function dateDistance(fromDate, toDate) {
+  return Math.round((Date.parse(`${toDate}T12:00:00Z`) - Date.parse(`${fromDate}T12:00:00Z`)) / 86_400_000);
+}
 
 function gameError(message, statusCode = 400) {
   throw Object.assign(new Error(message), { statusCode });
@@ -285,12 +307,13 @@ function pokemonView(pokemon) {
   };
 }
 
-function newRun(userId, month = null) {
+function newRun(userId, startDate, resetNotice = null) {
   return {
     id: crypto.randomUUID(),
     userId,
     createdAt: new Date().toISOString(),
-    month,
+    month: startDate?.slice(0, 7) || null,
+    startDate,
     money: startingMoney,
     roster: [],
     teamIds: [],
@@ -301,6 +324,7 @@ function newRun(userId, month = null) {
     daily: null,
     directTrainingVersion,
     trainingTransactions: [],
+    resetNotice,
   };
 }
 
@@ -312,6 +336,7 @@ function availableItemCount(run, itemId, excludingPokemonId = null) {
 export class GameStore {
   constructor(filename, { timeZone = process.env.NUZZLE_TIME_ZONE || "America/New_York", now = () => new Date() } = {}) {
     this.filename = filename;
+    this.archiveDirectory = path.join(path.dirname(filename), "run-archive");
     this.timeZone = timeZone;
     this.now = now;
     this.data = { version: 2, runs: {} };
@@ -337,26 +362,76 @@ export class GameStore {
     await rename(temporary, this.filename);
   }
 
+  async archiveRun(run, reason, resetDate) {
+    if (!run?.id) return null;
+    await mkdir(this.archiveDirectory, { recursive: true });
+    const archiveId = crypto.randomUUID();
+    const safeUserId = String(run.userId || "unknown").replace(/[^a-z0-9-]/gi, "_");
+    const destination = path.join(this.archiveDirectory, `${resetDate}--${safeUserId}--${run.id}--${archiveId}.json.gz`);
+    const temporary = `${destination}.${process.pid}.tmp`;
+    const archiveUntil = shiftGameDate(resetDate, runArchiveRetentionDays);
+    const record = {
+      archiveVersion: 1,
+      archiveId,
+      reason,
+      resetDate,
+      archiveUntil,
+      run: structuredClone(run),
+    };
+    await writeFile(temporary, await gzipAsync(`${JSON.stringify(record, null, 2)}\n`, { level: 9 }), { mode: 0o600 });
+    await rename(temporary, destination);
+    const oldestRetainedDate = shiftGameDate(resetDate, -runArchiveRetentionDays);
+    for (const name of await readdir(this.archiveDirectory)) {
+      if (!name.endsWith(".json.gz") || name.slice(0, 10) >= oldestRetainedDate) continue;
+      await unlink(path.join(this.archiveDirectory, name)).catch((error) => {
+        if (error.code !== "ENOENT") console.error(`Could not remove expired run archive ${name}:`, error);
+      });
+    }
+    return {
+      archiveId,
+      reason,
+      resetDate,
+      archiveUntil,
+      previousRunId: run.id,
+      previousStartDate: run.startDate || null,
+      pokemonCount: run.roster?.length || 0,
+    };
+  }
+
+  lifecycle(run, date) {
+    const startDate = run.startDate || date;
+    const expiresOn = shiftGameDate(startDate, runLifespanDays);
+    const runDay = Math.max(0, Math.min(runLifespanDays, dateDistance(startDate, date) + 1));
+    return {
+      startDate,
+      expiresOn,
+      runDay,
+      lifespanDays: runLifespanDays,
+      daysRemaining: Math.max(0, dateDistance(date, expiresOn)),
+      resetNotice: run.resetNotice || null,
+    };
+  }
+
   async mutate(userId, operation) {
     let result;
     this.pending = this.pending.catch(() => {}).then(async () => {
       const date = gameDate(this.now(), this.timeZone);
-      const month = date.slice(0, 7);
       const guest = this.guestIds.has(userId);
       let run = this.data.runs[userId];
       if (!run || (guest && run.guestDate !== date)) {
-        run = this.data.runs[userId] = newRun(userId, month);
+        run = this.data.runs[userId] = newRun(userId, date);
         if (guest) run.guestDate = date;
       }
       migrateOpeningEncounters(run);
-      if (!run.month) run.month = month;
-      if (run.month !== month) {
-        run = this.data.runs[userId] = newRun(userId, month);
-        if (guest) run.guestDate = date;
+      if (!run.startDate) run.startDate = date;
+      run.month = run.startDate.slice(0, 7);
+      if (!guest && date >= this.lifecycle(run, date).expiresOn) {
+        const resetNotice = await this.archiveRun(run, "scheduled", date);
+        run = this.data.runs[userId] = newRun(userId, date, resetNotice);
       }
       migrateDirectTraining(run);
       ensureDaily(run, date);
-      result = operation(run);
+      result = await operation(run, date);
       await this.save();
     });
     await this.pending;
@@ -381,6 +456,7 @@ export class GameStore {
       purchasedUnique: [...run.purchasedUnique],
       encounters,
       battleUnlocked: run.teamIds.length > 0,
+      runLifecycle: this.lifecycle(run, gameDate(this.now(), this.timeZone)),
     };
   }
 
@@ -510,9 +586,10 @@ export class GameStore {
   }
 
   async resetAfterWipe(userId, battleId) {
-    return this.mutate(userId, (run) => {
+    return this.mutate(userId, async (run, date) => {
       if (run.resetFromBattleId === battleId) return this.publicState(run);
-      const replacement = newRun(userId, run.month);
+      await this.archiveRun(run, "loss", date);
+      const replacement = newRun(userId, nextGameDate(date));
       if (run.guestDate) replacement.guestDate = run.guestDate;
       replacement.resetFromBattleId = battleId;
       replacement.daily = { date: run.daily.date, encounters: [] };
@@ -522,11 +599,29 @@ export class GameStore {
   }
 
   async resetForTesting(userId) {
-    return this.mutate(userId, (run) => {
-      const replacement = newRun(userId, run.month);
+    return this.mutate(userId, async (run, date) => {
+      await this.archiveRun(run, "developer", date);
+      const replacement = newRun(userId, date);
       ensureDaily(replacement, run.daily.date);
       this.data.runs[userId] = replacement;
       return this.publicState(replacement);
+    });
+  }
+
+  async expireForTesting(userId) {
+    return this.mutate(userId, async (run, date) => {
+      const resetNotice = await this.archiveRun(run, "scheduled", date);
+      const replacement = newRun(userId, date, resetNotice);
+      ensureDaily(replacement, date);
+      this.data.runs[userId] = replacement;
+      return this.publicState(replacement);
+    });
+  }
+
+  async acknowledgeRunReset(userId) {
+    return this.mutate(userId, (run) => {
+      run.resetNotice = null;
+      return this.publicState(run);
     });
   }
 

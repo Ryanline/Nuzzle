@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, readFile, readdir } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { gunzipSync } from "node:zlib";
 import { contentSummary, itemCatalog, pokemonById, pokemonCatalog } from "../content.js";
 import { GameStore, publicContent } from "../game-store.js";
 import { encounterSignatureMoves, generateEncounterMoves } from "../movesets.js";
@@ -247,20 +248,47 @@ test("Sunday provides four persisted encounters and restoring the store does not
   assert.equal(state.encounters[1].pokemon[0].speciesId, species);
 });
 
-test("the first game date of a new month resets the run to an empty opening encounter", async () => {
+test("registered runs last seven personal game dates, cross months, and archive before reset", async () => {
   let now = new Date("2026-10-31T16:00:00Z");
   const directory = await mkdtemp(path.join(os.tmpdir(), "nuzzle-month-"));
   const store = new GameStore(path.join(directory, "game.json"), { timeZone: "America/New_York", now: () => now });
   await store.initialize();
   const october = await store.claimEncounter("monthly-user", 0);
   assert.equal(october.roster.length, 1);
+  assert.equal(october.runLifecycle.runDay, 1);
+  assert.equal(october.runLifecycle.expiresOn, "2026-11-07");
+
   now = new Date("2026-11-01T16:00:00Z");
   const november = await store.get("monthly-user");
-  assert.equal(november.roster.length, 0);
-  assert.equal(november.money, 50000);
-  assert.equal(november.encounters.length, 12);
-  assert.equal(november.encounters[0].kind, "opening");
-  assert.equal(november.encounters[0].count, 1);
+  assert.equal(november.runId, october.runId);
+  assert.equal(november.roster.length, 1);
+  assert.equal(november.runLifecycle.runDay, 2);
+
+  now = new Date("2026-11-06T16:00:00Z");
+  const finalDay = await store.get("monthly-user");
+  assert.equal(finalDay.runId, october.runId);
+  assert.equal(finalDay.runLifecycle.runDay, 7);
+  assert.equal(finalDay.runLifecycle.daysRemaining, 1);
+
+  now = new Date("2026-11-07T16:00:00Z");
+  const reset = await store.get("monthly-user");
+  assert.notEqual(reset.runId, october.runId);
+  assert.equal(reset.roster.length, 0);
+  assert.equal(reset.money, 50000);
+  assert.equal(reset.encounters.length, 12);
+  assert.equal(reset.runLifecycle.runDay, 1);
+  assert.equal(reset.runLifecycle.resetNotice.pokemonCount, 1);
+  assert.equal(reset.runLifecycle.resetNotice.archiveUntil, "2026-11-14");
+
+  const archiveNames = await readdir(path.join(directory, "run-archive"));
+  assert.equal(archiveNames.length, 1);
+  const archive = JSON.parse(gunzipSync(await readFile(path.join(directory, "run-archive", archiveNames[0]))));
+  assert.equal(archive.reason, "scheduled");
+  assert.equal(archive.run.id, october.runId);
+  assert.equal(archive.run.roster.length, 1);
+
+  const acknowledged = await store.acknowledgeRunReset("monthly-user");
+  assert.equal(acknowledged.runLifecycle.resetNotice, null);
 });
 
 test("held-item purchases, atomic training builds, and battle snapshots are server-authoritative", async () => {
