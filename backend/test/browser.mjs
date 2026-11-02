@@ -320,7 +320,7 @@ if (await page.locator(".welcome-card").count()) throw new Error("The acknowledg
 if (!(await page.locator(".account-button").getAttribute("aria-label"))?.includes(username)) throw new Error("The account control did not show the authenticated user.");
 if (!(await page.locator(".pc-stage .run-status").textContent())?.includes("Run Day 1 of 7") || (await page.locator(".pc-stage .run-status").textContent())?.includes("Streak continues") || (await page.locator(".pc-stage .run-status").textContent())?.includes("resets in")) throw new Error("The PC did not receive the compact seven-day run indicator.");
 await page.click("[data-open-run-info]");
-if (!(await page.locator(".run-info-card").textContent())?.includes("scheduled run reset does not break it")) throw new Error("The run details did not explain streak persistence.");
+if ((await page.locator(".run-info-card strong").textContent())?.trim() !== "Your streak will be unaffected." || !(await page.locator(".run-info-card em").textContent())?.includes("fresh encounters")) throw new Error("The run details did not explain streak persistence and fresh-box balance.");
 await page.click('[data-preview-run-day="6"]');
 if (!(await page.locator(".run-status").textContent())?.includes("Run Day 6 of 7") || !await page.locator(".run-status.soon").count()) throw new Error("The local Day 6 warning preview was unavailable.");
 await page.click("[data-open-run-info]");
