@@ -1225,7 +1225,7 @@
       },
       schedule: {
         title: "Battle schedule",
-        content: `<dl class="battle-schedule"><div><dt>Sunday</dt><dd>Theme teams</dd></div><div><dt>Monday</dt><dd>Regular trainers</dd></div><div><dt>Tuesday</dt><dd>Ace trainers</dd></div><div><dt>Wednesday</dt><dd>Rival battles</dd></div><div><dt>Thursday</dt><dd>Gym leaders</dd></div><div><dt>Friday</dt><dd>Elite 4</dd></div><div><dt>Saturday</dt><dd>Champions</dd></div></dl><p class="schedule-note">On holidays, a special holiday-themed trainer may appear instead of the regularly scheduled opponent.</p><p class="schedule-reset">Battles reset daily at 12:00 AM Eastern Time. A personal box lasts seven game dates—one of each category—then resets without breaking its win streak.</p>`,
+        content: `<dl class="battle-schedule"><div><dt>Sunday</dt><dd>Theme teams</dd></div><div><dt>Monday</dt><dd>Gym leaders</dd></div><div><dt>Tuesday</dt><dd>Regular trainers</dd></div><div><dt>Wednesday</dt><dd>Rival battles</dd></div><div><dt>Thursday</dt><dd>Ace trainers</dd></div><div><dt>Friday</dt><dd>Elite 4</dd></div><div><dt>Saturday</dt><dd>Champions</dd></div></dl><p class="schedule-note">On holidays, a special holiday-themed trainer may appear instead of the regularly scheduled opponent.</p><p class="schedule-reset">Battles reset daily at 12:00 AM Eastern Time. A personal box lasts seven game dates—one of each category—then resets without breaking its win streak.</p>`,
       },
       affiliation: {
         title: "Affiliation",
