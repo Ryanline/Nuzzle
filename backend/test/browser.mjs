@@ -440,7 +440,8 @@ const addQueuedTrainer = async (name, spriteId, species, shiny = false) => {
   const expectedCount = await page.locator("[data-trainer-row]").count() + 1;
   await page.click("[data-open-trainer-form]");
   await page.fill('.trainer-form input[name="name"]', name);
-  await page.fill('.trainer-form input[name="spriteId"]', spriteId);
+  await page.fill("[data-trainer-sprite-search]", spriteId);
+  await page.click(`[data-trainer-sprite-option="${spriteId}"]`);
   await page.fill('.trainer-form textarea[name="teamText"]', `${species}\nAbility: Pressure\n${shiny ? "Shiny: Yes\n" : ""}Level: 100\n- Protect`);
   const response = page.waitForResponse((candidate) => candidate.url().endsWith("/api/admin/trainers") && candidate.request().method() === "POST");
   await page.click('.trainer-form button[type="submit"]');
