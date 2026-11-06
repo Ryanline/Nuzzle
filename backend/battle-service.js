@@ -445,6 +445,7 @@ export class BattleController {
     this.knockouts = [];
     this.version = 0;
     this.waiters = new Set();
+    this.logWaiters = new Set();
     this.replayIndexes = { p1: 0, p2: 0 };
     this.failure = null;
     this.settlement = null;
@@ -501,10 +502,15 @@ export class BattleController {
           if (entry) this.log.push({ id: ++this.logSequence, ...entry });
         }
         this.log = this.log.slice(-250);
+        for (const resolve of this.logWaiters) resolve();
+        this.logWaiters.clear();
       }
     } catch (error) {
       this.failure = error;
       console.error(`Battle ${this.record.id} spectator stream failed:`, error);
+    } finally {
+      for (const resolve of this.logWaiters) resolve();
+      this.logWaiters.clear();
     }
   }
 
@@ -1258,6 +1264,23 @@ export class BattleController {
     if (this.failure) throw this.failure;
   }
 
+  async waitForLogTurn(turn) {
+    while (this.logTurn < turn && !this.failure) {
+      await new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+          this.logWaiters.delete(done);
+          reject(new Error("The battle log did not catch up to the battle state in time."));
+        }, 5000);
+        const done = () => {
+          clearTimeout(timer);
+          resolve();
+        };
+        this.logWaiters.add(done);
+      });
+    }
+    if (this.failure) throw this.failure;
+  }
+
   validateChoice(action) {
     const request = this.currentRequest;
     if (!request) choiceError("The battle is not waiting for a player choice.", 409);
@@ -1282,6 +1305,7 @@ export class BattleController {
     if (this.stream.battle?.ended) choiceError("This battle is already over.", 409);
     if (Number(rqid) !== this.currentRequest?.nuzzleRqid) choiceError("That choice belongs to an earlier turn. Please choose again.", 409);
     const choice = this.validateChoice(action);
+    const previousTurn = this.stream.battle.turn;
     const previousVersion = this.version;
     this.currentRequest = null;
     this.record.choices.p1.push(choice);
@@ -1289,6 +1313,7 @@ export class BattleController {
     await this.persist(this.record);
     await this.streams.p1.write(choice);
     await this.waitForState(previousVersion);
+    if (this.stream.battle.turn > previousTurn) await this.waitForLogTurn(this.stream.battle.turn);
     await this.settleIfEnded();
     return this.state();
   }
