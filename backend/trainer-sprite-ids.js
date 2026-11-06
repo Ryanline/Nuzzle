@@ -1,5 +1,5 @@
 // Snapshot of https://play.pokemonshowdown.com/sprites/trainers/.
-export const trainerSpriteIds = Object.freeze([
+export const showdownTrainerSpriteIds = Object.freeze([
   "aaron",
   "aarune",
   "acerola",
@@ -1500,4 +1500,13 @@ export const trainerSpriteIds = Object.freeze([
   "zirco-unite",
   "zisu",
   "zossie",
+]);
+
+export const customTrainerSpriteIds = Object.freeze([
+  "ramsay",
+]);
+
+export const trainerSpriteIds = Object.freeze([
+  ...showdownTrainerSpriteIds,
+  ...customTrainerSpriteIds,
 ]);

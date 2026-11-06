@@ -9,8 +9,8 @@ import { BattleStore } from "./battle-store.js";
 import { DiscordRecapScheduler } from "./discord-recap.js";
 import { AuthStore, SESSION_LIFETIME_MS } from "./auth-store.js";
 import { GameStore, publicContent } from "./game-store.js";
-import { trainerSprites, TrainerStore } from "./trainer-store.js";
-import { trainerSpriteIds } from "./trainer-sprite-ids.js";
+import { showdownTrainerSprites, trainerSprites, TrainerStore } from "./trainer-store.js";
+import { showdownTrainerSpriteIds } from "./trainer-sprite-ids.js";
 
 const require = createRequire(import.meta.url);
 const { Dex } = require("pokemon-showdown");
@@ -219,7 +219,7 @@ function showdownAssetCatalog() {
     "itemicons-sheet.png",
     ...types.map((name) => `types/${name}.png`),
     ...["Physical", "Special", "Status"].map((name) => `categories/${name}.png`),
-    ...trainerSpriteIds.map((id) => `trainers/${id}.png`),
+    ...showdownTrainerSpriteIds.map((id) => `trainers/${id}.png`),
     ...["gen5", "gen5-back", "gen5-shiny", "gen5-back-shiny"].flatMap((directory) => species.map((id) => `${directory}/${id}.png`)),
   ];
 }
@@ -298,7 +298,7 @@ async function api(request, response, pathname) {
   }
   if (request.method === "GET" && pathname === "/api/account/avatars") {
     requireUser(request);
-    json(response, 200, { sprites: trainerSprites });
+    json(response, 200, { sprites: showdownTrainerSprites });
     return true;
   }
   if (request.method === "PUT" && pathname === "/api/account/avatar") {

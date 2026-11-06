@@ -2,12 +2,12 @@ import crypto from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
-import { trainerSpriteIds } from "./trainer-sprite-ids.js";
+import { showdownTrainerSpriteIds } from "./trainer-sprite-ids.js";
 
 const scrypt = promisify(crypto.scrypt);
 const SESSION_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
 const ADMIN_USERNAME_KEY = String(process.env.NUZZLE_ADMIN_USERNAME || "ryanline").trim().toLowerCase();
-const avatarSpriteIds = new Set(trainerSpriteIds);
+const avatarSpriteIds = new Set(showdownTrainerSpriteIds);
 
 function authError(message, statusCode = 400) {
   throw Object.assign(new Error(message), { statusCode });

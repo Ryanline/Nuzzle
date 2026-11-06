@@ -2,7 +2,7 @@ import { createRequire } from "node:module";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { trainerSpriteIds } from "../../backend/trainer-sprite-ids.js";
+import { showdownTrainerSpriteIds } from "../../backend/trainer-sprite-ids.js";
 import { generateSpriteBounds } from "./generate-sprite-bounds.mjs";
 
 const require = createRequire(import.meta.url);
@@ -22,7 +22,7 @@ const allAssets = [
   { directory: "", filename: "itemicons-sheet.png" },
   ...typeNames.map((name) => ({ directory: "types", filename: `${name}.png` })),
   ...["Physical", "Special", "Status"].map((name) => ({ directory: "categories", filename: `${name}.png` })),
-  ...trainerSpriteIds.map((id) => ({ directory: "trainers", filename: `${id}.png` })),
+  ...showdownTrainerSpriteIds.map((id) => ({ directory: "trainers", filename: `${id}.png` })),
   ...["gen5", "gen5-back", "gen5-shiny", "gen5-back-shiny"].flatMap((directory) => pokemonSpriteIds.map((id) => ({ directory, filename: `${id}.png` }))),
 ];
 const requestedAssets = process.argv.slice(2);

@@ -19,10 +19,11 @@
       return bounds;
     });
   const healthTone = (percent) => percent <= 20 ? "critical" : percent <= 50 ? "warning" : "healthy";
-  const trainerSprite = (id = "brock") => id === "brock"
-    ? "assets/trainers/brock.png"
-    : `assets/showdown/trainers/${encodeURIComponent(id)}.png`;
-  const mysteryTrainerSprite = "assets/trainers/mystery.png";
+  const trainerSprite = (id = "brock") => {
+    if (id === "brock") return "assets/trainers/brock.png";
+    if (id === "ramsay") return "assets/trainers/ramsay.svg";
+    return `assets/showdown/trainers/${encodeURIComponent(id)}.png`;
+  };
   const defaultAccountAvatarId = "unknownf";
   const app = document.querySelector("#app");
   const tooltip = document.querySelector("#tooltip");
@@ -1311,13 +1312,16 @@
     return `${Number(month)}/${Number(day)}/${year}`;
   }
 
-  function trainerSpriteChoices(sprites, query = "") {
+  function trainerSpriteChoices(sprites, query = "", selectedId = trainerDraft.spriteId) {
     const search = String(query).trim().toLowerCase();
     const matches = search
       ? sprites.filter((trainer) => trainer.id.includes(search) || trainer.name.toLowerCase().includes(search))
       : sprites;
     return matches.length
-      ? matches.map((trainer) => `<button class="trainer-sprite-option" type="button" role="option" data-trainer-sprite-option="${trainer.id}"><strong>${escapeHtml(trainer.name)}</strong><small>${trainer.id}</small></button>`).join("")
+      ? matches.map((trainer) => {
+        const selected = trainer.id === selectedId;
+        return `<button class="avatar-choice trainer-sprite-choice${selected ? " selected" : ""}" type="button" data-trainer-sprite-option="${trainer.id}" aria-label="${escapeHtml(trainer.name)}" aria-pressed="${selected}" title="${escapeHtml(trainer.name)}"><img class="sprite" src="${trainerSprite(trainer.id)}" alt="" loading="lazy"></button>`;
+      }).join("")
       : '<p class="trainer-sprite-empty">No matching trainer sprites.</p>';
   }
 
@@ -1337,15 +1341,16 @@
     const form = trainerFormOpen ? `<form class="trainer-form" data-trainer-form>
       <div class="trainer-form-head"><h2>Add trainer</h2><button type="button" data-close-trainer-form aria-label="Close">×</button></div>
       <label>Trainer name<input name="name" maxlength="40" required placeholder="Misty" value="${escapeHtml(trainerDraft.name)}"></label>
-      <div class="trainer-sprite-field"><label for="trainer-sprite-input">Trainer sprite</label><div class="trainer-sprite-combobox">
-        <div class="trainer-sprite-input-row"><input id="trainer-sprite-input" name="spriteId" autocomplete="off" required value="${escapeHtml(trainerDraft.spriteId)}" data-trainer-sprite role="combobox" aria-autocomplete="list" aria-controls="trainer-sprite-menu" aria-expanded="false" placeholder="Choose or type to search"><button type="button" data-toggle-trainer-sprites aria-label="Show trainer sprites">▾</button></div>
-        <div class="trainer-sprite-menu" id="trainer-sprite-menu" data-trainer-sprite-menu role="listbox" hidden>${trainerSpriteChoices(sprites)}</div>
-      </div></div>
-      <div class="trainer-sprite-preview${validSprite ? "" : " mystery"}"><img class="sprite" src="${validSprite ? trainerSprite(trainerDraft.spriteId) : mysteryTrainerSprite}" alt="${validSprite ? "Selected trainer sprite" : "Mystery trainer"}" data-trainer-sprite-preview></div>
+      <div class="trainer-sprite-field"><label for="trainer-sprite-search">Trainer sprite</label>
+        <label class="avatar-search trainer-sprite-search" for="trainer-sprite-search"><span>Find a trainer</span><input id="trainer-sprite-search" type="search" autocomplete="off" placeholder="Type to narrow the list" data-trainer-sprite-search></label>
+        <input name="spriteId" type="hidden" required value="${escapeHtml(trainerDraft.spriteId)}" data-trainer-sprite>
+        <div class="avatar-grid trainer-sprite-grid" data-trainer-sprite-grid>${trainerSpriteChoices(sprites)}</div>
+        <p class="trainer-sprite-selection" data-trainer-sprite-selection>${validSprite ? `Selected: ${escapeHtml(sprites.find((trainer) => trainer.id === trainerDraft.spriteId)?.name || trainerDraft.spriteId)}` : "Choose a trainer sprite."}</p>
+      </div>
       <label>Showdown team<textarea name="teamText" rows="14" required placeholder="Starmie @ Leftovers&#10;Ability: Natural Cure&#10;Level: 100&#10;- Surf&#10;- Psychic&#10;- Ice Beam&#10;- Recover">${escapeHtml(trainerDraft.teamText)}</textarea></label>
       <p class="config-help">Paste between one and six complete Showdown sets. Battle order is randomized.</p>
       ${configError ? `<p class="battle-error" role="alert">${escapeHtml(configError)}</p>` : ""}
-      <button class="gloss-button blue" type="submit" ${configBusy ? "disabled" : ""}>${configBusy ? "Adding…" : "Add to queue"}</button>
+      <button class="gloss-button blue" type="submit" data-submit-trainer ${configBusy || !validSprite ? "disabled" : ""}>${configBusy ? "Adding…" : "Add to queue"}</button>
     </form>` : "";
     return `<section class="screen config-screen">${header()}<div class="config-stage"><div class="config-heading"><div><p>Admin</p><h2>Scheduler</h2></div><button class="config-add" type="button" data-open-trainer-form aria-label="Add trainer">+</button></div>
       ${currentCard}${configError && !trainerFormOpen ? `<p class="battle-error" role="alert">${escapeHtml(configError)}</p>` : ""}
@@ -1885,54 +1890,38 @@
       saveTrainerDraft();
     }));
     const spriteInput = trainerForm?.querySelector("[data-trainer-sprite]");
-    const spriteMenu = trainerForm?.querySelector("[data-trainer-sprite-menu]");
-    const spritePreview = trainerForm?.querySelector("[data-trainer-sprite-preview]");
+    const spriteSearch = trainerForm?.querySelector("[data-trainer-sprite-search]");
+    const spriteGrid = trainerForm?.querySelector("[data-trainer-sprite-grid]");
+    const spriteSelection = trainerForm?.querySelector("[data-trainer-sprite-selection]");
+    const trainerSubmit = trainerForm?.querySelector("[data-submit-trainer]");
     const availableSprites = adminConfig?.sprites || [];
     const availableSpriteIds = new Set(availableSprites.map((trainer) => trainer.id));
-    const updateSpritePreview = (value) => {
-      if (!spritePreview) return;
+    const updateSpriteSelection = (value) => {
       const valid = availableSpriteIds.has(value);
-      spriteInput?.setCustomValidity(value && !valid ? "Choose a trainer sprite from the dropdown." : "");
-      spritePreview.src = valid ? trainerSprite(value) : mysteryTrainerSprite;
-      spritePreview.alt = valid ? "Selected trainer sprite" : "Mystery trainer";
-      spritePreview.parentElement?.classList.toggle("mystery", !valid);
+      spriteInput?.setCustomValidity(value && !valid ? "Choose a trainer sprite from the grid." : "");
+      if (spriteSelection) {
+        const choice = availableSprites.find((trainer) => trainer.id === value);
+        spriteSelection.textContent = choice ? `Selected: ${choice.name}` : "Choose a trainer sprite.";
+      }
+      if (trainerSubmit) trainerSubmit.disabled = configBusy || !valid;
     };
-    const openSpriteMenu = (query = "") => {
-      if (!spriteMenu || !spriteInput) return;
-      spriteMenu.innerHTML = trainerSpriteChoices(availableSprites, query);
-      spriteMenu.hidden = false;
-      spriteInput.setAttribute("aria-expanded", "true");
-    };
-    const closeSpriteMenu = () => {
-      if (!spriteMenu || !spriteInput) return;
-      spriteMenu.hidden = true;
-      spriteInput.setAttribute("aria-expanded", "false");
-    };
-    spriteInput?.addEventListener("focus", () => openSpriteMenu(spriteInput.value));
-    spriteInput?.addEventListener("input", () => {
-      trainerDraft.spriteId = spriteInput.value.trim();
-      saveTrainerDraft();
-      updateSpritePreview(trainerDraft.spriteId);
-      openSpriteMenu(spriteInput.value);
+    spriteSearch?.addEventListener("input", () => {
+      if (spriteGrid) spriteGrid.innerHTML = trainerSpriteChoices(availableSprites, spriteSearch.value, trainerDraft.spriteId);
     });
-    trainerForm?.querySelector("[data-toggle-trainer-sprites]")?.addEventListener("click", () => {
-      if (!spriteMenu || !spriteInput) return;
-      if (spriteMenu.hidden) {
-        spriteInput.focus();
-        openSpriteMenu();
-      } else closeSpriteMenu();
-    });
-    spriteMenu?.addEventListener("click", (event) => {
+    spriteGrid?.addEventListener("click", (event) => {
       const option = event.target.closest("[data-trainer-sprite-option]");
       if (!option || !spriteInput) return;
       trainerDraft.spriteId = option.dataset.trainerSpriteOption;
       spriteInput.value = trainerDraft.spriteId;
       saveTrainerDraft();
-      updateSpritePreview(trainerDraft.spriteId);
-      closeSpriteMenu();
-      spriteInput.focus();
+      updateSpriteSelection(trainerDraft.spriteId);
+      spriteGrid.querySelectorAll("[data-trainer-sprite-option]").forEach((choice) => {
+        const selected = choice.dataset.trainerSpriteOption === trainerDraft.spriteId;
+        choice.classList.toggle("selected", selected);
+        choice.setAttribute("aria-pressed", String(selected));
+      });
     });
-    if (spriteInput) updateSpritePreview(spriteInput.value);
+    if (spriteInput) updateSpriteSelection(spriteInput.value);
     document.querySelectorAll("[data-remove-trainer]").forEach((button) => button.addEventListener("click", () => void removeTrainer(button.dataset.removeTrainer)));
     document.querySelectorAll("[data-move-trainer]").forEach((button) => button.addEventListener("click", () => {
       const ids = (adminConfig?.queue || []).map((trainer) => trainer.id);

@@ -54,11 +54,12 @@ Ability: Vital Spirit
   assert.equal(encounterPokemon.some((pokemon) => ["tangela", "primeape"].includes(pokemon.id)), false);
 });
 
-test("the trainer editor exposes the full Showdown sprite catalog", () => {
+test("the trainer editor exposes the full Showdown sprite catalog and custom sprites", () => {
   assert.ok(trainerSprites.length >= 1_400);
-  for (const id of ["brock", "misty", "cynthia", "red", "youngster-gen9"]) {
+  for (const id of ["brock", "misty", "cynthia", "red", "youngster-gen9", "ramsay"]) {
     assert.ok(trainerSprites.some((sprite) => sprite.id === id), `missing trainer sprite ${id}`);
   }
+  assert.equal(trainerSprites.find((sprite) => sprite.id === "ramsay")?.name, "Ramsay");
 });
 
 test("queued trainers can be reordered and publish one immutable snapshot per day", async () => {

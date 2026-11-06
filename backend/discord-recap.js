@@ -55,6 +55,12 @@ function publicAssetUrl(publicUrl, relative) {
   return `${String(publicUrl || "").replace(/\/+$/, "")}/${relative.split("/").map(encodeURIComponent).join("/")}`;
 }
 
+function trainerSpritePath(spriteId) {
+  if (spriteId === "brock") return "assets/trainers/brock.png";
+  if (spriteId === "ramsay") return "assets/trainers/ramsay.svg";
+  return `assets/showdown/trainers/${spriteId}.png`;
+}
+
 function localMinutes(now, timeZone) {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone,
@@ -69,7 +75,7 @@ function localMinutes(now, timeZone) {
 export function discordRecapPayload(recap, { publicUrl = "https://nuzzle-game.duckdns.org" } = {}) {
   const title = recap.challengeNumber ? `Nuzzle #${recap.challengeNumber} Daily Report` : "Daily Nuzzle Report";
   const trainerSprite = recap.trainerSpriteId
-    ? publicAssetUrl(publicUrl, recap.trainerSpriteId === "brock" ? "assets/trainers/brock.png" : `assets/showdown/trainers/${recap.trainerSpriteId}.png`)
+    ? publicAssetUrl(publicUrl, trainerSpritePath(recap.trainerSpriteId))
     : null;
   const deadliestSprite = recap.deadliestPokemon?.spriteId
     ? publicAssetUrl(publicUrl, `assets/showdown/gen5/${recap.deadliestPokemon.spriteId}.png`)

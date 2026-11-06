@@ -52,6 +52,7 @@ test("trainer avatars persist and reject unknown sprite ids", async () => {
   await restored.initialize();
   assert.equal(restored.userForToken(registration.token)?.avatarSpriteId, "misty");
   await assert.rejects(auth.updateAvatar(registration.user.id, "not-a-real-trainer"), /trainer sprite list/);
+  await assert.rejects(auth.updateAvatar(registration.user.id, "ramsay"), /trainer sprite list/);
   assert.equal((await auth.updateAvatar(registration.user.id, null)).avatarSpriteId, null);
 });
 

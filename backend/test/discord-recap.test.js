@@ -76,6 +76,7 @@ test("daily Discord recaps aggregate trainer results, KOs, survivors, and users"
   assert.doesNotMatch(payload.embeds[0].description, /most popular/);
   assert.equal(payload.embeds[0].footer.text, "October 30, 2026");
   assert.equal(JSON.stringify(payload).includes("—"), false);
+  assert.equal(discordRecapPayload({ ...recap, trainerSpriteId: "ramsay" }, { publicUrl: "https://nuzzle.example/" }).embeds[0].thumbnail.url, "https://nuzzle.example/assets/trainers/ramsay.svg");
 });
 
 test("the Discord recap scheduler posts the previous day only once across restarts", async () => {
