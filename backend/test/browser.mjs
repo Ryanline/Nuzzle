@@ -39,8 +39,33 @@ async function swipePcSheet(direction) {
     const y = bounds.top + bounds.height / 2;
     const init = { bubbles: true, pointerId: 71, pointerType: "touch", isPrimary: true, clientY: y };
     target.dispatchEvent(new PointerEvent("pointerdown", { ...init, clientX: startX }));
+    target.dispatchEvent(new PointerEvent("pointermove", { ...init, clientX: endX }));
     target.dispatchEvent(new PointerEvent("pointerup", { ...init, clientX: endX }));
   }, direction);
+  await page.waitForTimeout(280);
+}
+
+async function dragPcSheetClosed() {
+  const progress = await page.locator(".pokemon-summary").evaluate((target) => {
+    const sheet = target.closest(".pokemon-sheet");
+    const backdrop = sheet.closest(".sheet-backdrop");
+    const bounds = target.getBoundingClientRect();
+    const x = bounds.left + bounds.width / 2;
+    const startY = bounds.top + bounds.height / 2;
+    const endY = startY + sheet.getBoundingClientRect().height * .4;
+    const init = { bubbles: true, pointerId: 72, pointerType: "touch", isPrimary: true, clientX: x };
+    target.dispatchEvent(new PointerEvent("pointerdown", { ...init, clientY: startY }));
+    target.dispatchEvent(new PointerEvent("pointermove", { ...init, clientY: endY }));
+    const result = {
+      transform: getComputedStyle(sheet).transform,
+      backdrop: getComputedStyle(backdrop).backgroundColor,
+      blur: getComputedStyle(backdrop).backdropFilter,
+    };
+    target.dispatchEvent(new PointerEvent("pointerup", { ...init, clientY: endY }));
+    return result;
+  });
+  await page.waitForTimeout(280);
+  return progress;
 }
 
 async function assertMobileLayout(label, scrollRegions = []) {
@@ -704,6 +729,10 @@ await swipePcSheet("next");
 if ((await page.locator("#pokemon-sheet-title").textContent())?.trim() !== nextDetailName || await page.locator('[data-pc-detail-view="summary"][aria-selected="true"]').count() !== 1) throw new Error("Swiping left did not open the next Pokémon while preserving Summary.");
 await swipePcSheet("previous");
 if ((await page.locator("#pokemon-sheet-title").textContent())?.trim() !== outgoingPokemon.name) throw new Error("Swiping right did not return to the previous Pokémon.");
+const closeDragProgress = await dragPcSheetClosed();
+if (closeDragProgress.transform === "none" || closeDragProgress.backdrop === "rgba(0, 0, 0, 0.38)" || closeDragProgress.blur === "blur(4px)") throw new Error(`Dragging the PC drawer did not move it while progressively revealing the box: ${JSON.stringify(closeDragProgress)}`);
+if (await page.locator(".pokemon-sheet").count()) throw new Error("Dragging the PC drawer downward did not close it.");
+await page.click(`[data-pc-detail="${outgoingId}"]`);
 const summaryAppearance = await page.locator(".pokemon-sheet").evaluate((sheet) => {
   const buttons = [...sheet.querySelectorAll(".sheet-actions .gloss-button")];
   const lightBackgrounds = buttons.map((button) => getComputedStyle(button).backgroundImage);

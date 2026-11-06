@@ -1659,12 +1659,12 @@
     return [...[...team], ...pcOrder.filter((id) => !team.has(id))].filter((id) => mons[id]);
   }
 
-  function navigatePcDetail(direction) {
-    if (!selectedPcId || pcSwapMode || pcItemMode || pcSummaryMoveId || trainingMoveSlot !== null) return;
+  function navigatePcDetail(direction, skipConfirmation = false) {
+    if (!selectedPcId || pcSwapMode || pcItemMode || pcSummaryMoveId || trainingMoveSlot !== null) return false;
     const ids = pcDetailIds();
     const nextId = ids[ids.indexOf(selectedPcId) + direction];
-    if (!nextId) return;
-    if (hasPendingTraining() && !window.confirm("Discard your pending training changes?")) return;
+    if (!nextId) return false;
+    if (!skipConfirmation && hasPendingTraining() && !window.confirm("Discard your pending training changes?")) return false;
     selectedPcId = nextId;
     pcSummaryMoveId = null;
     pcSwapMode = false;
@@ -1679,26 +1679,185 @@
     trainingMessage = "";
     if (pcDetailView === "training") beginTraining(mons[selectedPcId]);
     render();
+    return true;
+  }
+
+  function closePcDetail(skipConfirmation = false) {
+    if (!skipConfirmation && hasPendingTraining() && !window.confirm("Discard your pending training changes?")) return false;
+    selectedPcId = null;
+    pcSummaryMoveId = null;
+    pcSwapMode = false;
+    pcItemMode = false;
+    pendingPcItemId = null;
+    pendingPcItemTransfer = null;
+    selectedNature = null;
+    trainingDraft = null;
+    trainingMoveSlot = null;
+    trainingMoveSearch = "";
+    trainingMessage = "";
+    render();
+    return true;
+  }
+
+  function pcSheetPreview(id) {
+    const trainingState = { trainingDraft, trainingMoveSlot, trainingMoveSearch, trainingMessage, trainingTransactionKey };
+    try {
+      if (pcDetailView === "training") beginTraining(mons[id]);
+      const template = document.createElement("template");
+      template.innerHTML = pcPokemonSheet(id);
+      const preview = template.content.querySelector(".pokemon-sheet");
+      preview.classList.add("pc-swipe-neighbor");
+      preview.setAttribute("aria-hidden", "true");
+      preview.inert = true;
+      preview.querySelectorAll("[id]").forEach((element) => element.removeAttribute("id"));
+      return preview;
+    } finally {
+      ({ trainingDraft, trainingMoveSlot, trainingMoveSearch, trainingMessage, trainingTransactionKey } = trainingState);
+    }
   }
 
   function bindPcDetailSwipe() {
     const sheet = document.querySelector(".pokemon-sheet");
-    if (!sheet || pcSwapMode || pcItemMode || pcSummaryMoveId || trainingMoveSlot !== null) return;
+    const mobileSheet = window.matchMedia("(max-width: 520px), (max-width: 1000px) and (max-height: 520px)").matches;
+    if (!sheet || !mobileSheet || pcSwapMode || pcItemMode || pcSummaryMoveId || trainingMoveSlot !== null) return;
+    const backdrop = sheet.closest(".sheet-backdrop");
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const duration = reducedMotion ? 0 : 240;
     let gesture = null;
+    let neighbor = null;
+    const clearGestureStyles = () => {
+      sheet.style.removeProperty("transition");
+      sheet.style.removeProperty("transform");
+      sheet.style.removeProperty("will-change");
+      backdrop.style.removeProperty("--pc-backdrop-alpha");
+      backdrop.style.removeProperty("--pc-backdrop-blur");
+      backdrop.style.removeProperty("transition");
+      neighbor?.remove();
+      neighbor = null;
+    };
+    const settle = (sheetTransform, neighborTransform, after) => {
+      const transition = duration ? `transform ${duration}ms cubic-bezier(.22,.8,.24,1)` : "none";
+      sheet.style.transition = transition;
+      sheet.style.transform = sheetTransform;
+      if (neighbor) {
+        neighbor.style.transition = transition;
+        neighbor.style.transform = neighborTransform;
+      }
+      window.setTimeout(() => {
+        clearGestureStyles();
+        after?.();
+      }, duration);
+    };
+    const addNeighbor = (direction) => {
+      const ids = pcDetailIds();
+      const targetId = ids[ids.indexOf(selectedPcId) + direction];
+      if (!targetId) return null;
+      neighbor = pcSheetPreview(targetId);
+      const bounds = sheet.getBoundingClientRect();
+      Object.assign(neighbor.style, {
+        top: `${bounds.top}px`,
+        left: `${bounds.left}px`,
+        width: `${bounds.width}px`,
+        height: `${bounds.height}px`,
+        transform: `translate3d(${direction * (bounds.width + 12)}px, 0, 0)`,
+      });
+      backdrop.append(neighbor);
+      return targetId;
+    };
     sheet.addEventListener("pointerdown", (event) => {
       if (event.pointerType === "mouse" || event.isPrimary === false) return;
       if (event.target.closest("button, input, select, textarea, a, [contenteditable], .summary-move-backdrop")) return;
-      gesture = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
+      gesture = {
+        pointerId: event.pointerId,
+        x: event.clientX,
+        y: event.clientY,
+        lastX: event.clientX,
+        lastY: event.clientY,
+        lastTime: performance.now(),
+        velocityX: 0,
+        velocityY: 0,
+        axis: null,
+        direction: 0,
+        targetId: null,
+        canClose: Boolean(event.target.closest(".pokemon-summary")),
+      };
+      sheet.style.willChange = "transform";
+    });
+    sheet.addEventListener("pointermove", (event) => {
+      if (!gesture || event.pointerId !== gesture.pointerId) return;
+      const deltaX = event.clientX - gesture.x;
+      const deltaY = event.clientY - gesture.y;
+      const now = performance.now();
+      const elapsed = Math.max(1, now - gesture.lastTime);
+      gesture.velocityX = (event.clientX - gesture.lastX) / elapsed;
+      gesture.velocityY = (event.clientY - gesture.lastY) / elapsed;
+      gesture.lastX = event.clientX;
+      gesture.lastY = event.clientY;
+      gesture.lastTime = now;
+      if (!gesture.axis && Math.hypot(deltaX, deltaY) >= 8) {
+        if (gesture.canClose && deltaY > 0 && Math.abs(deltaY) > Math.abs(deltaX)) {
+          gesture.axis = "vertical";
+        } else if (Math.abs(deltaX) > Math.abs(deltaY)) {
+          gesture.axis = "horizontal";
+          gesture.direction = deltaX < 0 ? 1 : -1;
+          gesture.targetId = addNeighbor(gesture.direction);
+        }
+      }
+      if (gesture.axis === "horizontal") {
+        event.preventDefault();
+        const bounds = sheet.getBoundingClientRect();
+        const offset = gesture.targetId ? deltaX : deltaX * .2;
+        sheet.style.transform = `translate3d(${offset}px, 0, 0)`;
+        if (neighbor) neighbor.style.transform = `translate3d(${offset + gesture.direction * (bounds.width + 12)}px, 0, 0)`;
+      } else if (gesture.axis === "vertical") {
+        event.preventDefault();
+        const offset = Math.max(0, deltaY);
+        const progress = Math.min(1, offset / Math.max(1, sheet.getBoundingClientRect().height * .7));
+        sheet.style.transform = `translate3d(0, ${offset}px, 0)`;
+        backdrop.style.setProperty("--pc-backdrop-alpha", String(.38 * (1 - progress)));
+        backdrop.style.setProperty("--pc-backdrop-blur", `${4 * (1 - progress)}px`);
+      }
     });
     sheet.addEventListener("pointerup", (event) => {
       if (!gesture || event.pointerId !== gesture.pointerId) return;
       const deltaX = event.clientX - gesture.x;
       const deltaY = event.clientY - gesture.y;
+      const finished = gesture;
       gesture = null;
-      if (Math.abs(deltaX) < 48 || Math.abs(deltaX) <= Math.abs(deltaY) * 1.25) return;
-      navigatePcDetail(deltaX < 0 ? 1 : -1);
+      if (finished.axis === "horizontal") {
+        const width = sheet.getBoundingClientRect().width;
+        const commits = finished.targetId && Math.sign(deltaX || -finished.direction) === -finished.direction
+          && (Math.abs(deltaX) >= width * .22 || Math.abs(finished.velocityX) >= .55);
+        if (commits && (!hasPendingTraining() || window.confirm("Discard your pending training changes?"))) {
+          settle(`translate3d(${-finished.direction * (width + 12)}px, 0, 0)`, "translate3d(0, 0, 0)", () => navigatePcDetail(finished.direction, true));
+        } else {
+          settle("translate3d(0, 0, 0)", `translate3d(${finished.direction * (width + 12)}px, 0, 0)`);
+        }
+      } else if (finished.axis === "vertical") {
+        const height = sheet.getBoundingClientRect().height;
+        const commits = deltaY >= height * .25 || finished.velocityY >= .65;
+        if (commits && (!hasPendingTraining() || window.confirm("Discard your pending training changes?"))) {
+          backdrop.style.transition = duration ? `background-color ${duration}ms ease, backdrop-filter ${duration}ms ease` : "none";
+          backdrop.style.setProperty("--pc-backdrop-alpha", "0");
+          backdrop.style.setProperty("--pc-backdrop-blur", "0px");
+          settle(`translate3d(0, ${window.innerHeight - sheet.getBoundingClientRect().top + 24}px, 0)`, "none", () => closePcDetail(true));
+        } else {
+          backdrop.style.transition = duration ? `background-color ${duration}ms ease, backdrop-filter ${duration}ms ease` : "none";
+          backdrop.style.removeProperty("--pc-backdrop-alpha");
+          backdrop.style.removeProperty("--pc-backdrop-blur");
+          settle("translate3d(0, 0, 0)", "none");
+        }
+      } else {
+        clearGestureStyles();
+      }
     });
-    sheet.addEventListener("pointercancel", () => { gesture = null; });
+    sheet.addEventListener("pointercancel", () => {
+      if (!gesture) return;
+      const direction = gesture.direction;
+      const width = sheet.getBoundingClientRect().width;
+      gesture = null;
+      settle("translate3d(0, 0, 0)", direction ? `translate3d(${direction * (width + 12)}px, 0, 0)` : "none");
+    });
   }
 
   async function applyTraining() {
@@ -2160,17 +2319,7 @@
     bindPcDetailSwipe();
     document.querySelectorAll("[data-close-pc-sheet]").forEach((element) => element.addEventListener("click", (event) => {
       if (element.classList.contains("sheet-backdrop") && event.target !== element) return;
-      if (hasPendingTraining() && !window.confirm("Discard your pending training changes?")) return;
-      selectedPcId = null;
-      pcSummaryMoveId = null;
-      pcSwapMode = false;
-      pcItemMode = false;
-      pendingPcItemId = null;
-      pendingPcItemTransfer = null;
-      selectedNature = null;
-      trainingDraft = null;
-      trainingMoveSlot = null;
-      render();
+      closePcDetail();
     }));
     document.querySelectorAll("[data-summary-move]").forEach((button) => button.addEventListener("click", () => { pcSummaryMoveId = button.dataset.summaryMove; render(); }));
     document.querySelectorAll("[data-close-summary-move]").forEach((element) => element.addEventListener("click", (event) => {
@@ -2386,7 +2535,7 @@
         if (pcSummaryMoveId) pcSummaryMoveId = null;
         else if (pcSwapMode) pcSwapMode = false;
         else if (pcItemMode) { pcItemMode = false; pendingPcItemId = null; pendingPcItemTransfer = null; selectedNature = null; }
-        else selectedPcId = null;
+        else { closePcDetail(); return; }
         render();
       }
     };
