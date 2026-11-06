@@ -314,15 +314,94 @@ test("trainer AI uses effective Fake Out on entry but not on the next turn", asy
   assert.equal(battle.record.choices.p2[1], "move 2");
 });
 
-test("trainer AI does not specially prefer Fake Out when flinching is blocked", async () => {
+test("Fake Out tier ignores an unobserved player ability", async () => {
   const { service } = await serviceFixture();
-  const state = await service.create({
+  let state = await service.create({
     partyIds: ["dragonite"],
     leadId: "dragonite",
     playerTeam: [{ name: "Dragonite", species: "Dragonite", ability: "Inner Focus", level: 100, moves: ["Splash"] }],
     opponentTeam: [{ name: "Persian", species: "Persian", level: 100, moves: ["Fake Out", "Body Slam"] }],
   });
+  const battle = service.get(state.id);
+  assert.equal(battle.record.choices.p2[0], "move 1");
+  state = await battle.choose({ type: "move", slot: 1 }, state.rqid);
+  assert.equal(battle.record.choices.p2[1], "move 2");
+});
+
+test("knowledge rules infer Choice Scarf only from otherwise impossible move order", async () => {
+  const { service } = await serviceFixture();
+  let state = await service.create({
+    partyIds: ["heracross"],
+    leadId: "heracross",
+    playerTeam: [{ name: "Heracross", species: "Heracross", item: "Choice Scarf", level: 100, moves: ["Splash"] }],
+    opponentTeam: [{ name: "Mew", species: "Mew", level: 100, moves: ["Splash"] }],
+  });
+  const battle = service.get(state.id);
+  state = await battle.choose({ type: "move", slot: 1 }, state.rqid);
+  assert.equal(Object.values(battle.record.aiState.knownPlayerItems).includes("choicescarf"), true);
+});
+
+test("priority defense answers a faster possible KO", async () => {
+  const { service } = await serviceFixture();
+  const state = await service.create({
+    partyIds: ["deoxys"],
+    leadId: "deoxys",
+    playerTeam: [{ name: "Deoxys", species: "Deoxys-Speed", level: 100, moves: ["Psychic"] }],
+    opponentTeam: [{ name: "Rattata", species: "Rattata", level: 1, moves: ["Quick Attack", "Splash"] }],
+  });
+  assert.equal(service.get(state.id).record.choices.p2[0], "move 1");
+});
+
+test("setup tier includes defensive setup", async () => {
+  const { service } = await serviceFixture();
+  const state = await service.create({
+    partyIds: ["blissey"],
+    leadId: "blissey",
+    playerTeam: [{ name: "Blissey", species: "Blissey", level: 100, moves: ["Splash"] }],
+    opponentTeam: [{ name: "Shuckle", species: "Shuckle", level: 100, moves: ["Iron Defense", "Tackle"] }],
+  });
+  assert.equal(service.get(state.id).record.choices.p2[0], "move 1");
+});
+
+test("charge moves are a last resort when they cannot resolve in one turn", async () => {
+  const { service } = await serviceFixture();
+  const state = await service.create({
+    partyIds: ["blissey"],
+    leadId: "blissey",
+    playerTeam: [{ name: "Blissey", species: "Blissey", level: 100, moves: ["Splash"] }],
+    opponentTeam: [{ name: "Venusaur", species: "Venusaur", level: 100, moves: ["Solar Beam", "Sludge Bomb"] }],
+  });
   assert.equal(service.get(state.id).record.choices.p2[0], "move 2");
+});
+
+test("Protect tier stalls passive damage but never on consecutive turns", async () => {
+  const { service } = await serviceFixture();
+  let state = await service.create({
+    partyIds: ["blissey"],
+    leadId: "blissey",
+    playerTeam: [{ name: "Blissey", species: "Blissey", level: 100, moves: ["Splash"] }],
+    opponentTeam: [{ name: "Toxapex", species: "Toxapex", level: 100, moves: ["Toxic", "Protect", "Tackle"] }],
+  });
+  const battle = service.get(state.id);
+  assert.equal(battle.record.choices.p2[0], "move 1");
+  state = await battle.choose({ type: "move", slot: 1 }, state.rqid);
+  assert.equal(battle.record.choices.p2[1], "move 2");
+  state = await battle.choose({ type: "move", slot: 1 }, state.rqid);
+  assert.equal(battle.record.choices.p2[2], "move 3");
+});
+
+test("fast pivot escapes a slower player's possible KO", async () => {
+  const { service } = await serviceFixture();
+  const state = await service.create({
+    partyIds: ["rhyperior"],
+    leadId: "rhyperior",
+    playerTeam: [{ name: "Rhyperior", species: "Rhyperior", level: 100, moves: ["Stone Edge"] }],
+    opponentTeam: [
+      { name: "Ninjask", species: "Ninjask", level: 100, moves: ["U-turn", "Tackle"] },
+      { name: "Crobat", species: "Crobat", level: 100, moves: ["U-turn", "Tackle"] },
+    ],
+  });
+  assert.equal(service.get(state.id).record.choices.p2[0], "move 1");
 });
 
 test("trainer recovery uses one 50 percent roll only at half HP or below", () => {

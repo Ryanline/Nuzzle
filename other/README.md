@@ -284,18 +284,9 @@ Manual content prices override the algorithm whenever mechanics make the estimat
 
 ## Trainer Battle AI
 
-The current opponent is deterministic rule-based selection, not machine learning:
+The opponent uses deterministic rules, not machine learning. [`BATTLE_AI.md`](BATTLE_AI.md) is the editable source of truth for its hierarchy, knowledge limits, switching rules, and move memory.
 
-1. If the faster player can possibly KO, use damaging priority when available and effective. A failed Sucker Punch is not retried for the rest of that battle.
-2. Prefer a guaranteed KO.
-3. Prefer contextually useful moves, such as screen removal into screens or Haze into boosts.
-4. Prefer the active trainer Pokémon's first useful status/utility use.
-5. Prefer a move whose ordinary damage roll could KO; critical hits are ignored in this estimate.
-6. Prefer highest estimated ordinary damage. Randomly choose among moves within 10% of the best move's damage.
-7. Rank later useful status moves below ordinary damage.
-8. Put immune, redundant, or failing choices last.
-
-The trainer commits before seeing the player's current action, begins each new battle with a randomly selected team member, never voluntarily switches, chooses another random living team member when forced to replace a fainted Pokémon or after a pivot move, and cannot use Bag items. These selections are saved in the battle record so replaying a persisted battle cannot reroll them.
+The trainer commits before seeing the player's current action, begins each new battle with a randomly selected team member, and cannot use Bag items. Every selected action is saved in the battle record so replaying or reconnecting cannot reroll it.
 
 ## Interface and Accessibility Direction
 

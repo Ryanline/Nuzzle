@@ -447,7 +447,7 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .pc-stage .page-back { margin-top: auto; margin-bottom: 12px; }
 
 .sheet-backdrop { position: fixed; z-index: 200; inset: 0; display: flex; align-items: center; justify-content: center; padding: max(18px, var(--safe-top)) max(18px, var(--safe-right)) max(18px, var(--safe-bottom)) max(18px, var(--safe-left)); background: rgba(0,0,0,.38); }
-.pokemon-sheet { position: relative; display: flex; width: min(520px, 100%); height: min(570px, calc(100vh - 36px)); height: min(570px, calc(100dvh - 36px)); max-height: calc(100vh - 36px); max-height: calc(100dvh - 36px); flex-direction: column; padding: 12px; overflow-y: auto; border: 1px solid #777; border-radius: 12px; background: #fff; box-shadow: 0 14px 45px rgba(0,0,0,.3); }
+.pokemon-sheet { position: relative; display: flex; width: min(520px, 100%); height: min(570px, calc(100vh - 36px)); height: min(570px, calc(100dvh - 36px)); max-height: calc(100vh - 36px); max-height: calc(100dvh - 36px); flex-direction: column; padding: 12px; overflow-y: auto; border: 1px solid #777; border-radius: 12px; background: #fff; box-shadow: 0 14px 45px rgba(0,0,0,.3); touch-action: pan-y; }
 .sheet-close { position: absolute; z-index: 1; top: 9px; right: 10px; width: 38px; height: 38px; padding: 0; border: 0; border-radius: 50%; background: transparent; cursor: pointer; font-size: 30px; line-height: 34px; }
 .sheet-close:hover { background: #eee; }
 .pokemon-summary { display: flex; min-height: 72px; align-items: center; gap: 10px; padding-right: 38px; }

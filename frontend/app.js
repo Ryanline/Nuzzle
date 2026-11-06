@@ -1655,6 +1655,52 @@
     return Boolean(mon && trainingDraft && localTrainingQuote(mon).changed);
   }
 
+  function pcDetailIds() {
+    return [...[...team], ...pcOrder.filter((id) => !team.has(id))].filter((id) => mons[id]);
+  }
+
+  function navigatePcDetail(direction) {
+    if (!selectedPcId || pcSwapMode || pcItemMode || pcSummaryMoveId || trainingMoveSlot !== null) return;
+    const ids = pcDetailIds();
+    const nextId = ids[ids.indexOf(selectedPcId) + direction];
+    if (!nextId) return;
+    if (hasPendingTraining() && !window.confirm("Discard your pending training changes?")) return;
+    selectedPcId = nextId;
+    pcSummaryMoveId = null;
+    pcSwapMode = false;
+    pcItemMode = false;
+    pendingPcItemId = null;
+    pendingPcItemTransfer = null;
+    selectedNature = null;
+    pcItemMessage = "";
+    trainingDraft = null;
+    trainingMoveSlot = null;
+    trainingMoveSearch = "";
+    trainingMessage = "";
+    if (pcDetailView === "training") beginTraining(mons[selectedPcId]);
+    render();
+  }
+
+  function bindPcDetailSwipe() {
+    const sheet = document.querySelector(".pokemon-sheet");
+    if (!sheet || pcSwapMode || pcItemMode || pcSummaryMoveId || trainingMoveSlot !== null) return;
+    let gesture = null;
+    sheet.addEventListener("pointerdown", (event) => {
+      if (event.pointerType === "mouse" || event.isPrimary === false) return;
+      if (event.target.closest("button, input, select, textarea, a, [contenteditable], .summary-move-backdrop")) return;
+      gesture = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
+    });
+    sheet.addEventListener("pointerup", (event) => {
+      if (!gesture || event.pointerId !== gesture.pointerId) return;
+      const deltaX = event.clientX - gesture.x;
+      const deltaY = event.clientY - gesture.y;
+      gesture = null;
+      if (Math.abs(deltaX) < 48 || Math.abs(deltaX) <= Math.abs(deltaY) * 1.25) return;
+      navigatePcDetail(deltaX < 0 ? 1 : -1);
+    });
+    sheet.addEventListener("pointercancel", () => { gesture = null; });
+  }
+
   async function applyTraining() {
     const mon = mons[selectedPcId];
     if (gameBusy || !mon || !trainingDraft) return;
@@ -2111,6 +2157,7 @@
       if (pcDetailView === "training" && !trainingDraft) beginTraining(mons[selectedPcId]);
       render();
     }));
+    bindPcDetailSwipe();
     document.querySelectorAll("[data-close-pc-sheet]").forEach((element) => element.addEventListener("click", (event) => {
       if (element.classList.contains("sheet-backdrop") && event.target !== element) return;
       if (hasPendingTraining() && !window.confirm("Discard your pending training changes?")) return;

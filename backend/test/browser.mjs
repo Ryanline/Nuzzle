@@ -31,6 +31,18 @@ const representativeDesktopViewports = [
   { name: "full HD", width: 1920, height: 1080 },
 ];
 
+async function swipePcSheet(direction) {
+  await page.locator(".pokemon-summary").evaluate((target, swipeDirection) => {
+    const bounds = target.getBoundingClientRect();
+    const startX = bounds.left + bounds.width * (swipeDirection === "next" ? .8 : .2);
+    const endX = bounds.left + bounds.width * (swipeDirection === "next" ? .2 : .8);
+    const y = bounds.top + bounds.height / 2;
+    const init = { bubbles: true, pointerId: 71, pointerType: "touch", isPrimary: true, clientY: y };
+    target.dispatchEvent(new PointerEvent("pointerdown", { ...init, clientX: startX }));
+    target.dispatchEvent(new PointerEvent("pointerup", { ...init, clientX: endX }));
+  }, direction);
+}
+
 async function assertMobileLayout(label, scrollRegions = []) {
   const previousViewport = page.viewportSize();
   for (const viewport of representativeMobileViewports) {
@@ -683,6 +695,15 @@ await page.click(".sheet-close");
 await page.click(`[data-pc-detail="${outgoingId}"]`);
 await assertMobileLayout("PC summary drawer", [".pc-detail-panel"]);
 await assertDesktopLayout("PC summary drawer", [".pc-detail-panel"]);
+const pcDetailOrder = await page.locator(".party-section [data-pc-detail], .box-section [data-pc-mon]").evaluateAll((elements) => elements.map((element) => element.dataset.pcDetail || element.dataset.pcMon));
+const outgoingDetailIndex = pcDetailOrder.indexOf(outgoingId);
+const nextDetailId = pcDetailOrder[outgoingDetailIndex + 1];
+if (!nextDetailId) throw new Error("The swipe test could not find a next PC Pokémon.");
+const nextDetailName = (await page.locator(`[data-pc-detail="${nextDetailId}"], [data-pc-mon="${nextDetailId}"]`).first().textContent()).trim();
+await swipePcSheet("next");
+if ((await page.locator("#pokemon-sheet-title").textContent())?.trim() !== nextDetailName || await page.locator('[data-pc-detail-view="summary"][aria-selected="true"]').count() !== 1) throw new Error("Swiping left did not open the next Pokémon while preserving Summary.");
+await swipePcSheet("previous");
+if ((await page.locator("#pokemon-sheet-title").textContent())?.trim() !== outgoingPokemon.name) throw new Error("Swiping right did not return to the previous Pokémon.");
 const summaryAppearance = await page.locator(".pokemon-sheet").evaluate((sheet) => {
   const buttons = [...sheet.querySelectorAll(".sheet-actions .gloss-button")];
   const lightBackgrounds = buttons.map((button) => getComputedStyle(button).backgroundImage);
@@ -740,6 +761,10 @@ if (pcActionSpacing.firstGap < 6 || Math.abs(pcActionSpacing.firstGap - pcAction
 if (pcActionSpacing.closeBottom > pcActionSpacing.sheetBottom + 1) throw new Error("The PC drawer actions overflow the drawer.");
 await page.setViewportSize({ width: 390, height: 568 });
 await page.click('[data-pc-detail-view="training"]');
+await swipePcSheet("next");
+if ((await page.locator("#pokemon-sheet-title").textContent())?.trim() !== nextDetailName || await page.locator('[data-pc-detail-view="training"][aria-selected="true"]').count() !== 1 || await page.locator(".training-editor").count() !== 1) throw new Error("Swiping left did not open the next Pokémon while preserving Training.");
+await swipePcSheet("previous");
+if ((await page.locator("#pokemon-sheet-title").textContent())?.trim() !== outgoingPokemon.name || await page.locator('[data-pc-detail-view="training"][aria-selected="true"]').count() !== 1) throw new Error("Swiping right did not return to the previous Pokémon while preserving Training.");
 await assertMobileLayout("PC training drawer");
 await assertDesktopLayout("PC training drawer");
 if (await page.locator(".pokemon-summary > img").evaluate((image) => image.getBoundingClientRect().width) < 63) throw new Error("The compact Training drawer shrank the Pokémon sprite back to its old size.");
