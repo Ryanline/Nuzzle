@@ -12,6 +12,10 @@ const hazardConditions = ["spikes", "toxicspikes", "stealthrock", "stickyweb"];
 const situationalScreenMoves = new Set(["brickbreak", "psychicfangs", "ragingbull", "defog", "courtchange"]);
 const situationalBoostMoves = new Set(["haze", "clearsmog", "topsyturvy", "spectralthief"]);
 const situationalHazardMoves = new Set(["rapidspin", "mortalspin", "defog", "tidyup", "courtchange"]);
+const recoveryMoveIds = new Set([
+  "healorder", "junglehealing", "lifedew", "lunarblessing", "milkdrink", "moonlight", "morningsun",
+  "recover", "rest", "roost", "shoreup", "slackoff", "softboiled", "strengthsap", "synthesis",
+]);
 
 function seed() {
   return Array.from({ length: 4 }, () => crypto.randomInt(0x10000));
@@ -27,6 +31,15 @@ function choiceError(message, statusCode = 400) {
 
 function randomEntry(values) {
   return values[crypto.randomInt(values.length)];
+}
+
+function isRecoveryMove(move) {
+  return recoveryMoveIds.has(move.id);
+}
+
+export function recoveryMoveChoice(candidates, source, randomInt = crypto.randomInt) {
+  if (!candidates.length || source.hp * 2 > source.maxhp || randomInt(2) !== 0) return null;
+  return candidates[randomInt(candidates.length)];
 }
 
 export function shuffledTeamOrder(length, randomInt = crypto.randomInt) {
@@ -614,9 +627,12 @@ export class BattleController {
     const guaranteedKo = pool.filter(({ move, damage }) => damage?.min >= target.hp && (move.accuracy === true || move.accuracy >= 100));
     if (guaranteedKo.length) return `move ${this.bestDamagingMoves(guaranteedKo).slot}`;
     if (fakeOut) return `move ${fakeOut.slot}`;
-    const situational = pool.filter(({ move }) => this.situationalMoveUseful(move, source, target));
+    const recoveryMoves = pool.filter(({ move }) => isRecoveryMove(move) && this.recoveryMoveUseful(move, source, target));
+    const recovery = recoveryMoveChoice(recoveryMoves, source);
+    if (recovery) return `move ${recovery.slot}`;
+    const situational = pool.filter(({ move }) => !isRecoveryMove(move) && this.situationalMoveUseful(move, source, target));
     if (situational.length) return this.aiMoveChoice(randomEntry(situational), pokemonKey);
-    const statusMoves = pool.filter(({ move }) => move.category === "Status");
+    const statusMoves = pool.filter(({ move }) => move.category === "Status" && !isRecoveryMove(move));
     if (!this.record.aiState.statusUsed.includes(pokemonKey) && statusMoves.length) {
       return this.aiMoveChoice(randomEntry(statusMoves), pokemonKey);
     }
@@ -659,6 +675,13 @@ export class BattleController {
     if (["knockoff", "poltergeist"].includes(move.id) && target.item) return true;
     if (["refresh", "junglehealing", "aromatherapy", "healbell"].includes(move.id) && (source.status || source.side.pokemon.some((pokemon) => pokemon.status))) return true;
     return false;
+  }
+
+  recoveryMoveUseful(move, source, target) {
+    if (source.hp >= source.maxhp) return false;
+    if (move.id === "rest" && source.status === "slp") return false;
+    if (move.id === "strengthsap" && target.boosts.atk <= -6) return false;
+    return true;
   }
 
   statusMoveUseful(move, source, target) {
@@ -883,8 +906,8 @@ export class BattleService {
       })
       .filter(Boolean)
       .sort((left, right) => Number(right.won) - Number(left.won)
-        || left.teamSize - right.teamSize
         || left.fainted - right.fainted
+        || left.teamSize - right.teamSize
         || String(left.completedAt).localeCompare(String(right.completedAt)))
       .map((entry, index) => ({ rank: index + 1, ...entry }));
   }
@@ -951,14 +974,14 @@ export class BattleService {
     }
 
     entries.sort((left, right) => Number(right.won) - Number(left.won)
+      || left.fainted - right.fainted
       || right.streak - left.streak
       || left.teamSize - right.teamSize
-      || left.fainted - right.fainted
       || String(left.completedAt).localeCompare(String(right.completedAt)));
     let rank = 0;
     let previousScore = null;
     return entries.map((entry) => {
-      const score = `${Number(entry.won)}:${entry.streak}:${entry.teamSize}:${entry.fainted}:${entry.completedAt}`;
+      const score = `${Number(entry.won)}:${entry.fainted}:${entry.streak}:${entry.teamSize}:${entry.completedAt}`;
       if (score !== previousScore) {
         rank++;
         previousScore = score;

@@ -121,7 +121,7 @@ The game is intentionally Nuzlocke-like and can be harsh. It should create inter
 
 ### Leaderboards
 
-- The combined leaderboard places wins ahead of losses, then ranks by longest current streak, smallest starting team, fewest casualties, and earliest completion.
+- The combined leaderboard places wins ahead of losses, then ranks by fewest casualties, longest current streak, smallest starting team, and earliest completion.
 - Leaderboard rows show rank, account/avatar, streak, battle team, green survivors, red casualties, and losses.
 - Streaks are currently derived from saved battle history rather than stored as a separate lifetime-record model.
 
