@@ -493,6 +493,31 @@ for (let slot = 0; slot < 12; slot++) {
     const firstEncounter = await page.evaluate(() => fetch("/api/game").then((response) => response.json()));
     if (firstEncounter.roster.length !== 1 || firstEncounter.teamIds.length || firstEncounter.battleUnlocked) throw new Error("The first individual encounter did not go exclusively to the PC box.");
     if (await page.locator(".encounter-card.revealed").count() !== 1) throw new Error("A newly claimed encounter did not remain visible during its reveal visit.");
+    const encounterThemeAppearance = await page.locator(".encounter-card.revealed").evaluate((card) => {
+      const root = document.documentElement;
+      const previousTheme = root.dataset.theme;
+      const sprite = card.querySelector(".encounter-sprite");
+      const status = card.querySelector(".encounter-status");
+      root.dataset.theme = "light";
+      const light = {
+        card: getComputedStyle(card).backgroundImage,
+        sprite: getComputedStyle(sprite).backgroundColor,
+        status: getComputedStyle(status).backgroundColor,
+      };
+      root.dataset.theme = "dark";
+      const dark = {
+        card: getComputedStyle(card).backgroundImage,
+        sprite: getComputedStyle(sprite).backgroundColor,
+        status: getComputedStyle(status).backgroundColor,
+      };
+      root.dataset.theme = previousTheme || "light";
+      return { light, dark };
+    });
+    if (encounterThemeAppearance.light.card === encounterThemeAppearance.dark.card
+      || encounterThemeAppearance.light.sprite === encounterThemeAppearance.dark.sprite
+      || encounterThemeAppearance.light.status === encounterThemeAppearance.dark.status) {
+      throw new Error(`Encounter cards did not use balanced dark-mode surfaces: ${JSON.stringify(encounterThemeAppearance)}`);
+    }
   }
 }
 const boxedGame = await page.evaluate(() => fetch("/api/game").then((response) => response.json()));
@@ -1123,10 +1148,36 @@ await assertMobileLayout("leaderboard", [".leaderboard-content"]);
 await assertDesktopLayout("leaderboard", [".leaderboard-content"]);
 if (await page.locator(".leaderboard-tabs").count()) throw new Error("The merged leaderboard retained the old Daily and Streak tabs.");
 if (await page.locator(".leaderboard-row.leaderboard-loss").count() !== 1) throw new Error("A completed loss did not appear on the leaderboard.");
+if (await page.locator(".leaderboard-row.leaderboard-current").count() !== 1) throw new Error("The current player's leaderboard row was not uniquely highlighted.");
+if (!(await page.locator(".leaderboard-row.leaderboard-current").textContent())?.includes(username)) throw new Error("The leaderboard highlighted another player's row.");
+if (await page.locator(".leaderboard-row.leaderboard-current").getAttribute("aria-current") !== "true") throw new Error("The current leaderboard row was not exposed accessibly.");
 if (!(await page.locator(".leaderboard-row.leaderboard-loss").textContent())?.includes(username)) throw new Error("The leaderboard row did not show the account name.");
 if (!(await page.locator(".leaderboard-row.leaderboard-loss").textContent())?.includes("0-day streak")) throw new Error("The merged leaderboard row did not show its streak.");
 if (!(await page.locator(".leaderboard-row.leaderboard-loss .leaderboard-avatar img").getAttribute("src"))?.includes("/trainers/misty.png")) throw new Error("The selected account avatar did not appear on the leaderboard.");
 if (!(await page.locator('.leaderboard-rank[aria-label="Rank 1"] .leaderboard-trophy').getAttribute("src"))?.endsWith("assets/leaderboard/trophy-gold.png")) throw new Error("First place did not use the CC0 gold trophy.");
+const currentRowThemeAppearance = await page.locator(".leaderboard-row.leaderboard-current").evaluate((row) => {
+  const root = document.documentElement;
+  const previousTheme = root.dataset.theme;
+  root.dataset.theme = "light";
+  const light = {
+    color: getComputedStyle(row).backgroundColor,
+    image: getComputedStyle(row).backgroundImage,
+    shadow: getComputedStyle(row).boxShadow,
+  };
+  root.dataset.theme = "dark";
+  const dark = {
+    color: getComputedStyle(row).backgroundColor,
+    image: getComputedStyle(row).backgroundImage,
+    shadow: getComputedStyle(row).boxShadow,
+  };
+  root.dataset.theme = previousTheme || "light";
+  return { light, dark };
+});
+if (currentRowThemeAppearance.light.color === "rgba(0, 0, 0, 0)"
+  || currentRowThemeAppearance.dark.image === "none"
+  || currentRowThemeAppearance.light.shadow === currentRowThemeAppearance.dark.shadow) {
+  throw new Error(`The current leaderboard highlight did not adapt to both themes: ${JSON.stringify(currentRowThemeAppearance)}`);
+}
 const leaderboardRowLayout = await page.locator(".leaderboard-row.leaderboard-loss").evaluate((row) => {
   const avatar = row.querySelector(".leaderboard-avatar").getBoundingClientRect();
   const team = row.querySelector(".leaderboard-team").getBoundingClientRect();

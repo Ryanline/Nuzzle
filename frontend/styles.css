@@ -779,6 +779,7 @@ button.encounter-card:active .encounter-mark img { transform: translateY(1px) sc
 .leaderboard-content { min-height: 0; flex: 1; overflow-y: auto; overscroll-behavior: contain; }
 .leaderboard-list { margin: 0; padding: 0; list-style: none; }
 .leaderboard-row { display: grid; grid-template-columns: 32px minmax(0, 1fr); align-items: center; gap: 7px; min-height: 76px; padding: 7px 4px; border-bottom: 1px solid #d4d8dd; }
+.leaderboard-row.leaderboard-current { border-radius: 7px; background: #f0f2f4; box-shadow: inset 3px 0 #8295a6; }
 .leaderboard-rank { color: #526474; font-size: 20px; font-weight: 700; text-align: center; }
 .leaderboard-trophy { display: block; width: 30px; height: 30px; margin: auto; image-rendering: pixelated; object-fit: contain; }
 .leaderboard-identity { display: flex; min-width: 0; align-items: center; gap: 7px; }
@@ -932,10 +933,12 @@ html[data-theme="dark"] .nature-options button { border-color: #59636c; backgrou
 html[data-theme="dark"] .sheet-move { border-color: color-mix(in srgb, var(--move-type) 76%, #434a50); border-left-color: var(--move-type); background: linear-gradient(105deg, color-mix(in srgb, var(--move-type) 45%, #252a2f), color-mix(in srgb, var(--move-type) 24%, #202428)); color: #fff; }
 html[data-theme="dark"] .summary-move-card,
 html[data-theme="dark"] .trainer-scout-card { border-color: #59636c; background: var(--page); color: var(--ink); }
-html[data-theme="dark"] .encounter-card { border-color: #46515a; background: linear-gradient(#272c31, #1e2327); color: var(--ink); }
-html[data-theme="dark"] button.encounter-card:hover { border-color: #60756a; background: linear-gradient(#2b3232, #212827); }
-html[data-theme="dark"] button.encounter-card:active { background: #1d2421; }
-html[data-theme="dark"] .encounter-card.mystery { border-color: #46574d; background: #202722; }
+html[data-theme="dark"] .encounter-card { border-color: #3d484f; background: linear-gradient(#20262b, #1a1f23); color: var(--ink); }
+html[data-theme="dark"] button.encounter-card:hover { border-color: #53685d; background: linear-gradient(#242d2b, #1d2422); }
+html[data-theme="dark"] button.encounter-card:active { background: #19201d; }
+html[data-theme="dark"] .encounter-card.mystery { border-color: #3f5047; background: #1c241f; }
+html[data-theme="dark"] .encounter-sprite { border-color: #3b464e; background: #252c31; }
+html[data-theme="dark"] .encounter-status { border-color: #45624b; background: #263b2b; color: #a7d6ae; }
 html[data-theme="dark"] .move-replace-grid input:checked + span { border-color: #6aa8d8; background: #253c4d; box-shadow: inset 0 0 0 1px #4f8fbe; }
 html[data-theme="dark"] .pc-detail-tabs { border-color: #4f5961; }
 html[data-theme="dark"] .pc-detail-tabs button.selected { border-bottom-color: #70a9d3; color: #b9dcf5; }
@@ -1031,6 +1034,7 @@ html[data-theme="dark"] .pokemon-facts p,
 html[data-theme="dark"] .shop-item,
 html[data-theme="dark"] .bag-item { border-color: #4c565e; }
 html[data-theme="dark"] .leaderboard-row { border-color: #4c565e; }
+html[data-theme="dark"] .leaderboard-row.leaderboard-current { background: linear-gradient(90deg, #263746, #222b32); box-shadow: inset 3px 0 #5c91bb; }
 html[data-theme="dark"] .leaderboard-rank { color: #aebbc5; }
 html[data-theme="dark"] .streak-count { color: #91d19b; }
 html[data-theme="dark"] .leaderboard-mon.survived { border-color: #557d5d; background: #263e2b; }
