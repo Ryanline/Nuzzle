@@ -121,9 +121,8 @@ The game is intentionally Nuzlocke-like and can be harsh. It should create inter
 
 ### Leaderboards
 
-- **Streak** ranks accounts by consecutive daily wins ending on the current date and includes zero-day streaks.
-- **Daily** places wins ahead of losses, then ranks each result group by fewest casualties and earliest completion.
-- Daily rows show rank, account/avatar, battle team, green survivors, red casualties, and losses.
+- The combined leaderboard places wins ahead of losses, then ranks by longest current streak, smallest starting team, fewest casualties, and earliest completion.
+- Leaderboard rows show rank, account/avatar, streak, battle team, green survivors, red casualties, and losses.
 - Streaks are currently derived from saved battle history rather than stored as a separate lifetime-record model.
 
 ### Trainer administration

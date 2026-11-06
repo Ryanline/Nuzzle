@@ -3,7 +3,7 @@ import { mkdtemp } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { acquisitionFromProtocol, BattleService, eventEntry, faintedPlayerIds, leaderboardStanding, playerTeamIds, shuffledTeamOrder, trainerReplacementChoice } from "../battle-service.js";
+import { acquisitionFromProtocol, BattleController, BattleService, eventEntry, faintedPlayerIds, leaderboardStanding, playerTeamIds, shuffledTeamOrder, trainerReplacementChoice } from "../battle-service.js";
 import { BattleStore } from "../battle-store.js";
 import { buildBrockTeam, buildPlayerTeam, PLAYER_IDS } from "../teams.js";
 
@@ -300,6 +300,55 @@ test("trainer AI prefers materially higher ordinary damage", async () => {
   assert.equal(service.get(state.id).record.choices.p2[0], "move 2");
 });
 
+test("trainer AI uses effective Fake Out on entry but not on the next turn", async () => {
+  const { service } = await serviceFixture();
+  let state = await service.create({
+    partyIds: ["blissey"],
+    leadId: "blissey",
+    playerTeam: [{ name: "Blissey", species: "Blissey", level: 100, moves: ["Splash"] }],
+    opponentTeam: [{ name: "Persian", species: "Persian", level: 100, moves: ["Fake Out", "Body Slam"] }],
+  });
+  const battle = service.get(state.id);
+  assert.equal(battle.record.choices.p2[0], "move 1");
+  state = await battle.choose({ type: "move", slot: 1 }, state.rqid);
+  assert.equal(battle.record.choices.p2[1], "move 2");
+});
+
+test("trainer AI does not specially prefer Fake Out when flinching is blocked", async () => {
+  const { service } = await serviceFixture();
+  const state = await service.create({
+    partyIds: ["dragonite"],
+    leadId: "dragonite",
+    playerTeam: [{ name: "Dragonite", species: "Dragonite", ability: "Inner Focus", level: 100, moves: ["Splash"] }],
+    opponentTeam: [{ name: "Persian", species: "Persian", level: 100, moves: ["Fake Out", "Body Slam"] }],
+  });
+  assert.equal(service.get(state.id).record.choices.p2[0], "move 2");
+});
+
+test("Toxic Spikes KOs remain credited to a setter that is no longer active", () => {
+  const controller = new BattleController({
+    playerTeam: [{ name: "Roserade", species: "Roserade" }, { name: "Chansey", species: "Chansey" }],
+    opponentTeam: [{ name: "Magikarp", species: "Magikarp" }, { name: "Blissey", species: "Blissey" }],
+    trainerName: "Trainer",
+  }, async () => {});
+  controller.trackBattleResult("|switch|p1a: Roserade|Roserade, L100|261/261");
+  controller.trackBattleResult("|switch|p2a: Magikarp|Magikarp, L100|181/181");
+  controller.trackBattleResult("|move|p1a: Roserade|Toxic Spikes|p2: Trainer");
+  controller.trackBattleResult("|-sidestart|p2: Trainer|move: Toxic Spikes");
+  controller.trackBattleResult("|move|p1a: Roserade|Toxic Spikes|p2: Trainer");
+  controller.trackBattleResult("|-sidestart|p2: Trainer|move: Toxic Spikes");
+  controller.trackBattleResult("|-damage|p1a: Roserade|0 fnt|[from] recoil");
+  controller.trackBattleResult("|faint|p1a: Roserade");
+  controller.trackBattleResult("|switch|p1a: Chansey|Chansey, L100|641/641");
+  controller.trackBattleResult("|switch|p2a: Blissey|Blissey, L100|651/651");
+  controller.trackBattleResult("|-status|p2a: Blissey|tox");
+  controller.trackBattleResult("|-damage|p2a: Blissey|0 fnt|[from] psn");
+  controller.trackBattleResult("|faint|p2a: Blissey");
+  const knockout = controller.knockouts.find((entry) => entry.defeated.name === "Blissey");
+  assert.equal(knockout?.credited?.name, "Roserade");
+  assert.equal(knockout?.credited?.side, "player");
+});
+
 test("daily leaderboard ranks winners by survivors and then completion time", async () => {
   const { service } = await serviceFixture();
   const pokemon = (id, fainted) => ({ id, name: id, spriteId: id, fainted });
@@ -355,38 +404,40 @@ test("streak leaderboard counts consecutive wins ending today", async () => {
   assert.equal(entries[0].avatarSpriteId, "red");
 });
 
-test("combined leaderboard uses dense survivor and streak ranks with time only ordering ties", async () => {
+test("combined leaderboard ranks by outcome, streak, small teams, casualties, and completion time", async () => {
   const { service } = await serviceFixture();
-  const addBattle = ({ id, userId, date, completedAt, fainted = 0, winner = "Player" }) => service.battles.set(id, {
+  const addBattle = ({ id, userId, date, completedAt, fainted = 0, teamSize = 6, winner = "Player" }) => service.battles.set(id, {
     record: { id, userId, challengeDate: date, completedAt, createdAt: completedAt },
     state: () => ({
       ended: true,
       winner,
-      player: { team: Array.from({ length: 6 }, (_, index) => ({ id: `${id}-${index}`, name: `Mon ${index}`, spriteId: `mon-${index}`, fainted: index < fainted })) },
+      player: { team: Array.from({ length: teamSize }, (_, index) => ({ id: `${id}-${index}`, name: `Mon ${index}`, spriteId: `mon-${index}`, fainted: index < fainted })) },
     }),
   });
   addBattle({ id: "a-prev", userId: "a", date: "2026-10-23", completedAt: "2026-10-23T12:00:00.000Z" });
   addBattle({ id: "b-prev", userId: "b", date: "2026-10-23", completedAt: "2026-10-23T12:00:00.000Z" });
   addBattle({ id: "d-prev", userId: "d", date: "2026-10-23", completedAt: "2026-10-23T12:00:00.000Z" });
-  addBattle({ id: "b-today", userId: "b", date: "2026-10-24", completedAt: "2026-10-24T13:00:00.000Z", fainted: 1 });
-  addBattle({ id: "a-today", userId: "a", date: "2026-10-24", completedAt: "2026-10-24T14:00:00.000Z", fainted: 1 });
-  addBattle({ id: "c-today", userId: "c", date: "2026-10-24", completedAt: "2026-10-24T12:00:00.000Z", fainted: 1 });
+  addBattle({ id: "b-today", userId: "b", date: "2026-10-24", completedAt: "2026-10-24T13:00:00.000Z", fainted: 1, teamSize: 5 });
+  addBattle({ id: "a-today", userId: "a", date: "2026-10-24", completedAt: "2026-10-24T14:00:00.000Z", fainted: 1, teamSize: 5 });
+  addBattle({ id: "c-today", userId: "c", date: "2026-10-24", completedAt: "2026-10-24T12:00:00.000Z", fainted: 1, teamSize: 1 });
   addBattle({ id: "guest-today", userId: "guest", date: "2026-10-24", completedAt: "2026-10-24T11:00:00.000Z", fainted: 1 });
-  addBattle({ id: "d-today", userId: "d", date: "2026-10-24", completedAt: "2026-10-24T10:00:00.000Z", fainted: 2 });
+  addBattle({ id: "d-today", userId: "d", date: "2026-10-24", completedAt: "2026-10-24T10:00:00.000Z", fainted: 1, teamSize: 2 });
+  addBattle({ id: "loss-today", userId: "loss", date: "2026-10-24", completedAt: "2026-10-24T09:00:00.000Z", fainted: 1, teamSize: 1, winner: "Trainer" });
   const entries = service.combinedLeaderboard("2026-10-24", (id) => ({ username: id === "guest" ? "Guest 7" : id.toUpperCase(), isGuest: id === "guest" }), "a");
-  assert.deepEqual(entries.map(({ rank, username, survivors, streak }) => ({ rank, username, survivors, streak })), [
-    { rank: 1, username: "B", survivors: 5, streak: 2 },
-    { rank: 1, username: "A", survivors: 5, streak: 2 },
-    { rank: 2, username: "C", survivors: 5, streak: 1 },
-    { rank: 3, username: "Guest 7", survivors: 5, streak: 0 },
-    { rank: 4, username: "D", survivors: 4, streak: 2 },
+  assert.deepEqual(entries.map(({ rank, username, teamSize, fainted, streak }) => ({ rank, username, teamSize, fainted, streak })), [
+    { rank: 1, username: "D", teamSize: 2, fainted: 1, streak: 2 },
+    { rank: 2, username: "B", teamSize: 5, fainted: 1, streak: 2 },
+    { rank: 3, username: "A", teamSize: 5, fainted: 1, streak: 2 },
+    { rank: 4, username: "C", teamSize: 1, fainted: 1, streak: 1 },
+    { rank: 5, username: "Guest 7", teamSize: 6, fainted: 1, streak: 0 },
+    { rank: 6, username: "LOSS", teamSize: 1, fainted: 1, streak: 0 },
   ]);
   assert.deepEqual(leaderboardStanding(entries), {
-    rank: 1,
-    total: 5,
-    tied: true,
+    rank: 3,
+    total: 6,
+    tied: false,
     firstFinisher: false,
-    betterThanPercent: 60,
+    betterThanPercent: 50,
   });
   assert.equal(leaderboardStanding(entries.map((entry) => ({ ...entry, isCurrentPlayer: entry.username === "D", won: entry.username === "D" ? false : entry.won }))), null);
   assert.deepEqual(leaderboardStanding([{ rank: 1, won: true, isCurrentPlayer: true }]), {

@@ -151,6 +151,12 @@ function moveLikelyUsable(battle, source, target, move) {
   return true;
 }
 
+function fakeOutCanFlinch(target) {
+  return !target.hasAbility("innerfocus")
+    && !target.hasAbility("shielddust")
+    && !target.hasItem("covertcloak");
+}
+
 function splitProtocol(line) {
   return line.slice(1).split("|");
 }
@@ -167,6 +173,14 @@ function sideFrom(reference = "") {
 
 function slotFrom(reference = "") {
   return reference.split(":", 1)[0];
+}
+
+function sideSlotFrom(reference = "") {
+  return reference.match(/^p[12]/)?.[0] || "";
+}
+
+function pokemonEffectKey(reference = "", effect = "") {
+  return `${sideFrom(reference)}:${toID(displayName(reference))}:${toID(effect)}`;
 }
 
 function effectName(effect = "") {
@@ -327,6 +341,10 @@ export class BattleController {
     this.activeProfiles = new Map();
     this.lastMove = null;
     this.pendingKnockouts = new Map();
+    this.sideConditionSources = new Map();
+    this.pokemonEffectSources = new Map();
+    this.weatherId = "";
+    this.weatherSource = null;
     this.knockouts = [];
     this.version = 0;
     this.waiters = new Set();
@@ -435,6 +453,65 @@ export class BattleController {
       };
       return;
     }
+    const annotatedSource = annotations.find((entry) => entry.startsWith("[of] "))?.slice(5) || "";
+    if (type === "-sidestart") {
+      const condition = toID(effectName(detail));
+      const source = annotatedSource ? this.profileFor(annotatedSource) : this.lastMove?.attacker;
+      if (condition && source) this.sideConditionSources.set(`${sideSlotFrom(subject)}:${condition}`, source);
+      return;
+    }
+    if (type === "-sideend") {
+      this.sideConditionSources.delete(`${sideSlotFrom(subject)}:${toID(effectName(detail))}`);
+      return;
+    }
+    if (type === "-swapsideconditions") {
+      for (const condition of hazardConditions) {
+        const playerSource = this.sideConditionSources.get(`p1:${condition}`);
+        const opponentSource = this.sideConditionSources.get(`p2:${condition}`);
+        if (opponentSource) this.sideConditionSources.set(`p1:${condition}`, opponentSource);
+        else this.sideConditionSources.delete(`p1:${condition}`);
+        if (playerSource) this.sideConditionSources.set(`p2:${condition}`, playerSource);
+        else this.sideConditionSources.delete(`p2:${condition}`);
+      }
+      return;
+    }
+    if (type === "-weather") {
+      if (subject === "none") {
+        this.weatherId = "";
+        this.weatherSource = null;
+      } else {
+        this.weatherId = toID(subject);
+        const source = annotatedSource ? this.profileFor(annotatedSource) : this.lastMove?.attacker;
+        if (source) this.weatherSource = source;
+      }
+      return;
+    }
+    if (type === "-status") {
+      const status = toID(detail);
+      if (["brn", "psn", "tox"].includes(status)) {
+        let source = annotatedSource ? this.profileFor(annotatedSource) : null;
+        if (!source && this.lastMove?.targetReference === subject) source = this.lastMove.attacker;
+        if (!source && ["psn", "tox"].includes(status)) {
+          source = this.sideConditionSources.get(`${sideSlotFrom(subject)}:toxicspikes`) || null;
+        }
+        if (source) this.pokemonEffectSources.set(pokemonEffectKey(subject, "status"), source);
+      }
+      return;
+    }
+    if (type === "-curestatus") {
+      this.pokemonEffectSources.delete(pokemonEffectKey(subject, "status"));
+      return;
+    }
+    if (type === "-start") {
+      const effect = toID(effectName(detail));
+      const source = annotatedSource ? this.profileFor(annotatedSource) : this.lastMove?.attacker;
+      if (effect && source) this.pokemonEffectSources.set(pokemonEffectKey(subject, effect), source);
+      return;
+    }
+    if (type === "-end") {
+      this.pokemonEffectSources.delete(pokemonEffectKey(subject, effectName(detail)));
+      return;
+    }
     if (type === "-fail" && this.lastMove?.attacker?.side === "opponent" && this.lastMove.moveId === "suckerpunch") {
       const active = this.stream.battle?.p2?.active?.[0];
       const pokemonKey = String(this.stream.battle?.p2?.pokemon?.indexOf(active));
@@ -444,10 +521,20 @@ export class BattleController {
       return;
     }
     if (type === "-damage" && isFainted(detail)) {
-      const sourceReference = annotations.find((entry) => entry.startsWith("[of] "))?.slice(5) || "";
-      const hasIndirectSource = annotations.some((entry) => entry.startsWith("[from] "));
+      const sourceReference = annotatedSource;
+      const indirectEffect = annotations.find((entry) => entry.startsWith("[from] "))?.slice(7) || "";
+      const effectId = toID(effectName(indirectEffect));
+      const hasIndirectSource = Boolean(indirectEffect);
       const directMove = !hasIndirectSource && this.lastMove?.targetReference === subject ? this.lastMove.attacker : null;
-      this.pendingKnockouts.set(subject, sourceReference ? this.profileFor(sourceReference) : directMove);
+      const statusSource = ["brn", "psn", "tox"].includes(effectId)
+        ? this.pokemonEffectSources.get(pokemonEffectKey(subject, "status"))
+        : null;
+      const sideConditionSource = this.sideConditionSources.get(`${sideSlotFrom(subject)}:${effectId}`);
+      const persistentEffectSource = this.pokemonEffectSources.get(pokemonEffectKey(subject, effectId));
+      const weatherSource = this.weatherId === effectId ? this.weatherSource : null;
+      this.pendingKnockouts.set(subject, sourceReference
+        ? this.profileFor(sourceReference)
+        : directMove || statusSource || sideConditionSource || persistentEffectSource || weatherSource || null);
       return;
     }
     if (type !== "faint") return;
@@ -512,13 +599,21 @@ export class BattleController {
       !this.record.aiState.suckerPunchFailed.includes(pokemonKey) || move.id !== "suckerpunch"
     ) && (move.category === "Status" ? this.statusMoveUseful(move, source, target) : damage?.max > 0));
     const pool = functional.length ? functional : evaluated;
+    const fakeOut = pool.find(({ move, damage }) => (
+      move.id === "fakeout"
+      && source.activeMoveActions === 0
+      && damage?.max > 0
+      && fakeOutCanFlinch(target)
+    ));
 
     if (this.playerThreatensFasterKo(battle, source, target)) {
+      if (fakeOut) return `move ${fakeOut.slot}`;
       const priority = pool.filter(({ move, damage }) => move.category !== "Status" && move.priority > 0 && damage?.max > 0);
       if (priority.length) return `move ${randomEntry(priority).slot}`;
     }
     const guaranteedKo = pool.filter(({ move, damage }) => damage?.min >= target.hp && (move.accuracy === true || move.accuracy >= 100));
     if (guaranteedKo.length) return `move ${this.bestDamagingMoves(guaranteedKo).slot}`;
+    if (fakeOut) return `move ${fakeOut.slot}`;
     const situational = pool.filter(({ move }) => this.situationalMoveUseful(move, source, target));
     if (situational.length) return this.aiMoveChoice(randomEntry(situational), pokemonKey);
     const statusMoves = pool.filter(({ move }) => move.category === "Status");
@@ -782,11 +877,15 @@ export class BattleService {
           won: state.winner === "Player",
           completedAt: battle.record.completedAt || battle.record.createdAt,
           fainted: team.filter((pokemon) => pokemon.fainted).length,
+          teamSize: team.length,
           team,
         };
       })
       .filter(Boolean)
-      .sort((left, right) => Number(right.won) - Number(left.won) || left.fainted - right.fainted || String(left.completedAt).localeCompare(String(right.completedAt)))
+      .sort((left, right) => Number(right.won) - Number(left.won)
+        || left.teamSize - right.teamSize
+        || left.fainted - right.fainted
+        || String(left.completedAt).localeCompare(String(right.completedAt)))
       .map((entry, index) => ({ rank: index + 1, ...entry }));
   }
 
@@ -845,18 +944,21 @@ export class BattleService {
         completedAt: today.record.completedAt || today.record.createdAt,
         fainted,
         survivors: team.length - fainted,
+        teamSize: team.length,
         streak,
         team,
       });
     }
 
-    entries.sort((left, right) => right.survivors - left.survivors
+    entries.sort((left, right) => Number(right.won) - Number(left.won)
       || right.streak - left.streak
+      || left.teamSize - right.teamSize
+      || left.fainted - right.fainted
       || String(left.completedAt).localeCompare(String(right.completedAt)));
     let rank = 0;
     let previousScore = null;
     return entries.map((entry) => {
-      const score = `${entry.survivors}:${entry.streak}`;
+      const score = `${Number(entry.won)}:${entry.streak}:${entry.teamSize}:${entry.fainted}:${entry.completedAt}`;
       if (score !== previousScore) {
         rank++;
         previousScore = score;
