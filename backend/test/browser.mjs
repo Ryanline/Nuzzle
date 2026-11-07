@@ -59,12 +59,13 @@ async function dragPcSheetClosed() {
     const bounds = target.getBoundingClientRect();
     const x = bounds.left + bounds.width / 2;
     const startY = bounds.top + bounds.height / 2;
-    const endY = startY + sheet.getBoundingClientRect().height * .4;
+    const endY = startY + sheet.getBoundingClientRect().height * .8;
     const init = { bubbles: true, pointerId: 72, pointerType: "touch", isPrimary: true, clientX: x };
     target.dispatchEvent(new PointerEvent("pointerdown", { ...init, clientY: startY }));
     target.dispatchEvent(new PointerEvent("pointermove", { ...init, clientY: endY }));
     const result = {
       transform: getComputedStyle(sheet).transform,
+      dragOffset: new DOMMatrix(getComputedStyle(sheet).transform).m42,
       backdrop: getComputedStyle(backdrop).backgroundColor,
       blur: getComputedStyle(backdrop).backdropFilter,
     };
@@ -739,6 +740,8 @@ if ((await page.locator("#pokemon-sheet-title").textContent())?.trim() !== outgo
 const closeDragProgress = await dragPcSheetClosed();
 if (closeDragProgress.transform === "none" || closeDragProgress.backdrop === "rgba(0, 0, 0, 0.38)" || closeDragProgress.blur === "blur(4px)") throw new Error(`Dragging the PC drawer did not move it while progressively revealing the box: ${JSON.stringify(closeDragProgress)}`);
 if (!closeDragProgress.removedTransform?.includes("translate3d(0")) throw new Error(`The dismissed PC drawer reset its transform before removal: ${JSON.stringify(closeDragProgress)}`);
+const removedOffset = Number(closeDragProgress.removedTransform?.match(/translate3d\(0(?:px)?,\s*([\d.]+)px/)?.[1]);
+if (!Number.isFinite(removedOffset) || removedOffset < closeDragProgress.dragOffset) throw new Error(`The dismissed PC drawer moved upward before removal: ${JSON.stringify({ ...closeDragProgress, removedOffset })}`);
 if (await page.locator(".pokemon-sheet").count()) throw new Error("Dragging the PC drawer downward did not close it.");
 await page.click(`[data-pc-detail="${outgoingId}"]`);
 const summaryAppearance = await page.locator(".pokemon-sheet").evaluate((sheet) => {

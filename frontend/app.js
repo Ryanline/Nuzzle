@@ -1780,6 +1780,7 @@
         direction: 0,
         targetId: null,
         canClose: Boolean(event.target.closest(".pokemon-summary")),
+        sheetTop: sheet.getBoundingClientRect().top,
       };
       sheet.style.willChange = "transform";
     });
@@ -1840,7 +1841,8 @@
           backdrop.style.transition = duration ? `background-color ${duration}ms ease, backdrop-filter ${duration}ms ease` : "none";
           backdrop.style.setProperty("--pc-backdrop-alpha", "0");
           backdrop.style.setProperty("--pc-backdrop-blur", "0px");
-          settle(`translate3d(0, ${window.innerHeight - sheet.getBoundingClientRect().top + 24}px, 0)`, "none", () => closePcDetail(true), true);
+          const offscreenOffset = Math.max(Math.max(0, deltaY), window.innerHeight - finished.sheetTop + 24);
+          settle(`translate3d(0, ${offscreenOffset}px, 0)`, "none", () => closePcDetail(true), true);
         } else {
           backdrop.style.transition = duration ? `background-color ${duration}ms ease, backdrop-filter ${duration}ms ease` : "none";
           backdrop.style.removeProperty("--pc-backdrop-alpha");
