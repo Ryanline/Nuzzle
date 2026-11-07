@@ -1735,7 +1735,7 @@
       neighbor?.remove();
       neighbor = null;
     };
-    const settle = (sheetTransform, neighborTransform, after) => {
+    const settle = (sheetTransform, neighborTransform, after, preserveUntilRemoval = false) => {
       const transition = duration ? `transform ${duration}ms cubic-bezier(.22,.8,.24,1)` : "none";
       sheet.style.transition = transition;
       sheet.style.transform = sheetTransform;
@@ -1744,7 +1744,7 @@
         neighbor.style.transform = neighborTransform;
       }
       window.setTimeout(() => {
-        clearGestureStyles();
+        if (!preserveUntilRemoval) clearGestureStyles();
         after?.();
       }, duration);
     };
@@ -1840,7 +1840,7 @@
           backdrop.style.transition = duration ? `background-color ${duration}ms ease, backdrop-filter ${duration}ms ease` : "none";
           backdrop.style.setProperty("--pc-backdrop-alpha", "0");
           backdrop.style.setProperty("--pc-backdrop-blur", "0px");
-          settle(`translate3d(0, ${window.innerHeight - sheet.getBoundingClientRect().top + 24}px, 0)`, "none", () => closePcDetail(true));
+          settle(`translate3d(0, ${window.innerHeight - sheet.getBoundingClientRect().top + 24}px, 0)`, "none", () => closePcDetail(true), true);
         } else {
           backdrop.style.transition = duration ? `background-color ${duration}ms ease, backdrop-filter ${duration}ms ease` : "none";
           backdrop.style.removeProperty("--pc-backdrop-alpha");

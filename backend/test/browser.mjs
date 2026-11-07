@@ -49,6 +49,13 @@ async function dragPcSheetClosed() {
   const progress = await page.locator(".pokemon-summary").evaluate((target) => {
     const sheet = target.closest(".pokemon-sheet");
     const backdrop = sheet.closest(".sheet-backdrop");
+    window.__pcDismissRemovedTransform = null;
+    const removalObserver = new MutationObserver(() => {
+      if (sheet.isConnected) return;
+      window.__pcDismissRemovedTransform = sheet.style.transform;
+      removalObserver.disconnect();
+    });
+    removalObserver.observe(document.body, { childList: true, subtree: true });
     const bounds = target.getBoundingClientRect();
     const x = bounds.left + bounds.width / 2;
     const startY = bounds.top + bounds.height / 2;
@@ -65,7 +72,7 @@ async function dragPcSheetClosed() {
     return result;
   });
   await page.waitForTimeout(280);
-  return progress;
+  return { ...progress, removedTransform: await page.evaluate(() => window.__pcDismissRemovedTransform) };
 }
 
 async function assertMobileLayout(label, scrollRegions = []) {
@@ -731,6 +738,7 @@ await swipePcSheet("previous");
 if ((await page.locator("#pokemon-sheet-title").textContent())?.trim() !== outgoingPokemon.name) throw new Error("Swiping right did not return to the previous Pokémon.");
 const closeDragProgress = await dragPcSheetClosed();
 if (closeDragProgress.transform === "none" || closeDragProgress.backdrop === "rgba(0, 0, 0, 0.38)" || closeDragProgress.blur === "blur(4px)") throw new Error(`Dragging the PC drawer did not move it while progressively revealing the box: ${JSON.stringify(closeDragProgress)}`);
+if (!closeDragProgress.removedTransform?.includes("translate3d(0")) throw new Error(`The dismissed PC drawer reset its transform before removal: ${JSON.stringify(closeDragProgress)}`);
 if (await page.locator(".pokemon-sheet").count()) throw new Error("Dragging the PC drawer downward did not close it.");
 await page.click(`[data-pc-detail="${outgoingId}"]`);
 const summaryAppearance = await page.locator(".pokemon-sheet").evaluate((sheet) => {
