@@ -1724,7 +1724,9 @@
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const duration = reducedMotion ? 0 : 240;
     let gesture = null;
+    let touchGesture = null;
     let neighbor = null;
+    const interactiveSelector = "button, input, select, textarea, a, [contenteditable], .summary-move-backdrop";
     const clearGestureStyles = () => {
       sheet.style.removeProperty("transition");
       sheet.style.removeProperty("transform");
@@ -1764,9 +1766,35 @@
       backdrop.append(neighbor);
       return targetId;
     };
+    const canDragClosedFrom = (target) => {
+      if (target.closest(interactiveSelector) || sheet.scrollTop > 1) return false;
+      const scrollRegion = target.closest(".training-scroll, .pc-detail-panel");
+      return !scrollRegion || scrollRegion.scrollTop <= 1;
+    };
+    const updateVerticalDrag = (offset) => {
+      const progress = Math.min(1, offset / Math.max(1, sheet.getBoundingClientRect().height * .7));
+      sheet.style.transform = `translate3d(0, ${offset}px, 0)`;
+      backdrop.style.setProperty("--pc-backdrop-alpha", String(.38 * (1 - progress)));
+      backdrop.style.setProperty("--pc-backdrop-blur", `${4 * (1 - progress)}px`);
+    };
+    const finishVerticalDrag = ({ deltaY, velocityY, sheetTop }) => {
+      const height = sheet.getBoundingClientRect().height;
+      const commits = deltaY >= height * .25 || velocityY >= .65;
+      backdrop.style.transition = duration ? `background-color ${duration}ms ease, backdrop-filter ${duration}ms ease` : "none";
+      if (commits && (!hasPendingTraining() || window.confirm("Discard your pending training changes?"))) {
+        backdrop.style.setProperty("--pc-backdrop-alpha", "0");
+        backdrop.style.setProperty("--pc-backdrop-blur", "0px");
+        const offscreenOffset = Math.max(Math.max(0, deltaY), window.innerHeight - sheetTop + 24);
+        settle(`translate3d(0, ${offscreenOffset}px, 0)`, "none", () => closePcDetail(true), true);
+      } else {
+        backdrop.style.removeProperty("--pc-backdrop-alpha");
+        backdrop.style.removeProperty("--pc-backdrop-blur");
+        settle("translate3d(0, 0, 0)", "none");
+      }
+    };
     sheet.addEventListener("pointerdown", (event) => {
       if (event.pointerType === "mouse" || event.isPrimary === false) return;
-      if (event.target.closest("button, input, select, textarea, a, [contenteditable], .summary-move-backdrop")) return;
+      if (event.target.closest(interactiveSelector)) return;
       gesture = {
         pointerId: event.pointerId,
         x: event.clientX,
@@ -1779,7 +1807,8 @@
         axis: null,
         direction: 0,
         targetId: null,
-        canClose: Boolean(event.target.closest(".pokemon-summary")),
+        canClose: canDragClosedFrom(event.target),
+        pointerType: event.pointerType,
         sheetTop: sheet.getBoundingClientRect().top,
       };
       sheet.style.willChange = "transform";
@@ -1797,7 +1826,7 @@
       gesture.lastTime = now;
       if (!gesture.axis && Math.hypot(deltaX, deltaY) >= 8) {
         if (gesture.canClose && deltaY > 0 && Math.abs(deltaY) > Math.abs(deltaX)) {
-          gesture.axis = "vertical";
+          gesture.axis = gesture.pointerType === "touch" ? "touch-vertical" : "vertical";
         } else if (Math.abs(deltaX) > Math.abs(deltaY)) {
           gesture.axis = "horizontal";
           gesture.direction = deltaX < 0 ? 1 : -1;
@@ -1812,11 +1841,7 @@
         if (neighbor) neighbor.style.transform = `translate3d(${offset + gesture.direction * (bounds.width + 12)}px, 0, 0)`;
       } else if (gesture.axis === "vertical") {
         event.preventDefault();
-        const offset = Math.max(0, deltaY);
-        const progress = Math.min(1, offset / Math.max(1, sheet.getBoundingClientRect().height * .7));
-        sheet.style.transform = `translate3d(0, ${offset}px, 0)`;
-        backdrop.style.setProperty("--pc-backdrop-alpha", String(.38 * (1 - progress)));
-        backdrop.style.setProperty("--pc-backdrop-blur", `${4 * (1 - progress)}px`);
+        updateVerticalDrag(Math.max(0, deltaY));
       }
     });
     sheet.addEventListener("pointerup", (event) => {
@@ -1835,30 +1860,67 @@
           settle("translate3d(0, 0, 0)", `translate3d(${finished.direction * (width + 12)}px, 0, 0)`);
         }
       } else if (finished.axis === "vertical") {
-        const height = sheet.getBoundingClientRect().height;
-        const commits = deltaY >= height * .25 || finished.velocityY >= .65;
-        if (commits && (!hasPendingTraining() || window.confirm("Discard your pending training changes?"))) {
-          backdrop.style.transition = duration ? `background-color ${duration}ms ease, backdrop-filter ${duration}ms ease` : "none";
-          backdrop.style.setProperty("--pc-backdrop-alpha", "0");
-          backdrop.style.setProperty("--pc-backdrop-blur", "0px");
-          const offscreenOffset = Math.max(Math.max(0, deltaY), window.innerHeight - finished.sheetTop + 24);
-          settle(`translate3d(0, ${offscreenOffset}px, 0)`, "none", () => closePcDetail(true), true);
-        } else {
-          backdrop.style.transition = duration ? `background-color ${duration}ms ease, backdrop-filter ${duration}ms ease` : "none";
-          backdrop.style.removeProperty("--pc-backdrop-alpha");
-          backdrop.style.removeProperty("--pc-backdrop-blur");
-          settle("translate3d(0, 0, 0)", "none");
-        }
+        finishVerticalDrag({ deltaY, velocityY: finished.velocityY, sheetTop: finished.sheetTop });
+      } else if (finished.axis === "touch-vertical") {
+        // Touch events retain control of vertical drags after the browser cancels pointer tracking.
       } else {
         clearGestureStyles();
       }
     });
     sheet.addEventListener("pointercancel", () => {
       if (!gesture) return;
+      if (gesture.axis === "touch-vertical") {
+        gesture = null;
+        return;
+      }
       const direction = gesture.direction;
       const width = sheet.getBoundingClientRect().width;
       gesture = null;
       settle("translate3d(0, 0, 0)", direction ? `translate3d(${direction * (width + 12)}px, 0, 0)` : "none");
+    });
+    sheet.addEventListener("touchstart", (event) => {
+      if (event.touches.length !== 1 || !canDragClosedFrom(event.target)) return;
+      const touch = event.touches[0];
+      touchGesture = {
+        identifier: touch.identifier,
+        x: touch.clientX,
+        y: touch.clientY,
+        lastY: touch.clientY,
+        lastTime: performance.now(),
+        velocityY: 0,
+        active: false,
+        sheetTop: sheet.getBoundingClientRect().top,
+      };
+    }, { passive: true });
+    sheet.addEventListener("touchmove", (event) => {
+      if (!touchGesture) return;
+      const touch = [...event.touches].find((candidate) => candidate.identifier === touchGesture.identifier);
+      if (!touch) return;
+      const deltaX = touch.clientX - touchGesture.x;
+      const deltaY = touch.clientY - touchGesture.y;
+      if (!touchGesture.active && deltaY >= 8 && Math.abs(deltaY) > Math.abs(deltaX)) touchGesture.active = true;
+      if (!touchGesture.active) return;
+      event.preventDefault();
+      const now = performance.now();
+      touchGesture.velocityY = (touch.clientY - touchGesture.lastY) / Math.max(1, now - touchGesture.lastTime);
+      touchGesture.lastY = touch.clientY;
+      touchGesture.lastTime = now;
+      sheet.style.willChange = "transform";
+      updateVerticalDrag(Math.max(0, deltaY));
+    }, { passive: false });
+    sheet.addEventListener("touchend", (event) => {
+      if (!touchGesture) return;
+      const touch = [...event.changedTouches].find((candidate) => candidate.identifier === touchGesture.identifier);
+      const finished = touchGesture;
+      touchGesture = null;
+      if (!finished.active || !touch) return;
+      finishVerticalDrag({ deltaY: Math.max(0, touch.clientY - finished.y), velocityY: finished.velocityY, sheetTop: finished.sheetTop });
+    });
+    sheet.addEventListener("touchcancel", () => {
+      if (!touchGesture) return;
+      const active = touchGesture.active;
+      touchGesture = null;
+      if (active) finishVerticalDrag({ deltaY: 0, velocityY: 0, sheetTop: sheet.getBoundingClientRect().top });
     });
   }
 

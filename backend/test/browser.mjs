@@ -45,8 +45,8 @@ async function swipePcSheet(direction) {
   await page.waitForTimeout(280);
 }
 
-async function dragPcSheetClosed() {
-  const progress = await page.locator(".pokemon-summary").evaluate((target) => {
+async function dragPcSheetClosed(startSelector = ".stat-card") {
+  const progress = await page.locator(startSelector).first().evaluate((target) => {
     const sheet = target.closest(".pokemon-sheet");
     const backdrop = sheet.closest(".sheet-backdrop");
     window.__pcDismissRemovedTransform = null;
@@ -60,16 +60,18 @@ async function dragPcSheetClosed() {
     const x = bounds.left + bounds.width / 2;
     const startY = bounds.top + bounds.height / 2;
     const endY = startY + sheet.getBoundingClientRect().height * .8;
-    const init = { bubbles: true, pointerId: 72, pointerType: "touch", isPrimary: true, clientX: x };
-    target.dispatchEvent(new PointerEvent("pointerdown", { ...init, clientY: startY }));
-    target.dispatchEvent(new PointerEvent("pointermove", { ...init, clientY: endY }));
+    const touch = (clientY) => new Touch({ identifier: 72, target, clientX: x, clientY, pageX: x, pageY: clientY, screenX: x, screenY: clientY });
+    const startTouch = touch(startY);
+    const endTouch = touch(endY);
+    target.dispatchEvent(new TouchEvent("touchstart", { bubbles: true, cancelable: true, touches: [startTouch], targetTouches: [startTouch], changedTouches: [startTouch] }));
+    target.dispatchEvent(new TouchEvent("touchmove", { bubbles: true, cancelable: true, touches: [endTouch], targetTouches: [endTouch], changedTouches: [endTouch] }));
     const result = {
       transform: getComputedStyle(sheet).transform,
       dragOffset: new DOMMatrix(getComputedStyle(sheet).transform).m42,
       backdrop: getComputedStyle(backdrop).backgroundColor,
       blur: getComputedStyle(backdrop).backdropFilter,
     };
-    target.dispatchEvent(new PointerEvent("pointerup", { ...init, clientY: endY }));
+    target.dispatchEvent(new TouchEvent("touchend", { bubbles: true, cancelable: true, touches: [], targetTouches: [], changedTouches: [endTouch] }));
     return result;
   });
   await page.waitForTimeout(280);
@@ -805,6 +807,10 @@ await swipePcSheet("next");
 if ((await page.locator("#pokemon-sheet-title").textContent())?.trim() !== nextDetailName || await page.locator('[data-pc-detail-view="training"][aria-selected="true"]').count() !== 1 || await page.locator(".training-editor").count() !== 1) throw new Error("Swiping left did not open the next Pokémon while preserving Training.");
 await swipePcSheet("previous");
 if ((await page.locator("#pokemon-sheet-title").textContent())?.trim() !== outgoingPokemon.name || await page.locator('[data-pc-detail-view="training"][aria-selected="true"]').count() !== 1) throw new Error("Swiping right did not return to the previous Pokémon while preserving Training.");
+const trainingCloseProgress = await dragPcSheetClosed(".training-stat-name");
+if (!trainingCloseProgress.removedTransform || await page.locator(".pokemon-sheet").count()) throw new Error(`Dragging noninteractive Training content did not close the PC drawer: ${JSON.stringify(trainingCloseProgress)}`);
+await page.click(`[data-pc-detail="${outgoingId}"]`);
+await page.click('[data-pc-detail-view="training"]');
 await assertMobileLayout("PC training drawer");
 await assertDesktopLayout("PC training drawer");
 if (await page.locator(".pokemon-summary > img").evaluate((image) => image.getBoundingClientRect().width) < 63) throw new Error("The compact Training drawer shrank the Pokémon sprite back to its old size.");
