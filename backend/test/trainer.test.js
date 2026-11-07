@@ -56,10 +56,11 @@ Ability: Vital Spirit
 
 test("the trainer editor exposes the full Showdown sprite catalog and custom sprites", () => {
   assert.ok(trainerSprites.length >= 1_400);
-  for (const id of ["brock", "misty", "cynthia", "red", "youngster-gen9", "ramsay"]) {
+  for (const id of ["brock", "misty", "cynthia", "red", "youngster-gen9", "ramsay", "diya"]) {
     assert.ok(trainerSprites.some((sprite) => sprite.id === id), `missing trainer sprite ${id}`);
   }
   assert.equal(trainerSprites.find((sprite) => sprite.id === "ramsay")?.name, "Ramsay");
+  assert.equal(trainerSprites.find((sprite) => sprite.id === "diya")?.name, "Diya");
 });
 
 test("queued trainers can be reordered and publish one immutable snapshot per day", async () => {

@@ -9,7 +9,7 @@ import { BattleStore } from "./battle-store.js";
 import { DiscordRecapScheduler } from "./discord-recap.js";
 import { AuthStore, SESSION_LIFETIME_MS } from "./auth-store.js";
 import { GameStore, publicContent } from "./game-store.js";
-import { showdownTrainerSprites, trainerSprites, TrainerStore } from "./trainer-store.js";
+import { avatarSprites, trainerSprites, TrainerStore } from "./trainer-store.js";
 import { showdownTrainerSpriteIds } from "./trainer-sprite-ids.js";
 
 const require = createRequire(import.meta.url);
@@ -298,7 +298,7 @@ async function api(request, response, pathname) {
   }
   if (request.method === "GET" && pathname === "/api/account/avatars") {
     requireUser(request);
-    json(response, 200, { sprites: showdownTrainerSprites });
+    json(response, 200, { sprites: avatarSprites });
     return true;
   }
   if (request.method === "PUT" && pathname === "/api/account/avatar") {

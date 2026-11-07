@@ -21,7 +21,7 @@
   const healthTone = (percent) => percent <= 20 ? "critical" : percent <= 50 ? "warning" : "healthy";
   const trainerSprite = (id = "brock") => {
     if (id === "brock") return "assets/trainers/brock.png";
-    if (id === "ramsay") return "assets/trainers/ramsay.svg";
+    if (id === "ramsay" || id === "diya") return `assets/trainers/${id}.svg`;
     return `assets/showdown/trainers/${encodeURIComponent(id)}.png`;
   };
   const defaultAccountAvatarId = "unknownf";

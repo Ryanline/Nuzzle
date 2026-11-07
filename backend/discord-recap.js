@@ -57,7 +57,7 @@ function publicAssetUrl(publicUrl, relative) {
 
 function trainerSpritePath(spriteId) {
   if (spriteId === "brock") return "assets/trainers/brock.png";
-  if (spriteId === "ramsay") return "assets/trainers/ramsay.svg";
+  if (spriteId === "ramsay" || spriteId === "diya") return `assets/trainers/${spriteId}.svg`;
   return `assets/showdown/trainers/${spriteId}.png`;
 }
 

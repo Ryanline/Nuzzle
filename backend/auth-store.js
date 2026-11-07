@@ -2,12 +2,12 @@ import crypto from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
-import { showdownTrainerSpriteIds } from "./trainer-sprite-ids.js";
+import { avatarSpriteIds } from "./trainer-sprite-ids.js";
 
 const scrypt = promisify(crypto.scrypt);
 const SESSION_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
 const ADMIN_USERNAME_KEY = String(process.env.NUZZLE_ADMIN_USERNAME || "ryanline").trim().toLowerCase();
-const avatarSpriteIds = new Set(showdownTrainerSpriteIds);
+const selectableAvatarSpriteIds = new Set(avatarSpriteIds);
 
 function authError(message, statusCode = 400) {
   throw Object.assign(new Error(message), { statusCode });
@@ -17,7 +17,7 @@ function publicUser(user) {
   return {
     id: user.id,
     username: user.username,
-    avatarSpriteId: avatarSpriteIds.has(user.avatarSpriteId) ? user.avatarSpriteId : null,
+    avatarSpriteId: selectableAvatarSpriteIds.has(user.avatarSpriteId) ? user.avatarSpriteId : null,
     welcomeSeen: Boolean(user.welcomeSeenAt),
     createdAt: user.createdAt,
     streakStartDate: user.streakStartDate || null,
@@ -188,7 +188,7 @@ export class AuthStore {
 
   async updateAvatar(userId, spriteId) {
     const avatarSpriteId = String(spriteId || "").trim() || null;
-    if (avatarSpriteId && !avatarSpriteIds.has(avatarSpriteId)) authError("Choose an avatar from the trainer sprite list.");
+    if (avatarSpriteId && !selectableAvatarSpriteIds.has(avatarSpriteId)) authError("Choose an avatar from the trainer sprite list.");
     const user = this.data.users.find((candidate) => candidate.id === userId);
     if (!user) authError("Account not found.", 404);
     user.avatarSpriteId = avatarSpriteId;
