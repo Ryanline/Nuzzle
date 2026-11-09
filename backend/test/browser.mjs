@@ -1232,6 +1232,30 @@ if (!(await page.locator(".leaderboard-row.leaderboard-loss").textContent())?.in
 if (!(await page.locator(".leaderboard-row.leaderboard-loss").textContent())?.includes("0-day streak")) throw new Error("The merged leaderboard row did not show its streak.");
 if (!(await page.locator(".leaderboard-row.leaderboard-loss .leaderboard-avatar img").getAttribute("src"))?.includes("/trainers/misty.png")) throw new Error("The selected account avatar did not appear on the leaderboard.");
 if (!(await page.locator('.leaderboard-rank[aria-label="Rank 1"] .leaderboard-trophy').getAttribute("src"))?.endsWith("assets/leaderboard/trophy-gold.png")) throw new Error("First place did not use the CC0 gold trophy.");
+const leaderboardResultId = await page.locator(".leaderboard-row.leaderboard-current").getAttribute("data-leaderboard-result");
+if (!leaderboardResultId) throw new Error("The leaderboard row did not expose its battle result reference.");
+const leaderboardScrollStyle = await page.addStyleTag({ content: ".leaderboard-list { padding: 500px 0 !important; }" });
+const leaderboardScrollBefore = await page.locator(".leaderboard-content").evaluate((element) => {
+  element.scrollTop = 500;
+  return element.scrollTop;
+});
+if (leaderboardScrollBefore < 100) throw new Error("The leaderboard scroll preservation test could not create a deep scroll position.");
+const publicResultResponse = page.waitForResponse((response) => response.url().includes(`/api/leaderboard/results/${leaderboardResultId}`) && response.request().method() === "GET");
+await page.locator(".leaderboard-row.leaderboard-current").click();
+const loadedPublicResultResponse = await publicResultResponse;
+if (!loadedPublicResultResponse.ok()) throw new Error("The leaderboard battle result request failed.");
+const publicResult = await loadedPublicResultResponse.json();
+if (!Array.isArray(publicResult.knockouts) || publicResult.opponent?.team?.length !== 6 || "log" in publicResult || "moves" in publicResult || "playerTeam" in publicResult) throw new Error(`The leaderboard result was not sanitized correctly: ${JSON.stringify(publicResult)}`);
+await page.waitForSelector(".result-modal:not(.result-loading)");
+if (!(await page.locator(".result-modal").textContent())?.includes(`${username} vs. Brock`) || !(await page.locator(".result-modal").textContent())?.includes("Defeat")) throw new Error("The leaderboard result overlay did not reuse the player battle result presentation.");
+if (await page.locator(".result-mon-card").count() !== 6) throw new Error("The leaderboard result overlay did not show the opposing team.");
+const leaderboardDuringOverlay = await page.locator(".leaderboard-content").evaluate((element) => ({ scrollTop: element.scrollTop, scrollHeight: element.scrollHeight, clientHeight: element.clientHeight }));
+await page.click("[data-close-leaderboard-result].result-close");
+await page.waitForSelector(".result-modal", { state: "detached" });
+await page.locator("body").evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+const leaderboardAfterClose = await page.locator(".leaderboard-content").evaluate((element) => ({ scrollTop: element.scrollTop, activeResult: document.activeElement?.dataset?.leaderboardResult || null }));
+if (Math.abs(leaderboardAfterClose.scrollTop - leaderboardScrollBefore) > 1 || leaderboardAfterClose.activeResult !== leaderboardResultId) throw new Error(`Closing a leaderboard result did not restore scroll and focus: ${JSON.stringify({ leaderboardScrollBefore, leaderboardDuringOverlay, leaderboardAfterClose })}`);
+await leaderboardScrollStyle.evaluate((element) => element.remove());
 const currentRowThemeAppearance = await page.locator(".leaderboard-row.leaderboard-current").evaluate((row) => {
   const root = document.documentElement;
   const previousTheme = root.dataset.theme;

@@ -779,14 +779,16 @@ button.encounter-card:active .encounter-mark img { transform: translateY(1px) sc
 .leaderboard-tabs { flex: 0 0 auto; margin-top: 8px; }
 .leaderboard-content { min-height: 0; flex: 1; overflow-y: auto; overscroll-behavior: contain; }
 .leaderboard-list { margin: 0; padding: 0; list-style: none; }
-.leaderboard-row { display: grid; grid-template-columns: 32px minmax(0, 1fr); align-items: center; gap: 7px; min-height: 76px; padding: 7px 4px; border-bottom: 1px solid #d4d8dd; }
+.leaderboard-row { display: grid; width: 100%; grid-template-columns: 32px minmax(0, 1fr); align-items: center; gap: 7px; min-height: 76px; padding: 7px 4px; border: 0; border-bottom: 1px solid #d4d8dd; background: transparent; color: inherit; cursor: pointer; font: inherit; text-align: left; }
+.leaderboard-row:hover { background: rgba(104,126,143,.08); }
+.leaderboard-row:focus-visible { z-index: 1; outline: 3px solid #527c9b; outline-offset: -3px; }
 .leaderboard-row.leaderboard-current { border-radius: 7px; background: #f0f2f4; box-shadow: inset 3px 0 #8295a6; }
 .leaderboard-rank { color: #526474; font-size: 20px; font-weight: 700; text-align: center; }
 .leaderboard-trophy { display: block; width: 30px; height: 30px; margin: auto; image-rendering: pixelated; object-fit: contain; }
 .leaderboard-identity { display: flex; min-width: 0; align-items: center; gap: 7px; }
 .leaderboard-avatar { display: grid; width: 42px; height: 50px; flex: 0 0 auto; place-items: center; }
 .leaderboard-avatar img { width: 40px; height: 48px; }
-.leaderboard-entry { min-width: 0; }
+.leaderboard-entry { display: block; min-width: 0; }
 .leaderboard-identity > strong { display: block; min-width: 0; overflow: hidden; font-size: 14px; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
 .leaderboard-identity > strong small { margin-left: 6px; color: #a34449; font-size: 10px; font-weight: 700; text-transform: uppercase; }
 .leaderboard-player-name { display: block; margin-bottom: 2px; overflow: hidden; font-size: 14px; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }

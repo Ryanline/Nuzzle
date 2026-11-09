@@ -147,6 +147,14 @@
   let leaderboardData = null;
   let leaderboardLoading = false;
   let leaderboardError = "";
+  let leaderboardScrollTop = 0;
+  let leaderboardScrollCaptureLocked = false;
+  let leaderboardResultId = null;
+  let leaderboardResultUsername = "";
+  let leaderboardResult = null;
+  let leaderboardResultLoading = false;
+  let leaderboardResultError = "";
+  let leaderboardResultRequest = 0;
   let trainerFormOpen = false;
   const emptyTrainerDraft = () => ({ name: "", spriteId: "", teamText: "" });
   let trainerDraft = emptyTrainerDraft();
@@ -251,6 +259,45 @@
       leaderboardLoading = false;
       render();
     }
+  }
+
+  async function openLeaderboardResult(entry) {
+    const scrollRegion = document.querySelector(".leaderboard-content");
+    if (scrollRegion) leaderboardScrollTop = scrollRegion.scrollTop;
+    const request = ++leaderboardResultRequest;
+    leaderboardResultId = entry.battleId;
+    leaderboardResultUsername = entry.username;
+    leaderboardResult = null;
+    leaderboardResultLoading = true;
+    leaderboardResultError = "";
+    render();
+    try {
+      const result = await apiRequest(`/api/leaderboard/results/${encodeURIComponent(entry.battleId)}`);
+      if (request !== leaderboardResultRequest) return;
+      leaderboardResult = result;
+    } catch (error) {
+      if (request !== leaderboardResultRequest) return;
+      leaderboardResultError = error.message;
+    } finally {
+      if (request === leaderboardResultRequest) {
+        leaderboardResultLoading = false;
+        render();
+        requestAnimationFrame(() => document.querySelector("[data-close-leaderboard-result].result-close")?.focus({ preventScroll: true }));
+      }
+    }
+  }
+
+  function closeLeaderboardResult() {
+    const trigger = leaderboardResultId;
+    leaderboardResultRequest++;
+    leaderboardResultId = null;
+    leaderboardResultUsername = "";
+    leaderboardResult = null;
+    leaderboardResultLoading = false;
+    leaderboardResultError = "";
+    leaderboardScrollCaptureLocked = true;
+    render();
+    requestAnimationFrame(() => document.querySelector(`[data-leaderboard-result="${CSS.escape(trigger || "")}"]`)?.focus({ preventScroll: true }));
   }
 
   async function refreshVictoryStanding() {
@@ -798,9 +845,9 @@
     return `<section class="result-standing" data-victory-standing><strong>${placement} <b>${ordinal(victoryStanding.rank)}</b> out of <b>${players}</b>.</strong><span>Better than <b>${victoryStanding.betterThanPercent}%</b> of players so far today!</span></section>`;
   }
 
-  function battleResultOverlay() {
-    const knockouts = battleState.knockouts || [];
-    const cards = battleState.opponent.team.map((pokemon) => {
+  function battleResultOverlay(state = battleState, { leaderboard = false, username = "" } = {}) {
+    const knockouts = state.knockouts || [];
+    const cards = state.opponent.team.map((pokemon) => {
       const defeatedBy = knockouts.filter((entry) => entry.defeated?.side === "opponent" && sameResultPokemon(entry.defeated, pokemon));
       const defeatedPlayer = knockouts.filter((entry) => entry.credited?.side === "opponent" && sameResultPokemon(entry.credited, pokemon));
       const greenCredits = defeatedBy.length
@@ -811,12 +858,16 @@
         : '<span class="result-credit empty">no KOs</span>';
       return `<article class="result-mon-card"><div class="result-credit-row above" aria-label="Knocked out by">${greenCredits}</div><div class="result-opponent"><img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId, pokemon.shiny)}" alt="${escapeHtml(pokemon.name)}"><strong>${escapeHtml(pokemon.name)}</strong></div><div class="result-credit-row below" aria-label="Pokémon knocked out">${redCredits}</div></article>`;
     }).join("");
-    const victory = battleState.winner === "Player";
-    const heading = victory ? "Victory!" : battleState.winner ? "Defeat" : "Battle complete";
-    const challengeNumber = battleState.challengeDate === todayState.date ? todayState.number : battleState.challengeNumber || todayState.number;
-    const subheading = battleState.forfeited ? `You forfeited against ${battleState.opponent.name}.` : `${battleState.opponent.name} · Nuzzle #${challengeNumber}`;
-    const standing = victory ? victoryStandingCard() : "";
-    return `<div class="result-backdrop" data-close-result><section class="result-modal ${victory ? "victory" : "defeat"}" role="dialog" aria-modal="true" aria-labelledby="result-title"><button class="result-close" type="button" aria-label="Close result" data-close-result>×</button><header><span>daily battle result</span><h2 id="result-title">${heading}</h2><p>${escapeHtml(subheading)}</p></header>${standing}<div class="result-legend"><span class="green-key">▲ your Pokémon that KO'd it</span><span class="red-key">▼ your Pokémon it KO'd</span></div><div class="result-grid">${cards}</div></section></div>`;
+    const victory = state.winner === "Player";
+    const heading = victory ? "Victory!" : state.winner ? "Defeat" : "Battle complete";
+    const challengeNumber = state.challengeDate === todayState.date ? todayState.number : state.challengeNumber || todayState.number;
+    const subheading = leaderboard
+      ? `${username} vs. ${state.opponent.name} · Nuzzle #${challengeNumber}`
+      : state.forfeited ? `You forfeited against ${state.opponent.name}.` : `${state.opponent.name} · Nuzzle #${challengeNumber}`;
+    const standing = !leaderboard && victory ? victoryStandingCard() : "";
+    const owner = leaderboard ? `${username}${username.toLowerCase().endsWith("s") ? "’" : "’s"}` : "your";
+    const closeAttribute = leaderboard ? "data-close-leaderboard-result" : "data-close-result";
+    return `<div class="result-backdrop" ${closeAttribute}><section class="result-modal ${victory ? "victory" : "defeat"}" role="dialog" aria-modal="true" aria-labelledby="result-title"><button class="result-close" type="button" aria-label="Close result" ${closeAttribute}>×</button><header><span>${leaderboard ? "leaderboard battle result" : "daily battle result"}</span><h2 id="result-title">${heading}</h2><p>${escapeHtml(subheading)}</p></header>${standing}<div class="result-legend"><span class="green-key">▲ ${escapeHtml(owner)} Pokémon that KO'd it</span><span class="red-key">▼ ${escapeHtml(owner)} Pokémon it KO'd</span></div><div class="result-grid">${cards}</div></section></div>`;
   }
 
   function pc() {
@@ -1194,6 +1245,13 @@
       <div class="bag-contents" role="tabpanel" aria-labelledby="${activeTabId}">${bagContents()}</div>${backButton()}</div></section>`;
   }
 
+  function leaderboardResultOverlay() {
+    if (!leaderboardResultId) return "";
+    if (leaderboardResult) return battleResultOverlay(leaderboardResult, { leaderboard: true, username: leaderboardResultUsername });
+    const message = leaderboardResultLoading ? "Loading battle result…" : leaderboardResultError || "Battle result unavailable.";
+    return `<div class="result-backdrop" data-close-leaderboard-result><section class="result-modal result-loading" role="dialog" aria-modal="true" aria-labelledby="result-title"><button class="result-close" type="button" aria-label="Close result" data-close-leaderboard-result>×</button><header><span>leaderboard battle result</span><h2 id="result-title">${leaderboardResultLoading ? "Loading…" : "Unavailable"}</h2><p>${escapeHtml(message)}</p></header></section></div>`;
+  }
+
   function leaderboardScreen() {
     const entries = leaderboardData?.entries || [];
     const trophyNames = ["", "gold", "silver", "bronze"];
@@ -1202,9 +1260,13 @@
       : leaderboardError
         ? `<div class="leaderboard-empty"><strong>Could not load leaderboard</strong><span>${escapeHtml(leaderboardError)}</span></div>`
         : entries.length
-          ? `<ol class="leaderboard-list">${entries.map((entry) => { const trophy = trophyNames[entry.rank]; const rank = trophy ? `<img class="leaderboard-trophy" src="assets/leaderboard/trophy-${trophy}.png" alt="">` : entry.rank; return `<li class="leaderboard-row${entry.won ? "" : " leaderboard-loss"}${entry.isCurrentPlayer ? " leaderboard-current" : ""}"${entry.isCurrentPlayer ? ' aria-current="true"' : ""}><span class="leaderboard-rank" aria-label="Rank ${entry.rank}">${rank}</span><div class="leaderboard-entry"><div class="leaderboard-player-line"><strong class="leaderboard-player-name">${escapeHtml(entry.username)}${entry.isGuest ? '<small class="guest-label">guest</small>' : ""}</strong><strong class="streak-count">${entry.streak}-day streak</strong></div><div class="leaderboard-roster"><span class="leaderboard-avatar" aria-hidden="true">${avatarContent(entry)}</span><div class="leaderboard-team" aria-label="${entry.survivors} surviving Pokémon and ${entry.fainted} fainted Pokémon">${entry.team.map((pokemon) => `<span class="leaderboard-mon ${pokemon.fainted ? "fainted" : "survived"}" title="${escapeHtml(pokemon.name)} — ${pokemon.fainted ? "fainted" : "survived"}"><img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId, pokemon.shiny)}" alt="${escapeHtml(pokemon.name)}"></span>`).join("")}</div></div></div></li>`; }).join("")}</ol>`
+          ? `<ol class="leaderboard-list">${entries.map((entry) => {
+            const trophy = trophyNames[entry.rank];
+            const rank = trophy ? `<img class="leaderboard-trophy" src="assets/leaderboard/trophy-${trophy}.png" alt="">` : entry.rank;
+            return `<li><button class="leaderboard-row${entry.won ? "" : " leaderboard-loss"}${entry.isCurrentPlayer ? " leaderboard-current" : ""}" type="button" data-leaderboard-result="${escapeHtml(entry.battleId)}"${entry.isCurrentPlayer ? ' aria-current="true"' : ""}><span class="leaderboard-rank" aria-label="Rank ${entry.rank}">${rank}</span><span class="leaderboard-entry"><span class="leaderboard-player-line"><strong class="leaderboard-player-name">${escapeHtml(entry.username)}${entry.isGuest ? '<small class="guest-label">guest</small>' : ""}</strong><strong class="streak-count">${entry.streak}-day streak</strong></span><span class="leaderboard-roster"><span class="leaderboard-avatar" aria-hidden="true">${avatarContent(entry)}</span><span class="leaderboard-team" aria-label="${entry.survivors} surviving Pokémon and ${entry.fainted} fainted Pokémon">${entry.team.map((pokemon) => `<span class="leaderboard-mon ${pokemon.fainted ? "fainted" : "survived"}" title="${escapeHtml(pokemon.name)} — ${pokemon.fainted ? "fainted" : "survived"}"><img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId, pokemon.shiny)}" alt="${escapeHtml(pokemon.name)}"></span>`).join("")}</span></span></span><span class="visually-hidden">View ${escapeHtml(entry.username)}’s battle result</span></button></li>`;
+          }).join("")}</ol>`
           : '<div class="leaderboard-empty"><strong>No results yet</strong><span>Today’s first completed battle will appear here.</span></div>';
-    return `<section class="screen">${header()}<div class="leaderboard-stage"><h2>Leaderboard</h2><div class="leaderboard-content">${content}</div>${backButton()}</div></section>`;
+    return `<section class="screen">${header()}<div class="leaderboard-stage"><h2>Leaderboard</h2><div class="leaderboard-content">${content}</div>${backButton()}</div>${leaderboardResultOverlay()}</section>`;
   }
 
   function settingsScreen() {
@@ -1421,6 +1483,10 @@
       const shopList = document.querySelector(".shop-list");
       if (shopList) martListScrollTop = shopList.scrollTop;
     }
+    if (route === "leaderboard" && !leaderboardResultId && !leaderboardScrollCaptureLocked) {
+      const leaderboardContent = document.querySelector(".leaderboard-content");
+      if (leaderboardContent) leaderboardScrollTop = leaderboardContent.scrollTop;
+    }
     const currentLog = document.querySelector("[data-battle-log]");
     if (currentLog) {
       battleLogScrollTop = currentLog.scrollTop;
@@ -1431,6 +1497,7 @@
     const screens = { home, lead, battle, pc, bag, encounters: encountersScreen, mart, leaderboard: leaderboardScreen, settings: settingsScreen, config: configScreen };
     app.innerHTML = `${screens[route] ? screens[route]() : simpleScreen(route)}${welcomeCard()}${runInfoCard()}${runResetCard()}`;
     bind();
+    leaderboardScrollCaptureLocked = false;
     updateCountdown();
   }
 
@@ -2000,6 +2067,17 @@
         martListScrollTop = shopList.scrollTop;
       }, { passive: true });
     }
+    const leaderboardContent = document.querySelector(".leaderboard-content");
+    if (leaderboardContent) {
+      const restoredScrollTop = leaderboardScrollTop;
+      leaderboardContent.scrollTop = restoredScrollTop;
+      requestAnimationFrame(() => {
+        if (leaderboardContent.isConnected) leaderboardContent.scrollTop = restoredScrollTop;
+      });
+      leaderboardContent.addEventListener("scroll", () => {
+        if (leaderboardContent.isConnected && !leaderboardResultId && !leaderboardScrollCaptureLocked) leaderboardScrollTop = leaderboardContent.scrollTop;
+      }, { passive: true });
+    }
     document.querySelector("[data-toggle-theme]")?.addEventListener("click", (event) => {
       theme = theme === "dark" ? "light" : "dark";
       localStorage.setItem("nuzzleTheme", theme);
@@ -2110,6 +2188,14 @@
         martSheetItemId = null;
         martSheetMode = null;
         martListScrollTop = 0;
+      }
+      if (route === "leaderboard" && nextRoute !== "leaderboard") {
+        leaderboardScrollTop = 0;
+        leaderboardResultId = null;
+        leaderboardResult = null;
+        leaderboardResultLoading = false;
+        leaderboardResultError = "";
+        leaderboardResultRequest++;
       }
       if (nextRoute !== "pc") {
         selectedPcId = null;
@@ -2228,6 +2314,14 @@
       victoryStandingLoading = false;
       render();
       requestAnimationFrame(() => document.querySelector("[data-open-result]")?.focus({ preventScroll: true }));
+    }));
+    document.querySelectorAll("[data-leaderboard-result]").forEach((button) => button.addEventListener("click", () => {
+      const entry = (leaderboardData?.entries || []).find((candidate) => candidate.battleId === button.dataset.leaderboardResult);
+      if (entry) void openLeaderboardResult(entry);
+    }));
+    document.querySelectorAll("[data-close-leaderboard-result]").forEach((element) => element.addEventListener("click", (event) => {
+      if (element.classList.contains("result-backdrop") && event.target !== element) return;
+      closeLeaderboardResult();
     }));
     document.querySelector("[data-reset-daily-battle]")?.addEventListener("click", resetDailyBattle);
     document.querySelector("[data-wipe-me]")?.addEventListener("click", wipeMe);

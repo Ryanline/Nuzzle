@@ -379,6 +379,15 @@ async function api(request, response, pathname) {
     });
     return true;
   }
+  const leaderboardResultMatch = pathname.match(/^\/api\/leaderboard\/results\/([0-9a-f-]+)$/i);
+  if (request.method === "GET" && leaderboardResultMatch) {
+    requirePlayer(request);
+    const today = await trainers.current();
+    const result = service.leaderboardResult(leaderboardResultMatch[1], today.date, (playerId) => auth.identityById(playerId));
+    if (!result) throw Object.assign(new Error("Leaderboard result not found."), { statusCode: 404 });
+    json(response, 200, result);
+    return true;
+  }
   if (pathname === "/api/admin/trainers") {
     requireAdmin(request);
     if (request.method === "GET") {

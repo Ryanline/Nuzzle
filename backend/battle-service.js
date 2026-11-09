@@ -1439,6 +1439,42 @@ export class BattleService {
     return state.winner === "Player" ? "win" : "loss";
   }
 
+  leaderboardResult(id, challengeDate, identityById) {
+    const battle = this.battles.get(id);
+    if (!battle || battle.record.dailyAttemptReset || battle.record.challengeDate !== challengeDate) return null;
+    const state = battle.state();
+    if (!state.ended) return null;
+    const identity = identityById(battle.record.userId);
+    if (!identity) return null;
+    const pokemon = (profile) => profile ? {
+      side: profile.side,
+      id: profile.id,
+      name: profile.name,
+      nickname: profile.nickname,
+      spriteId: profile.spriteId,
+      shiny: Boolean(profile.shiny),
+      fainted: Boolean(profile.fainted),
+    } : null;
+    return {
+      id: battle.record.id,
+      username: identity.username,
+      winner: state.winner,
+      forfeited: Boolean(battle.record.forfeited),
+      challengeDate: battle.record.challengeDate,
+      challengeNumber: battle.record.challengeNumber,
+      opponent: {
+        name: state.opponent.name,
+        spriteId: state.opponent.spriteId,
+        team: state.opponent.team.map(pokemon),
+      },
+      knockouts: state.knockouts.map((entry) => ({
+        turn: entry.turn,
+        defeated: pokemon(entry.defeated),
+        credited: pokemon(entry.credited),
+      })),
+    };
+  }
+
   winningStreak(userId, challengeDate, extraRecord = null, streakStartDate = defaultLaunchDate) {
     let streak = 0;
     let date = challengeDate;
@@ -1536,6 +1572,7 @@ export class BattleService {
       }
       const fainted = team.filter((pokemon) => pokemon.fainted).length;
       entries.push({
+        battleId: today.record.id,
         username: identity.username,
         avatarSpriteId: identity.avatarSpriteId || null,
         isGuest: Boolean(identity.isGuest),

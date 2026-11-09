@@ -522,6 +522,7 @@ test("combined leaderboard ranks by outcome, casualties, streak, small teams, an
     { rank: 5, username: "C", teamSize: 1, fainted: 1, streak: 1 },
     { rank: 6, username: "LOSS", teamSize: 1, fainted: 1, streak: 0 },
   ]);
+  assert.deepEqual(entries.map(({ battleId }) => battleId), ["guest-today", "d-today", "b-today", "a-today", "c-today", "loss-today"]);
   assert.deepEqual(leaderboardStanding(entries), {
     rank: 4,
     total: 6,
@@ -537,6 +538,47 @@ test("combined leaderboard ranks by outcome, casualties, streak, small teams, an
     firstFinisher: true,
     betterThanPercent: 0,
   });
+});
+
+test("leaderboard battle results expose KO credits without private battle state", async () => {
+  const { service } = await serviceFixture();
+  service.battles.set("public-result", {
+    record: {
+      id: "public-result",
+      userId: "player-one",
+      challengeDate: "2026-10-24",
+      challengeNumber: 3,
+      forfeited: false,
+      choices: { p1: ["private move"], p2: [] },
+      playerTeam: [{ id: "pikachu", moves: ["Thunderbolt"] }],
+    },
+    state: () => ({
+      ended: true,
+      winner: "Player",
+      opponent: {
+        name: "Brock",
+        spriteId: "brock",
+        team: [{ id: "geodude", name: "Geodude", spriteId: "geodude", shiny: false, fainted: true, moves: ["Tackle"] }],
+      },
+      knockouts: [{
+        turn: 4,
+        defeated: { side: "opponent", id: "geodude", name: "Geodude", nickname: "Geodude", spriteId: "geodude", shiny: false },
+        credited: { side: "player", id: "pikachu", name: "Pikachu", nickname: "Sparky", spriteId: "pikachu", shiny: true },
+      }],
+    }),
+  });
+  const result = service.leaderboardResult("public-result", "2026-10-24", () => ({ username: "Alice" }));
+  assert.deepEqual(result.knockouts[0], {
+    turn: 4,
+    defeated: { side: "opponent", id: "geodude", name: "Geodude", nickname: "Geodude", spriteId: "geodude", shiny: false, fainted: false },
+    credited: { side: "player", id: "pikachu", name: "Pikachu", nickname: "Sparky", spriteId: "pikachu", shiny: true, fainted: false },
+  });
+  assert.equal(result.username, "Alice");
+  assert.equal(result.opponent.team[0].fainted, true);
+  assert.equal("choices" in result, false);
+  assert.equal("playerTeam" in result, false);
+  assert.equal("moves" in result.opponent.team[0], false);
+  assert.equal(service.leaderboardResult("public-result", "2026-10-23", () => ({ username: "Alice" })), null);
 });
 
 test("a new numbered season caps today's winning streaks at one without removing battles", async () => {
