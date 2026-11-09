@@ -9,6 +9,7 @@ import { BattleStore } from "./battle-store.js";
 import { DiscordRecapScheduler } from "./discord-recap.js";
 import { AuthStore, SESSION_LIFETIME_MS } from "./auth-store.js";
 import { GameStore, publicContent } from "./game-store.js";
+import { SupportStore } from "./support-store.js";
 import { avatarSprites, trainerSprites, TrainerStore } from "./trainer-store.js";
 import { showdownTrainerSpriteIds } from "./trainer-sprite-ids.js";
 
@@ -27,20 +28,42 @@ const discordWebhookUrl = String(process.env.NUZZLE_DISCORD_WEBHOOK_URL || await
   return "";
 })).trim();
 
+const support = new SupportStore(path.join(dataDirectory, "support"));
 const auth = new AuthStore(path.join(dataDirectory, "auth.json"));
-const game = new GameStore(path.join(dataDirectory, "game.json"));
+const game = new GameStore(path.join(dataDirectory, "game.json"), {
+  supportStore: support,
+  usernameForUserId: (userId) => auth.identityById(userId)?.username || null,
+});
 const trainers = new TrainerStore(path.join(dataDirectory, "trainers.json"));
 const service = new BattleService(new BattleStore(path.join(dataDirectory, "battles")), {
   settle: async (record) => {
     if (!record.userId) return;
+    let state;
     if (record.result?.playerWiped) {
-      await game.resetAfterWipe(record.userId, record.id);
-      return;
+      state = await game.resetAfterWipe(record.userId, record.id);
+    } else {
+      state = await game.settleBattle(record.userId, record.id, {
+        acquisitions: record.itemAcquisitions,
+        faintedPokemonIds: record.result?.faintedPokemonIds,
+        won: record.result?.winner === "Player",
+      });
     }
-    await game.settleBattle(record.userId, record.id, {
-      acquisitions: record.itemAcquisitions,
-      faintedPokemonIds: record.result?.faintedPokemonIds,
-      won: record.result?.winner === "Player",
+    const fainted = new Set(record.result?.faintedPokemonIds || []);
+    const identity = auth.identityById(record.userId);
+    await support.record({
+      id: `battle:${record.id}`,
+      type: "battle_completed",
+      gameDate: record.challengeDate,
+      battleId: record.id,
+      userId: record.userId,
+      username: identity?.username || null,
+      result: record.result?.winner === "Player" ? "win" : "loss",
+      forfeited: Boolean(record.forfeited),
+      streakAfter: service.winningStreak(record.userId, record.challengeDate, record, identity?.streakStartDate || undefined),
+      runIdAfter: state?.runId || null,
+      team: (record.playerTeam || []).map((pokemon) => ({ id: pokemon.id, name: pokemon.name })),
+      survivors: (record.playerTeam || []).filter((pokemon) => !fainted.has(pokemon.id)).map((pokemon) => ({ id: pokemon.id, name: pokemon.name })),
+      fainted: (record.playerTeam || []).filter((pokemon) => fainted.has(pokemon.id)).map((pokemon) => ({ id: pokemon.id, name: pokemon.name })),
     });
   },
 });
@@ -52,10 +75,12 @@ const discordRecaps = new DiscordRecapScheduler({
   publicUrl: process.env.NUZZLE_PUBLIC_URL || "https://nuzzle-game.duckdns.org",
   userById: (userId) => auth.identityById(userId),
 });
+await support.initialize();
 await auth.initialize();
 await game.initialize();
 await trainers.initialize();
 await service.initialize();
+game.setDailyOutcomeLookup((userId, date) => service.dailyOutcome(userId, date));
 await discordRecaps.initialize();
 
 const loginAttempts = new Map();

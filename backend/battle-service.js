@@ -1431,6 +1431,31 @@ export class BattleService {
       .sort((left, right) => String(right.record.createdAt).localeCompare(String(left.record.createdAt)))[0] || null;
   }
 
+  dailyOutcome(userId, challengeDate) {
+    const battle = this.dailyBattle(userId, challengeDate);
+    if (!battle) return null;
+    const state = battle.state();
+    if (!state.ended) return "incomplete";
+    return state.winner === "Player" ? "win" : "loss";
+  }
+
+  winningStreak(userId, challengeDate, extraRecord = null, streakStartDate = defaultLaunchDate) {
+    let streak = 0;
+    let date = challengeDate;
+    const boundary = streakStartDate > defaultLaunchDate ? streakStartDate : defaultLaunchDate;
+    while (date >= boundary) {
+      const extraOutcome = extraRecord?.userId === userId && extraRecord.challengeDate === date && !extraRecord.dailyAttemptReset
+        ? extraRecord.result?.winner === "Player" ? "win" : extraRecord.result ? "loss" : "incomplete"
+        : null;
+      if ((extraOutcome || this.dailyOutcome(userId, date)) !== "win") return streak;
+      streak++;
+      const value = new Date(`${date}T12:00:00Z`);
+      value.setUTCDate(value.getUTCDate() - 1);
+      date = value.toISOString().slice(0, 10);
+    }
+    return streak;
+  }
+
   dailyLeaderboard(challengeDate, userById) {
     return [...this.battles.values()]
       .filter((battle) => battle.record.challengeDate === challengeDate && !battle.record.dailyAttemptReset)

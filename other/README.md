@@ -138,9 +138,10 @@ A **party** is the ordered selection of up to six living Pokémon. The **box** c
 
 - The game date rolls over at midnight in `America/New_York`.
 - Joining late gives the ordinary fresh-run package and the current trainer; there is no opponent scaling or catch-up subsidy.
-- Missing a day breaks a computed win streak but does not wipe the run.
 - A registered run is playable on its personal start date and the following six game dates. The first request on day eight archives the complete prior run, resets the box, and presents twelve opening encounters.
-- Scheduled seven-day resets preserve battle history and win streaks. Compressed run archives are retained for seven days for support recovery.
+- A registered player must record a win every game date beginning November 9, 2026. A missed daily win counts as a forfeit: on the player's next return, the prior run is archived, the streak remains broken, and a fresh seven-day run begins on that return date. Earlier gaps are never applied retroactively.
+- Scheduled seven-day resets preserve battle history and win streaks. Loss, forfeit, missed-day, developer, and scheduled resets archive the complete prior run. Compressed run archives are retained for 30 days for support recovery.
+- Compact battle/reset audit events and compressed start-of-day game snapshots are retained for 30 days beneath the private support-data directory. Battle events include streak, team, survivor, and casualty summaries; snapshots preserve every current box for restoration.
 - Battles that cross midnight and other exceptional rollover races need further hardening before a larger launch.
 
 Approved campaign direction, not yet automatically implemented:

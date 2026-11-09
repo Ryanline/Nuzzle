@@ -25,7 +25,7 @@ const startingMoney = 50000;
 const victoryReward = 15000;
 const directTrainingVersion = 1;
 const runLifespanDays = 7;
-const runArchiveRetentionDays = 7;
+const runArchiveRetentionDays = 30;
 const gzipAsync = promisify(gzip);
 
 function shiftGameDate(date, days) {
@@ -334,11 +334,22 @@ function availableItemCount(run, itemId, excludingPokemonId = null) {
 }
 
 export class GameStore {
-  constructor(filename, { timeZone = process.env.NUZZLE_TIME_ZONE || "America/New_York", now = () => new Date() } = {}) {
+  constructor(filename, {
+    timeZone = process.env.NUZZLE_TIME_ZONE || "America/New_York",
+    now = () => new Date(),
+    supportStore = null,
+    usernameForUserId = () => null,
+    dailyOutcome = null,
+    missedDayWipeStartDate = process.env.NUZZLE_MISSED_DAY_WIPE_START_DATE || "2026-11-09",
+  } = {}) {
     this.filename = filename;
     this.archiveDirectory = path.join(path.dirname(filename), "run-archive");
     this.timeZone = timeZone;
     this.now = now;
+    this.supportStore = supportStore;
+    this.usernameForUserId = usernameForUserId;
+    this.dailyOutcome = dailyOutcome;
+    this.missedDayWipeStartDate = missedDayWipeStartDate;
     this.data = { version: 2, runs: {} };
     this.guestIds = new Set();
     this.pending = Promise.resolve();
@@ -353,6 +364,11 @@ export class GameStore {
       if (error.code !== "ENOENT") throw error;
       await this.save();
     }
+    await this.supportStore?.snapshot(gameDate(this.now(), this.timeZone), { game: this.data });
+  }
+
+  setDailyOutcomeLookup(dailyOutcome) {
+    this.dailyOutcome = dailyOutcome;
   }
 
   async save() {
@@ -362,7 +378,7 @@ export class GameStore {
     await rename(temporary, this.filename);
   }
 
-  async archiveRun(run, reason, resetDate) {
+  async archiveRun(run, reason, resetDate, context = {}) {
     if (!run?.id) return null;
     await mkdir(this.archiveDirectory, { recursive: true });
     const archiveId = crypto.randomUUID();
@@ -376,10 +392,25 @@ export class GameStore {
       reason,
       resetDate,
       archiveUntil,
+      ...context,
       run: structuredClone(run),
     };
     await writeFile(temporary, await gzipAsync(`${JSON.stringify(record, null, 2)}\n`, { level: 9 }), { mode: 0o600 });
     await rename(temporary, destination);
+    await this.supportStore?.record({
+      id: `run-archive:${archiveId}`,
+      type: "run_archived",
+      gameDate: resetDate,
+      archiveId,
+      reason,
+      userId: run.userId,
+      username: this.usernameForUserId(run.userId),
+      runId: run.id,
+      startDate: run.startDate || null,
+      pokemon: (run.roster || []).map((pokemon) => ({ id: pokemon.id, name: pokemon.name })),
+      money: run.money,
+      ...context,
+    });
     const oldestRetainedDate = shiftGameDate(resetDate, -runArchiveRetentionDays);
     for (const name of await readdir(this.archiveDirectory)) {
       if (!name.endsWith(".json.gz") || name.slice(0, 10) >= oldestRetainedDate) continue;
@@ -395,7 +426,19 @@ export class GameStore {
       previousRunId: run.id,
       previousStartDate: run.startDate || null,
       pokemonCount: run.roster?.length || 0,
+      ...context,
     };
+  }
+
+  firstMissedDate(run, userId, date) {
+    if (!this.dailyOutcome || !run.startDate) return null;
+    const finalRequiredDate = shiftGameDate(date, -1);
+    let requiredDate = run.startDate > this.missedDayWipeStartDate ? run.startDate : this.missedDayWipeStartDate;
+    while (requiredDate <= finalRequiredDate) {
+      if (this.dailyOutcome(userId, requiredDate) !== "win") return requiredDate;
+      requiredDate = nextGameDate(requiredDate);
+    }
+    return null;
   }
 
   lifecycle(run, date) {
@@ -416,6 +459,7 @@ export class GameStore {
     let result;
     this.pending = this.pending.catch(() => {}).then(async () => {
       const date = gameDate(this.now(), this.timeZone);
+      await this.supportStore?.snapshot(date, { game: this.data });
       const guest = this.guestIds.has(userId);
       let run = this.data.runs[userId];
       if (!run || (guest && run.guestDate !== date)) {
@@ -425,7 +469,11 @@ export class GameStore {
       migrateOpeningEncounters(run);
       if (!run.startDate) run.startDate = date;
       run.month = run.startDate.slice(0, 7);
-      if (!guest && date >= this.lifecycle(run, date).expiresOn) {
+      const missedDate = guest ? null : this.firstMissedDate(run, userId, date);
+      if (missedDate) {
+        const resetNotice = await this.archiveRun(run, "missed", date, { missedDate });
+        run = this.data.runs[userId] = newRun(userId, date, resetNotice);
+      } else if (!guest && date >= this.lifecycle(run, date).expiresOn) {
         const resetNotice = await this.archiveRun(run, "scheduled", date);
         run = this.data.runs[userId] = newRun(userId, date, resetNotice);
       }

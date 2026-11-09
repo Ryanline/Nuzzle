@@ -278,7 +278,7 @@ test("registered runs last seven personal game dates, cross months, and archive 
   assert.equal(reset.encounters.length, 12);
   assert.equal(reset.runLifecycle.runDay, 1);
   assert.equal(reset.runLifecycle.resetNotice.pokemonCount, 1);
-  assert.equal(reset.runLifecycle.resetNotice.archiveUntil, "2026-11-14");
+  assert.equal(reset.runLifecycle.resetNotice.archiveUntil, "2026-12-07");
 
   const archiveNames = await readdir(path.join(directory, "run-archive"));
   assert.equal(archiveNames.length, 1);
@@ -289,6 +289,45 @@ test("registered runs last seven personal game dates, cross months, and archive 
 
   const acknowledged = await store.acknowledgeRunReset("monthly-user");
   assert.equal(acknowledged.runLifecycle.resetNotice, null);
+});
+
+test("missed-day wipes begin prospectively and archive the box when the player returns", async () => {
+  let now = new Date("2026-11-08T16:00:00Z");
+  const outcomes = new Map();
+  const directory = await mkdtemp(path.join(os.tmpdir(), "nuzzle-missed-day-"));
+  const store = new GameStore(path.join(directory, "game.json"), {
+    timeZone: "America/New_York",
+    now: () => now,
+    missedDayWipeStartDate: "2026-11-09",
+    dailyOutcome: (_userId, date) => outcomes.get(date) || null,
+  });
+  await store.initialize();
+  const original = await store.claimEncounter("missed-user", 0);
+
+  now = new Date("2026-11-09T16:00:00Z");
+  const cutoffDay = await store.get("missed-user");
+  assert.equal(cutoffDay.runId, original.runId, "a pre-cutoff November 8 gap must not wipe an existing run");
+
+  outcomes.set("2026-11-09", "win");
+  now = new Date("2026-11-10T16:00:00Z");
+  const afterWin = await store.get("missed-user");
+  assert.equal(afterWin.runId, original.runId);
+
+  now = new Date("2026-11-11T16:00:00Z");
+  const wiped = await store.get("missed-user");
+  assert.notEqual(wiped.runId, original.runId);
+  assert.equal(wiped.roster.length, 0);
+  assert.equal(wiped.encounters.length, 12);
+  assert.equal(wiped.runLifecycle.startDate, "2026-11-11");
+  assert.equal(wiped.runLifecycle.resetNotice.reason, "missed");
+  assert.equal(wiped.runLifecycle.resetNotice.missedDate, "2026-11-10");
+  assert.equal(wiped.runLifecycle.resetNotice.archiveUntil, "2026-12-11");
+
+  const archiveNames = await readdir(path.join(directory, "run-archive"));
+  const archive = JSON.parse(gunzipSync(await readFile(path.join(directory, "run-archive", archiveNames[0]))));
+  assert.equal(archive.reason, "missed");
+  assert.equal(archive.missedDate, "2026-11-10");
+  assert.equal(archive.run.id, original.runId);
 });
 
 test("held-item purchases, atomic training builds, and battle snapshots are server-authoritative", async () => {
