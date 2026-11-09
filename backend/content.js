@@ -170,6 +170,21 @@ for (const id of ["rotomheat", "rotomwash", "rotomfrost", "rotomfan", "rotommow"
 export const encounterPokemon = pokemonCatalog.filter((pokemon) => !pokemon.starterEligible);
 export const starterPokemon = pokemonCatalog.filter((pokemon) => pokemon.starterEligible);
 
+const approvedAbilityNames = new Set(pokemonCatalog.flatMap((pokemon) => [
+  ...pokemon.ordinaryAbilities,
+  pokemon.hiddenAbility,
+]).filter(Boolean));
+
+export const abilityCatalog = [...approvedAbilityNames].map((name) => {
+  const ability = Dex.abilities.get(name);
+  if (!ability.exists) throw new Error(`Unknown approved ability: ${name}`);
+  return Object.freeze({
+    id: ability.id,
+    name: ability.name,
+    description: ability.shortDesc || ability.desc || "No description available.",
+  });
+}).sort((left, right) => left.name.localeCompare(right.name));
+
 const heldConsumables = new Set([
   "absorbbulb", "adrenalineorb", "airballoon", "blunderpolicy", "boosterenergy",
   "ejectbutton", "ejectpack", "electricseed", "focusash", "grassyseed", "luminousmoss",

@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { gunzipSync } from "node:zlib";
-import { contentSummary, itemCatalog, pokemonById, pokemonCatalog } from "../content.js";
+import { abilityCatalog, contentSummary, itemCatalog, pokemonById, pokemonCatalog } from "../content.js";
 import { GameStore, publicContent } from "../game-store.js";
 import { encounterSignatureMoves, generateEncounterMoves } from "../movesets.js";
 
@@ -25,6 +25,9 @@ test("the approvals snapshot resolves to canonical Pokémon, item, and complete 
   assert.equal(pokemonCatalog.every((pokemon) => pokemonById.has(pokemon.id)), true);
   assert.equal(itemCatalog.filter((item) => item.group === "TMs").length, 690);
   assert.equal(publicContent().items.length, 853);
+  assert.equal(publicContent().abilities, abilityCatalog);
+  assert.equal(abilityCatalog.length > 200, true);
+  assert.equal(abilityCatalog.every((ability) => ability.id && ability.name && ability.description), true);
   assert.equal(pokemonById.has("smeargle"), false);
   assert.equal(publicContent().startingMoney, 50000);
   assert.equal(itemCatalog.filter((item) => item.group === "Held Items").every((item) => item.purchaseLimit === 1), true);

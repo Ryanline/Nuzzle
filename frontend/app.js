@@ -82,6 +82,7 @@
   let gameState = null;
   let contentLoaded = false;
   let pokemonContent = new Map();
+  let abilityContent = new Map();
   let team = new Set(partyIds);
   let pcOrder = [...pcIds];
   let encounters = [];
@@ -106,6 +107,7 @@
   let selectedTrainerPokemon = null;
   let pcDetailView = "summary";
   let pcSummaryMoveId = null;
+  let pcSummaryAbilityId = null;
   let pcSwapMode = false;
   let pcItemMode = false;
   let activePcItemGroup = "Held Items";
@@ -208,6 +210,7 @@
     const result = await apiRequest("/api/content");
     shopItems = result.items;
     pokemonContent = new Map(result.pokemon.map((pokemon) => [pokemon.id, pokemon]));
+    abilityContent = new Map(result.abilities.map((ability) => [ability.id, ability]));
     contentLoaded = true;
   }
 
@@ -1066,13 +1069,15 @@
       const category = move.category || "Status";
       return `<button class="sheet-move type-${toId(type)}" type="button" data-summary-move="${toId(move.name)}" title="View ${escapeHtml(move.name)} details"><strong>${escapeHtml(move.name)}</strong><span class="sheet-move-category"><img src="assets/showdown/categories/${encodeURIComponent(category)}.png" alt="${escapeHtml(category)} move"></span></button>`;
     }).join("");
-    const summary = `<div class="pokemon-facts"><p><span>Ability</span><strong>${mon.ability}</strong></p><p><span>Nature</span><strong>${mon.nature}</strong></p><p><span>Held item</span><strong>${mon.item}</strong></p></div><section class="sheet-section" role="tabpanel"><div class="stat-grid">${stats}</div><h3>Moves</h3><div class="sheet-moves">${summaryMoves}</div></section>`;
+    const summary = `<div class="pokemon-facts"><p><span>Ability</span><button class="summary-ability-button" type="button" data-summary-ability="${toId(mon.ability)}" title="View ${escapeHtml(mon.ability)} details"><strong>${escapeHtml(mon.ability)}</strong><span aria-hidden="true">›</span></button></p><p><span>Nature</span><strong>${escapeHtml(mon.nature)}</strong></p><p><span>Held item</span><strong>${escapeHtml(mon.item)}</strong></p></div><section class="sheet-section" role="tabpanel"><div class="stat-grid">${stats}</div><h3>Moves</h3><div class="sheet-moves">${summaryMoves}</div></section>`;
     const normalContent = `${tabs}<div class="pc-detail-panel">${pcDetailView === "training" ? trainingEditor(mon) : summary}</div>${pcDetailView === "summary" ? `<div class="sheet-actions"><button class="gloss-button ${onTeam ? "red" : "green"}" type="button" data-team-toggle="${id}">${onTeam ? "Remove from team" : "Add to team"}</button><button class="gloss-button blue" type="button" data-open-pc-items>Held item</button><button class="gloss-button slate" type="button" data-close-pc-sheet>Close</button></div>` : ""}`;
     const sheetContent = swapChooser || itemChooser || normalContent;
     const alternateMode = swapChooser || itemChooser;
     const selectedMove = pcSummaryMoveId ? moveCatalogItem(mon.moves.find((move) => toId(move) === pcSummaryMoveId) || pcSummaryMoveId) : null;
     const moveCard = selectedMove ? `<div class="summary-move-backdrop" data-close-summary-move><section class="summary-move-card" role="dialog" aria-labelledby="summary-move-title"><header><small>Move details</small><button type="button" data-close-summary-move aria-label="Close move details">×</button></header><div class="showdown-move-row" data-summary-move-detail id="summary-move-title">${showdownMoveRow(selectedMove)}</div></section></div>` : "";
-    return `<div class="sheet-backdrop" data-close-pc-sheet><section class="pokemon-sheet${pcDetailView === "training" && !alternateMode ? " training-sheet" : ""}" role="dialog" aria-modal="true" aria-labelledby="pokemon-sheet-title"><button class="sheet-close" type="button" data-close-pc-sheet aria-label="Close Pokémon details">×</button><div class="pokemon-summary"><img class="sprite" src="${sprite(id)}" alt="${mon.name}"/><div><p class="sheet-kicker">Pokémon details</p><h2 id="pokemon-sheet-title">${mon.name}</h2><div class="sheet-types">${mon.types.map((type) => `<span class="type-chip ${type.toLowerCase()}">${type}</span>`).join("")}</div></div></div><div class="sheet-mode-content">${sheetContent}</div>${alternateMode ? `<button class="gloss-button neutral sheet-secondary-action" type="button" ${swapChooser ? "data-cancel-pc-swap" : "data-cancel-pc-items"}>Cancel</button>` : ""}${moveCard}</section></div>`;
+    const selectedAbility = pcSummaryAbilityId ? abilityContent.get(pcSummaryAbilityId) : null;
+    const abilityCard = selectedAbility ? `<div class="summary-move-backdrop" data-close-summary-ability><section class="summary-move-card summary-ability-card" role="dialog" aria-labelledby="summary-ability-title"><header><small>Ability details</small><button type="button" data-close-summary-ability aria-label="Close ability details">×</button></header><div class="summary-ability-content" data-summary-ability-detail><strong id="summary-ability-title">${escapeHtml(selectedAbility.name)}</strong><p>${escapeHtml(selectedAbility.description)}</p></div></section></div>` : "";
+    return `<div class="sheet-backdrop" data-close-pc-sheet><section class="pokemon-sheet${pcDetailView === "training" && !alternateMode ? " training-sheet" : ""}" role="dialog" aria-modal="true" aria-labelledby="pokemon-sheet-title"><button class="sheet-close" type="button" data-close-pc-sheet aria-label="Close Pokémon details">×</button><div class="pokemon-summary"><img class="sprite" src="${sprite(id)}" alt="${mon.name}"/><div><p class="sheet-kicker">Pokémon details</p><h2 id="pokemon-sheet-title">${mon.name}</h2><div class="sheet-types">${mon.types.map((type) => `<span class="type-chip ${type.toLowerCase()}">${type}</span>`).join("")}</div></div></div><div class="sheet-mode-content">${sheetContent}</div>${alternateMode ? `<button class="gloss-button neutral sheet-secondary-action" type="button" ${swapChooser ? "data-cancel-pc-swap" : "data-cancel-pc-items"}>Cancel</button>` : ""}${moveCard}${abilityCard}</section></div>`;
   }
 
   function encountersScreen() {
@@ -1728,13 +1733,14 @@
   }
 
   function navigatePcDetail(direction, skipConfirmation = false) {
-    if (!selectedPcId || pcSwapMode || pcItemMode || pcSummaryMoveId || trainingMoveSlot !== null) return false;
+    if (!selectedPcId || pcSwapMode || pcItemMode || pcSummaryMoveId || pcSummaryAbilityId || trainingMoveSlot !== null) return false;
     const ids = pcDetailIds();
     const nextId = ids[ids.indexOf(selectedPcId) + direction];
     if (!nextId) return false;
     if (!skipConfirmation && hasPendingTraining() && !window.confirm("Discard your pending training changes?")) return false;
     selectedPcId = nextId;
     pcSummaryMoveId = null;
+    pcSummaryAbilityId = null;
     pcSwapMode = false;
     pcItemMode = false;
     pendingPcItemId = null;
@@ -1754,6 +1760,7 @@
     if (!skipConfirmation && hasPendingTraining() && !window.confirm("Discard your pending training changes?")) return false;
     selectedPcId = null;
     pcSummaryMoveId = null;
+    pcSummaryAbilityId = null;
     pcSwapMode = false;
     pcItemMode = false;
     pendingPcItemId = null;
@@ -1787,7 +1794,7 @@
   function bindPcDetailSwipe() {
     const sheet = document.querySelector(".pokemon-sheet");
     const mobileSheet = window.matchMedia("(max-width: 520px), (max-width: 1000px) and (max-height: 520px)").matches;
-    if (!sheet || !mobileSheet || pcSwapMode || pcItemMode || pcSummaryMoveId || trainingMoveSlot !== null) return;
+    if (!sheet || !mobileSheet || pcSwapMode || pcItemMode || pcSummaryMoveId || pcSummaryAbilityId || trainingMoveSlot !== null) return;
     const backdrop = sheet.closest(".sheet-backdrop");
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const duration = reducedMotion ? 0 : 240;
@@ -2201,6 +2208,7 @@
         selectedPcId = null;
         selectedTrainerPokemon = null;
         pcSummaryMoveId = null;
+        pcSummaryAbilityId = null;
       }
       if (nextRoute !== "settings") moreCardOpen = null;
       route = nextRoute;
@@ -2469,7 +2477,7 @@
       selectedTrainerPokemon = null;
       render();
     }));
-    document.querySelectorAll("[data-pc-detail]").forEach((button) => button.addEventListener("click", () => { selectedPcId = button.dataset.pcDetail; pcDetailView = "summary"; pcSummaryMoveId = null; pcSwapMode = false; pcItemMode = false; pendingPcItemId = null; pendingPcItemTransfer = null; selectedNature = null; pcItemMessage = ""; trainingDraft = null; trainingMoveSlot = null; trainingMessage = ""; render(); }));
+    document.querySelectorAll("[data-pc-detail]").forEach((button) => button.addEventListener("click", () => { selectedPcId = button.dataset.pcDetail; pcDetailView = "summary"; pcSummaryMoveId = null; pcSummaryAbilityId = null; pcSwapMode = false; pcItemMode = false; pendingPcItemId = null; pendingPcItemTransfer = null; selectedNature = null; pcItemMessage = ""; trainingDraft = null; trainingMoveSlot = null; trainingMessage = ""; render(); }));
     document.querySelectorAll("[data-pc-detail-view]").forEach((button) => button.addEventListener("click", () => {
       pcDetailView = button.dataset.pcDetailView;
       if (pcDetailView === "training" && !trainingDraft) beginTraining(mons[selectedPcId]);
@@ -2484,6 +2492,12 @@
     document.querySelectorAll("[data-close-summary-move]").forEach((element) => element.addEventListener("click", (event) => {
       if (element.classList.contains("summary-move-backdrop") && event.target !== element) return;
       pcSummaryMoveId = null;
+      render();
+    }));
+    document.querySelectorAll("[data-summary-ability]").forEach((button) => button.addEventListener("click", () => { pcSummaryAbilityId = button.dataset.summaryAbility; render(); }));
+    document.querySelectorAll("[data-close-summary-ability]").forEach((element) => element.addEventListener("click", (event) => {
+      if (element.classList.contains("summary-move-backdrop") && event.target !== element) return;
+      pcSummaryAbilityId = null;
       render();
     }));
     document.querySelector("[data-open-pc-items]")?.addEventListener("click", () => {
@@ -2692,6 +2706,7 @@
         render();
       } else if (event.key === "Escape" && selectedPcId) {
         if (pcSummaryMoveId) pcSummaryMoveId = null;
+        else if (pcSummaryAbilityId) pcSummaryAbilityId = null;
         else if (pcSwapMode) pcSwapMode = false;
         else if (pcItemMode) { pcItemMode = false; pendingPcItemId = null; pendingPcItemTransfer = null; selectedNature = null; }
         else { closePcDetail(); return; }
@@ -2742,6 +2757,7 @@
         selectedPcId = element.dataset.pcMon;
         pcDetailView = "summary";
         pcSummaryMoveId = null;
+        pcSummaryAbilityId = null;
         pcSwapMode = false;
         pcItemMode = false;
         pendingPcItemId = null;

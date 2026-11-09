@@ -460,6 +460,11 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .pokemon-facts p { display: grid; grid-template-columns: 90px 1fr; gap: 12px; margin: 0; padding: 7px 2px; border-bottom: 1px solid #ddd; font-size: 13px; }
 .pokemon-facts p span { color: var(--muted); }
 .pokemon-facts p strong { font-weight: 400; text-align: right; }
+.summary-ability-button { display: flex; min-width: 0; align-items: center; justify-content: flex-end; gap: 7px; padding: 0 2px; border: 0; border-radius: 4px; background: transparent; color: #27658f; cursor: pointer; font: inherit; text-align: right; }
+.summary-ability-button strong { overflow: hidden; color: inherit; text-overflow: ellipsis; white-space: nowrap; }
+.summary-ability-button > span { color: currentColor; font-size: 20px; line-height: 13px; }
+.summary-ability-button:hover { text-decoration: underline; }
+.summary-ability-button:focus-visible { outline: 2px solid #276fe6; outline-offset: 2px; }
 .sheet-mode-content { display: flex; min-height: 0; flex: 1; flex-direction: column; }
 .pc-detail-panel { min-height: 0; flex: 1; overflow-y: auto; overscroll-behavior: contain; }
 .sheet-section h3 { margin: 14px 0 6px; color: #3d5e87; font-size: 16px; }
@@ -594,6 +599,9 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .summary-move-card > header button { width: 27px; height: 27px; padding: 0; border: 0; border-radius: 50%; background: transparent; cursor: pointer; font-size: 23px; line-height: 24px; }
 .summary-move-card > header button:hover { background: color-mix(in srgb, var(--ink) 8%, transparent); }
 .summary-move-card .showdown-move-row { min-height: 58px; }
+.summary-ability-content { display: grid; gap: 6px; min-height: 76px; align-content: center; padding: 12px; border: 1px solid #aeb5bb; border-radius: 4px; background: linear-gradient(105deg, #f5f7f8, #fff); }
+.summary-ability-content > strong { font-size: 15px; }
+.summary-ability-content > p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.4; }
 .trainer-scout-backdrop { position: fixed; z-index: 250; inset: 0; display: grid; place-items: center; padding: max(14px, var(--safe-top)) max(14px, var(--safe-right)) max(14px, var(--safe-bottom)) max(14px, var(--safe-left)); background: rgba(15,18,21,.32); }
 .trainer-scout-card { position: relative; width: min(380px, 100%); padding: 14px; border: 1px solid #89939a; border-radius: 8px; background: var(--page); box-shadow: 0 9px 28px rgba(0,0,0,.3); }
 .trainer-scout-close { position: absolute; top: 6px; right: 7px; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 50%; background: transparent; cursor: pointer; font-size: 26px; line-height: 28px; }
@@ -953,7 +961,8 @@ html[data-theme="dark"] .training-receipt,
 html[data-theme="dark"] .training-footer,
 html[data-theme="dark"] .training-move-picker > header,
 html[data-theme="dark"] .training-move-list > button { border-color: #434b52; }
-html[data-theme="dark"] .showdown-move-row { border-color: #59636c; background: linear-gradient(105deg, #292f35, #202428); }
+html[data-theme="dark"] .showdown-move-row,
+html[data-theme="dark"] .summary-ability-content { border-color: #59636c; background: linear-gradient(105deg, #292f35, #202428); }
 html[data-theme="dark"] .training-current-move { background: linear-gradient(105deg, #293c49, #202428); }
 html[data-theme="dark"] .training-editor-row.changed { background: rgba(75,145,196,.12); }
 html[data-theme="dark"] .training-ev-input,

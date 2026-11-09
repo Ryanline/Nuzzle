@@ -5,6 +5,7 @@ import { createRequire } from "node:module";
 import { gzip } from "node:zlib";
 import { promisify } from "node:util";
 import {
+  abilityCatalog,
   encounterPokemon,
   itemById,
   itemCatalog,
@@ -816,6 +817,7 @@ export class GameStore {
 export function publicContent() {
   return {
     pokemon: pokemonCatalog,
+    abilities: abilityCatalog,
     items: itemCatalog,
     natures: natureNames,
     startingMoney,

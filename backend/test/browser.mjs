@@ -783,6 +783,17 @@ if (summaryAppearance.spriteWidth < 70 || summaryAppearance.summaryHeight < 70) 
 if (summaryAppearance.moves.length !== 4 || summaryAppearance.moves.map((move) => move.name).join(",") !== outgoingPokemon.moves.join(",")) throw new Error(`PC Summary did not show all four move names: ${JSON.stringify(summaryAppearance.moves)}`);
 if (summaryAppearance.moves.some((move) => !/type-\w+/.test(move.className) || !move.categoryPath.includes("/assets/showdown/categories/") || move.hasTypeOrPower)) throw new Error(`PC Summary move buttons did not use only type color, name, and category: ${JSON.stringify(summaryAppearance.moves)}`);
 if (new Set(summaryAppearance.moves.map((move) => move.background)).size < 2 && new Set(summaryAppearance.moves.map((move) => move.className)).size > 1) throw new Error("PC Summary move colors did not reflect their types.");
+const abilityButton = page.locator("[data-summary-ability]");
+if ((await abilityButton.textContent())?.trim().replace(/›$/, "").trim() !== outgoingPokemon.ability) throw new Error("The PC Summary ability was not presented as an interactive detail control.");
+await abilityButton.click();
+const summaryAbilityDetail = await page.locator("[data-summary-ability-detail]").evaluate((card) => ({
+  name: card.querySelector("strong")?.textContent.trim(),
+  description: card.querySelector("p")?.textContent.trim(),
+}));
+const expectedAbility = content.abilities.find((ability) => ability.id === outgoingPokemon.ability.toLowerCase().replace(/[^a-z0-9]+/g, ""));
+if (!expectedAbility || summaryAbilityDetail.name !== outgoingPokemon.ability || summaryAbilityDetail.description !== expectedAbility.description) throw new Error(`The Summary ability detail was incomplete: ${JSON.stringify(summaryAbilityDetail)}`);
+await page.click(".summary-ability-card [data-close-summary-ability]");
+if (await page.locator("[data-summary-ability-detail]").count()) throw new Error("Closing ability details also failed to dismiss its overlay.");
 await page.locator("[data-summary-move]").first().click();
 const summaryMoveDetail = await page.locator("[data-summary-move-detail]").evaluate((row) => ({
   name: row.querySelector(".showdown-move-copy > strong")?.textContent.trim(),
