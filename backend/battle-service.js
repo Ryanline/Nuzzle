@@ -331,7 +331,7 @@ export function faintedPlayerIds(record, pokemon) {
 
 export function eventEntry(line, context) {
   if (!line.startsWith("|")) return null;
-  const [type, subject, detail, extra] = splitProtocol(line);
+  const [type, subject, detail, extra, ...annotations] = splitProtocol(line);
   const name = displayName(subject);
   let side = sideFrom(subject);
   let text = null;
@@ -345,8 +345,10 @@ export function eventEntry(line, context) {
       break;
     case "move": {
       const move = Dex.moves.get(detail);
+      const noTarget = extra === "[notarget]" || annotations.includes("[notarget]");
       text = `${name} used ${detail}!`;
-      animation = { kind: "move", name, moveId: move.id, type: move.type, category: move.category };
+      animation = { kind: "move", name, moveId: move.id, type: move.type, category: move.category, ...(noTarget ? { noTarget: true } : {}) };
+      context.pendingNoTargetFailure = noTarget ? subject : null;
       break;
     }
     case "switch":
@@ -395,7 +397,15 @@ export function eventEntry(line, context) {
     case "-immune": text = `It doesn't affect ${name}.`; break;
     case "-miss": text = `${displayName(detail || subject)} avoided the attack.`; break;
     case "-crit": text = "A critical hit!"; break;
-    case "-fail": text = `${name}'s action failed.`; break;
+    case "-fail":
+      if (context.pendingNoTargetFailure === subject) {
+        text = "But there was no target!";
+        side = "system";
+        context.pendingNoTargetFailure = null;
+      } else {
+        text = `${name}'s action failed.`;
+      }
+      break;
     case "cant": text = `${name} couldn't move${detail ? ` (${effectName(detail)})` : ""}.`; break;
     case "-ability": text = `${name}'s ${detail} activated.`; break;
     case "-item": text = `${name}'s ${detail} activated.`; break;

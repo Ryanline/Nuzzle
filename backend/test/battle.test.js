@@ -80,6 +80,30 @@ test("the battle log identifies delayed attacks when they are set and when they 
   });
 });
 
+test("moves aimed at a fainted slot retain their animation without gaining a target", () => {
+  const context = { logTurn: 4, health: new Map(), record: {} };
+  assert.deepEqual(eventEntry("|move|p1a: Shuckle|Tackle|p2: Gourgeist|[notarget]", context), {
+    turn: 4,
+    side: "player",
+    category: "move",
+    text: "Shuckle used Tackle!",
+    animation: {
+      kind: "move",
+      name: "Shuckle",
+      moveId: "tackle",
+      type: "Normal",
+      category: "Physical",
+      noTarget: true,
+    },
+  });
+  assert.deepEqual(eventEntry("|-fail|p1a: Shuckle", context), {
+    turn: 4,
+    side: "system",
+    category: "fail",
+    text: "But there was no target!",
+  });
+});
+
 test("battle slots map back to roster IDs after the selected lead is reordered", () => {
   const legacyRecord = {
     partyIds: ["arcanine", "raichu", "vaporeon"],
@@ -153,6 +177,45 @@ test("Showdown advances a real turn and rejects stale choices", async () => {
     service.get(initial.id).choose({ type: "move", slot: 1 }, initial.rqid),
     /earlier turn/
   );
+});
+
+test("a slower move animates into an empty slot after Explosion without dealing damage", async () => {
+  const { service } = await serviceFixture();
+  const playerTeam = [{
+    name: "Shuckle",
+    species: "Shuckle",
+    ability: "Sturdy",
+    level: 100,
+    moves: ["Tackle"],
+    evs: { hp: 252, def: 252 },
+  }];
+  const opponentTeam = [1, 2].map((number) => ({
+    name: `Gourgeist ${number}`,
+    species: "Gourgeist-Super",
+    ability: "Frisk",
+    level: 100,
+    moves: ["Explosion"],
+    nature: "Jolly",
+    evs: { atk: 252, spe: 252 },
+  }));
+  const initial = await service.create({
+    partyIds: ["shuckle"],
+    leadId: "shuckle",
+    playerTeam,
+    opponentTeam,
+    trainerName: "Tester",
+  });
+  const next = await service.get(initial.id).choose({ type: "move", slot: 1 }, initial.rqid);
+  const turn = next.log.filter((entry) => entry.turn === 1);
+  const explosionIndex = turn.findIndex((entry) => entry.animation?.moveId === "explosion");
+  const faintIndex = turn.findIndex((entry) => entry.animation?.kind === "faint" && entry.side === "opponent");
+  const tackleIndex = turn.findIndex((entry) => entry.animation?.moveId === "tackle");
+  const replacementIndex = turn.findIndex((entry) => entry.animation?.kind === "switch" && entry.side === "opponent");
+  assert.ok([explosionIndex, faintIndex, tackleIndex, replacementIndex].every((index) => index >= 0));
+  assert.ok(explosionIndex < faintIndex && faintIndex < tackleIndex && tackleIndex < replacementIndex);
+  assert.equal(turn[tackleIndex].animation.noTarget, true);
+  assert.equal(turn[tackleIndex + 1].text, "But there was no target!");
+  assert.equal(turn.slice(tackleIndex + 1, replacementIndex).some((entry) => entry.animation?.kind === "damage"), false);
 });
 
 test("a player can switch to any configured party member", async () => {
