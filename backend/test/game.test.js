@@ -251,6 +251,39 @@ test("Sunday provides four persisted encounters and restoring the store does not
   assert.equal(state.encounters[1].pokemon[0].speciesId, species);
 });
 
+test("yomama receives the three shiny legendary encounters once and keeps Sunday's fourth roll random", async () => {
+  let now = new Date("2026-10-24T16:00:00Z");
+  let giftEnabled = false;
+  const directory = await mkdtemp(path.join(os.tmpdir(), "nuzzle-one-time-gift-"));
+  const filename = path.join(directory, "game.json");
+  const usernameForUserId = () => giftEnabled ? "YoMama" : "someone-else";
+  const store = new GameStore(filename, { timeZone: "America/New_York", now: () => now, usernameForUserId });
+  await store.initialize();
+  await store.get("gift-user");
+  for (let slot = 0; slot < 12; slot++) await store.claimEncounter("gift-user", slot);
+
+  giftEnabled = true;
+  now = new Date("2026-10-25T16:00:00Z");
+  const sunday = await store.get("gift-user");
+  assert.equal(sunday.encounters.length, 4);
+  const claimed = [];
+  for (let slot = 0; slot < 4; slot++) {
+    const state = await store.claimEncounter("gift-user", slot);
+    claimed.push(state.encounters[slot].pokemon[0]);
+  }
+  assert.deepEqual(claimed.slice(0, 3).map((pokemon) => pokemon.speciesId), ["arceus", "giratina", "rayquaza"]);
+  assert.equal(claimed.slice(0, 3).every((pokemon) => pokemon.shiny), true);
+  assert.equal(["arceus", "giratina", "rayquaza"].includes(claimed[3].speciesId), false);
+
+  now = new Date("2026-10-26T16:00:00Z");
+  const restored = new GameStore(filename, { timeZone: "America/New_York", now: () => now, usernameForUserId });
+  await restored.initialize();
+  const monday = await restored.get("gift-user");
+  assert.equal(monday.encounters.length, 3);
+  const next = await restored.claimEncounter("gift-user", 0);
+  assert.equal(["arceus", "giratina", "rayquaza"].includes(next.encounters[0].pokemon[0].speciesId), false);
+});
+
 test("registered runs last seven personal game dates, cross months, and archive before reset", async () => {
   let now = new Date("2026-10-31T16:00:00Z");
   const directory = await mkdtemp(path.join(os.tmpdir(), "nuzzle-month-"));

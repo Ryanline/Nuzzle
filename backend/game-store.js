@@ -28,6 +28,11 @@ const directTrainingVersion = 1;
 const runLifespanDays = 7;
 const runArchiveRetentionDays = 30;
 const gzipAsync = promisify(gzip);
+const oneTimeEncounterGift = Object.freeze({
+  key: "yomama-shiny-legends",
+  username: "yomama",
+  speciesIds: Object.freeze(["arceus", "giratina", "rayquaza"]),
+});
 
 function shiftGameDate(date, days) {
   let shifted = date;
@@ -131,6 +136,24 @@ function ensureDaily(run, date) {
   }
   run.daily = { date, encounters };
   if (opening) run.starterGuarantee = false;
+}
+
+function assignOneTimeEncounterGift(run, data, username) {
+  data.oneTimeEncounterGifts ||= {};
+  if (toID(username) !== oneTimeEncounterGift.username || data.oneTimeEncounterGifts[oneTimeEncounterGift.key]) return;
+  const available = run.daily.encounters.filter((encounter) => !encounter.claimed);
+  if (available.length < oneTimeEncounterGift.speciesIds.length) return;
+  for (const [index, speciesId] of oneTimeEncounterGift.speciesIds.entries()) {
+    const pokemon = createPokemon(pokemonById.get(speciesId));
+    pokemon.shiny = true;
+    available[index].pokemon = [pokemon];
+  }
+  data.oneTimeEncounterGifts[oneTimeEncounterGift.key] = {
+    userId: run.userId,
+    runId: run.id,
+    date: run.daily.date,
+    assignedAt: new Date().toISOString(),
+  };
 }
 
 function migrateOpeningEncounters(run) {
@@ -480,6 +503,7 @@ export class GameStore {
       }
       migrateDirectTraining(run);
       ensureDaily(run, date);
+      assignOneTimeEncounterGift(run, this.data, this.usernameForUserId(userId));
       result = await operation(run, date);
       await this.save();
     });

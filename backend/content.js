@@ -167,10 +167,28 @@ for (const id of ["rotomheat", "rotomwash", "rotomfrost", "rotomfan", "rotommow"
     starterEligible: false,
   }));
 }
+for (const id of ["arceus", "giratina", "rayquaza"]) {
+  const species = Dex.species.get(id);
+  pokemonById.set(id, Object.freeze({
+    id: species.id,
+    name: species.name.replaceAll("-", " "),
+    showdownName: species.name,
+    spriteId: species.spriteid,
+    types: [...species.types],
+    ordinaryAbilities: [...new Set([species.abilities["0"], species.abilities["1"]].filter(Boolean))],
+    hiddenAbility: species.abilities.H || null,
+    gender: species.gender,
+    genderRatio: species.genderRatio,
+    baseStats: { ...species.baseStats },
+    encounterFamilyId: species.id,
+    encounterWeight: 0,
+    starterEligible: false,
+  }));
+}
 export const encounterPokemon = pokemonCatalog.filter((pokemon) => !pokemon.starterEligible);
 export const starterPokemon = pokemonCatalog.filter((pokemon) => pokemon.starterEligible);
 
-const approvedAbilityNames = new Set(pokemonCatalog.flatMap((pokemon) => [
+const approvedAbilityNames = new Set([...pokemonById.values()].flatMap((pokemon) => [
   ...pokemon.ordinaryAbilities,
   pokemon.hiddenAbility,
 ]).filter(Boolean));
