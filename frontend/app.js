@@ -28,6 +28,12 @@
   const app = document.querySelector("#app");
   const tooltip = document.querySelector("#tooltip");
   const savedTheme = localStorage.getItem("nuzzleTheme");
+  const showdownEffectPreloads = Object.values(window.BattleEffects || {}).flatMap((effect) => {
+    if (!effect.url) return [];
+    const image = new Image();
+    image.src = effect.url;
+    return [image];
+  });
 
   let mons = {
     flareon: { name: "Flareon", types: ["Fire"], ability: "Flash Fire", item: "Charcoal", nature: "Adamant", natureUp: "Atk", natureDown: "SpA", hp: "100.0% (263/263)", stats: "Atk 296 / Def 156 / SpA 226 / SpD 256 / Spe 166", moves: ["Flamethrower", "Quick Attack", "Bite", "Will-O-Wisp"] },
@@ -97,6 +103,16 @@
   let battleLogHasNew = false;
   let battleLogInitialized = false;
   let battleLogRenderedIds = new Set();
+  let battleAnimating = false;
+  let pendingBattleAnimation = null;
+  let battleAnimationRun = 0;
+  let lastShowdownAnimation = "";
+  let lastShowdownEngine = "";
+  let lastShowdownHandoffError = "";
+  const battleSpriteCalibration = Object.freeze({
+    player: Object.freeze({ x: -40, y: 56, scale: 1.26 }),
+    opponent: Object.freeze({ x: 41, y: -3, scale: 2.04 }),
+  });
   let resultOverlayOpen = false;
   let victoryStanding = null;
   let victoryStandingLoading = false;
@@ -217,6 +233,10 @@
   async function loadGame() {
     await loadContent();
     applyGameState(await apiRequest("/api/game"));
+  }
+
+  function battleSpriteSource(pokemon, side) {
+    return sprite(pokemon.id, side === "player", pokemon.spriteId, pokemon.shiny);
   }
 
   async function loadToday() {
@@ -534,17 +554,45 @@
   }
 
   function acceptBattleState(nextState) {
+    const previousState = battleState;
     if (battleState?.id && battleState.id !== nextState?.id) {
       battleLogInitialized = false;
       battleLogRenderedIds = new Set();
+      lastShowdownAnimation = "";
+      lastShowdownEngine = "";
+      lastShowdownHandoffError = "";
     }
     const previousId = battleState?.log?.at(-1)?.id || 0;
     const nextId = nextState?.log?.at(-1)?.id || 0;
     if (!battleLogFollow && nextId > previousId) battleLogHasNew = true;
     const justEnded = Boolean(battleState && battleState.id === nextState?.id && !battleState.ended && nextState?.ended);
+    const sameBattle = previousState?.id && previousState.id === nextState?.id;
+    const animationEntries = sameBattle
+      ? (nextState.log || []).filter((entry) => entry.id > previousId && entry.animation)
+      : [
+          nextState.opponent?.active && { side: "opponent", animation: { kind: "switch", name: nextState.opponent.active.name } },
+          nextState.player?.active && { side: "player", animation: { kind: "switch", name: nextState.player.active.name } },
+        ].filter(Boolean);
+    pendingBattleAnimation = animationEntries.length ? {
+      battleId: nextState.id,
+      entries: animationEntries,
+      visualState: {
+        player: structuredClone(sameBattle ? previousState.player?.active : nextState.player?.active),
+        opponent: structuredClone(sameBattle ? previousState.opponent?.active : nextState.opponent?.active),
+      },
+      rosters: {
+        player: structuredClone(nextState.player?.team || []),
+        opponent: structuredClone(nextState.opponent?.team || []),
+      },
+      previousPercents: {
+        player: previousState?.player?.active?.percent ?? nextState.player?.active?.percent ?? 100,
+        opponent: previousState?.opponent?.active?.percent ?? nextState.opponent?.active?.percent ?? 100,
+      },
+    } : null;
+    battleAnimating = Boolean(pendingBattleAnimation);
     battleState = nextState;
     if (justEnded) {
-      resultOverlayOpen = true;
+      resultOverlayOpen = !pendingBattleAnimation;
       if (gameState?.dailyBattleId === nextState.id) gameState.dailyBattleEnded = true;
       void refreshVictoryStanding();
     }
@@ -579,7 +627,7 @@
   }
 
   async function submitBattleChoice(action) {
-    if (!battleState || battleLoading || battleState.ended) return;
+    if (!battleState || battleLoading || battleAnimating || battleState.ended) return;
     battleLoading = true;
     battleError = "";
     render();
@@ -599,6 +647,11 @@
 
   async function forfeitBattle() {
     if (!battleState || battleLoading || battleState.ended) return;
+    if (battleAnimating) {
+      battleAnimationRun++;
+      pendingBattleAnimation = null;
+      battleAnimating = false;
+    }
     battleLoading = true;
     battleError = "";
     render();
@@ -783,8 +836,9 @@
 
   function battle() {
     if (!battleState) return `<section class="screen battle-screen">${header()}<div class="battle-unavailable"><h2>Battle unavailable</h2><p>${escapeHtml(battleError || "Start a battle from the lead-selection screen.")}</p><button class="gloss-button purple" data-route="lead">Back</button></div></section>`;
-    const player = battleState.player.active;
-    const enemy = battleState.opponent.active;
+    const visualState = battleAnimating ? pendingBattleAnimation?.visualState : null;
+    const player = visualState ? visualState.player : battleState.player.active;
+    const enemy = visualState ? visualState.opponent : battleState.opponent.active;
     const logEntries = battleState.log || (battleState.events || []).map((text, index) => ({ id: index + 1, side: "system", category: "event", text }));
     const visibleLogEntries = logEntries.at(-1)?.category === "turn" ? logEntries.slice(0, -1) : logEntries;
     const latestAnnouncement = [...logEntries].reverse().find((entry) => entry.category !== "turn")?.text || "";
@@ -799,19 +853,20 @@
       return `<div class="battle-log-row${isNew ? " is-new" : ""}" data-log-entry-id="${entry.id}" style="--log-delay:${delay}ms"><div>${content}</div></div>`;
     }).join("");
     battleLogInitialized = true;
-    const movesHtml = battleState.moves.map((move) => `<button class="move-button type-${move.type.toLowerCase()}" type="button" data-battle-move="${move.slot}" data-battle-move-tip="${move.slot}" ${move.disabled || battleLoading || battleState.ended ? "disabled" : ""}><strong>${escapeHtml(move.name)}</strong><span>${escapeHtml(move.type)}</span><small>${move.pp}/${move.maxPp}</small></button>`).join("");
-    const switchesHtml = battleState.player.team.map((pokemon) => `<button class="switch-choice ${pokemon.active ? "selected" : ""} ${pokemon.fainted ? "fainted" : ""}" type="button" data-battle-switch="${pokemon.slot}" data-mon-tip="${pokemon.id}" ${!pokemon.canSwitch || battleLoading || battleState.ended ? "disabled" : ""}><img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId, pokemon.shiny)}" alt=""/><span>${escapeHtml(pokemon.name)}</span><small>${pokemon.fainted ? "fainted" : `${pokemon.percent}%`}</small><i class="switch-hp ${healthTone(pokemon.percent)}" aria-hidden="true"><b style="width:${pokemon.fainted ? 0 : pokemon.percent}%"></b></i></button>`).join("");
+    const movesHtml = battleState.moves.map((move) => `<button class="move-button type-${move.type.toLowerCase()}" type="button" data-battle-move="${move.slot}" data-battle-move-tip="${move.slot}" ${move.disabled || battleLoading || battleAnimating || battleState.ended ? "disabled" : ""}><strong>${escapeHtml(move.name)}</strong><span>${escapeHtml(move.type)}</span><small>${move.pp}/${move.maxPp}</small></button>`).join("");
+    const switchesHtml = battleState.player.team.map((pokemon) => `<button class="switch-choice ${pokemon.active ? "selected" : ""} ${pokemon.fainted ? "fainted" : ""}" type="button" data-battle-switch="${pokemon.slot}" data-mon-tip="${pokemon.id}" ${!pokemon.canSwitch || battleLoading || battleAnimating || battleState.ended ? "disabled" : ""}><img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId, pokemon.shiny)}" alt=""/><span>${escapeHtml(pokemon.name)}</span><small>${pokemon.fainted ? "fainted" : `${pokemon.percent}%`}</small><i class="switch-hp ${healthTone(pokemon.percent)}" aria-hidden="true"><b style="width:${pokemon.fainted ? 0 : pokemon.percent}%"></b></i></button>`).join("");
     const prompt = battleState.ended
       ? `<strong>${battleState.winner === "Player" ? "You won!" : battleState.winner ? `${escapeHtml(battleState.winner)} won.` : "Battle over."}</strong>`
       : battleState.forcedSwitch
         ? "Choose your next Pokémon."
-        : battleLoading || battleState.waiting
+        : battleLoading || battleAnimating || battleState.waiting
           ? "Resolving the turn…"
           : `What will <strong>${escapeHtml(player?.name)}</strong> do?`;
-    return `<section class="screen battle-screen">${header()}<div class="arena battle-arena" aria-label="Grassy battlefield">
+    return `<section class="screen battle-screen">${header()}<div class="arena battle-arena${battleAnimating ? " is-animating" : ""}" aria-label="Grassy battlefield"${lastShowdownAnimation ? ` data-showdown-animation="${escapeHtml(lastShowdownAnimation)}"` : ""}${lastShowdownEngine ? ` data-showdown-engine="${escapeHtml(lastShowdownEngine)}"` : ""}${lastShowdownHandoffError ? ` data-showdown-handoff-error="${escapeHtml(lastShowdownHandoffError)}"` : ""}>
+      <div class="battle-fx-layer" aria-hidden="true"></div>
       <div class="battle-platform enemy" aria-hidden="true"></div><div class="battle-platform player" aria-hidden="true"></div>
-      ${enemy ? `<div class="battler-slot enemy" data-pokemon="${escapeHtml(enemy.id)}"><img class="sprite active-sprite" src="${sprite(enemy.id, false, enemy.spriteId, enemy.shiny)}" alt="${escapeHtml(enemy.name)}" /></div><section class="battle-hud enemy" aria-label="Opponent ${escapeHtml(enemy.name)}"><div class="battle-hud-title"><strong>${escapeHtml(enemy.name)}</strong><span>Lv. ${enemy.level}</span></div><div class="hp-bar ${healthTone(enemy.percent)}"><i style="width:${enemy.percent}%"></i></div><div class="battle-hud-detail"><span>HP</span><small>${enemy.percent}%</small>${enemy.status ? `<b>${escapeHtml(enemy.status.toUpperCase())}</b>` : ""}</div></section>` : ""}
-      ${player ? `<div class="battler-slot player" data-pokemon="${escapeHtml(player.id)}"><img class="sprite active-sprite" src="${sprite(player.id, true, player.spriteId, player.shiny)}" alt="${escapeHtml(player.name)}" /></div><section class="battle-hud player" aria-label="Your ${escapeHtml(player.name)}"><div class="battle-hud-title"><strong>${escapeHtml(player.name)}</strong><span>Lv. ${player.level}</span></div><div class="hp-bar ${healthTone(player.percent)}"><i style="width:${player.percent}%"></i></div><div class="battle-hud-detail"><span>HP</span><small>${player.percent}%</small>${player.status ? `<b>${escapeHtml(player.status.toUpperCase())}</b>` : ""}</div></section>` : ""}
+      ${enemy ? `<div class="battler-slot enemy" data-pokemon="${escapeHtml(enemy.id)}"><img class="sprite active-sprite" src="${battleSpriteSource(enemy, "opponent")}" alt="${escapeHtml(enemy.name)}" /></div><section class="battle-hud enemy" aria-label="Opponent ${escapeHtml(enemy.name)}"><div class="battle-hud-title"><strong>${escapeHtml(enemy.name)}</strong><span>Lv. ${enemy.level}</span></div><div class="hp-bar ${healthTone(enemy.percent)}"><i style="width:${enemy.percent}%"></i></div><div class="battle-hud-detail"><span>HP</span><small>${enemy.percent}%</small>${enemy.status ? `<b>${escapeHtml(enemy.status.toUpperCase())}</b>` : ""}</div></section>` : ""}
+      ${player ? `<div class="battler-slot player" data-pokemon="${escapeHtml(player.id)}"><img class="sprite active-sprite" src="${battleSpriteSource(player, "player")}" alt="${escapeHtml(player.name)}" /></div><section class="battle-hud player" aria-label="Your ${escapeHtml(player.name)}"><div class="battle-hud-title"><strong>${escapeHtml(player.name)}</strong><span>Lv. ${player.level}</span></div><div class="hp-bar ${healthTone(player.percent)}"><i style="width:${player.percent}%"></i></div><div class="battle-hud-detail"><span>HP</span><small>${player.percent}%</small>${player.status ? `<b>${escapeHtml(player.status.toUpperCase())}</b>` : ""}</div></section>` : ""}
     </div><div class="battle-panel${battleLogExpanded ? " log-expanded" : ""}"><section class="battle-log-card${battleLogExpanded ? " expanded" : ""}" aria-labelledby="battle-log-title"><header><h2 id="battle-log-title">Battle log</h2><div>${battleLogHasNew ? '<button type="button" data-battle-log-new>New events</button>' : ""}<button type="button" data-toggle-battle-log aria-expanded="${battleLogExpanded}">${battleLogExpanded ? "Collapse" : "Expand"}</button></div></header><div class="battle-log-body" data-battle-log role="log" aria-label="Battle events" tabindex="0"><div class="battle-log-stack">${logHtml || '<p class="battle-log-empty">The battle is starting…</p>'}</div></div></section><span class="visually-hidden" role="status" aria-live="polite">${escapeHtml(latestAnnouncement)}</span>
       <div class="battle-command-area" ${battleLogExpanded ? 'inert aria-hidden="true"' : ""}><p class="prompt">${prompt} <small>Turn ${battleState.turn}</small></p>${battleState.forcedSwitch || battleState.ended ? "" : `<h2 class="section-label attack">Attack</h2><div class="move-grid">${movesHtml}</div>`}
       <h2 class="section-label">Switch</h2><div class="switch-grid">${switchesHtml}</div>${battleError ? `<p class="battle-error" role="alert">${escapeHtml(battleError)}</p>` : ""}</div>
@@ -1502,6 +1557,7 @@
     const screens = { home, lead, battle, pc, bag, encounters: encountersScreen, mart, leaderboard: leaderboardScreen, settings: settingsScreen, config: configScreen };
     app.innerHTML = `${screens[route] ? screens[route]() : simpleScreen(route)}${welcomeCard()}${runInfoCard()}${runResetCard()}`;
     bind();
+    if (pendingBattleAnimation && route === "battle") requestAnimationFrame(playPendingBattleAnimation);
     leaderboardScrollCaptureLocked = false;
     updateCountdown();
   }
@@ -1526,82 +1582,684 @@
 
   function alignOpponentSprite() {
     const arena = document.querySelector(".battle-arena");
-    const platform = arena?.querySelector(".battle-platform.enemy");
     const slot = arena?.querySelector(".battler-slot.enemy");
     const image = slot?.querySelector(".active-sprite");
-    if (!arena || !platform || !slot || !image) return;
+    if (!arena || !slot || !image) return;
     if (!image.complete || !image.naturalWidth) {
       image.addEventListener("load", alignOpponentSprite, { once: true });
       return;
     }
     const arenaRect = arena.getBoundingClientRect();
-    const platformRect = platform.getBoundingClientRect();
-    const spriteSize = Math.min(180, arenaRect.width * .46) * .78 * .9;
-    const anchorX = platformRect.left - arenaRect.left + platformRect.width / 2;
-    const anchorY = platformRect.bottom - arenaRect.top - platformRect.height * .1 + 30 - spriteSize * .12;
-    image.style.setProperty("--foe-sprite-size", `${spriteSize}px`);
-    image.style.setProperty("--foe-sprite-left", `${anchorX - spriteSize / 2}px`);
-    image.style.setProperty("--foe-sprite-top", `${anchorY - spriteSize}px`);
+    const stageScale = arenaRect.width / 640;
+    const calibration = battleSpriteCalibration.opponent;
+    const renderedWidth = image.naturalWidth * stageScale * calibration.scale;
+    const renderedHeight = image.naturalHeight * stageScale * calibration.scale;
+    const anchorX = (430 + calibration.x) * stageScale;
+    const anchorY = (135 + calibration.y) * stageScale;
+    image.style.setProperty("--foe-sprite-size", `${renderedWidth}px`);
+    image.style.setProperty("--foe-sprite-left", `${anchorX - renderedWidth / 2}px`);
+    image.style.setProperty("--foe-sprite-top", `${anchorY - renderedHeight / 2}px`);
+    slot.style.setProperty("--sprite-anchor-x", `${anchorX}px`);
+    slot.style.setProperty("--sprite-anchor-y", `${anchorY}px`);
     slot.classList.add("is-aligned");
   }
 
   function alignPlayerSprite() {
     const arena = document.querySelector(".battle-arena");
-    const platform = arena?.querySelector(".battle-platform.player");
     const slot = arena?.querySelector(".battler-slot.player");
     const image = slot?.querySelector(".active-sprite");
-    const hud = arena?.querySelector(".battle-hud.player");
-    if (!arena || !platform || !slot || !image || !hud) return;
+    if (!arena || !slot || !image) return;
     if (!image.complete || !image.naturalWidth) {
       image.addEventListener("load", alignPlayerSprite, { once: true });
       return;
     }
     const arenaRect = arena.getBoundingClientRect();
-    const platformRect = platform.getBoundingClientRect();
-    const hudRect = hud.getBoundingClientRect();
     const marker = "/assets/showdown/";
     const pathname = decodeURIComponent(new URL(image.currentSrc || image.src, location.href).pathname);
     const key = pathname.includes(marker) ? pathname.split(marker)[1] : "";
     const [visibleX, visibleY, visibleWidth, visibleHeight, canvasWidth, canvasHeight] = spriteBounds[key]
       || [0, 0, image.naturalWidth, image.naturalHeight, image.naturalWidth, image.naturalHeight];
-    const inset = Math.max(6, arenaRect.height * .025);
-    const safeLeft = inset;
-    const safeRight = Math.max(safeLeft + 1, Math.min(arenaRect.width - inset, hudRect.left - arenaRect.left - inset));
-    const safeTop = Math.max(inset, arenaRect.height * .23);
-    const baseline = arenaRect.height - inset;
-    const baseCanvasHeight = Math.min(210, arenaRect.width * .5, arenaRect.height * .9);
-    const scale = Math.max(.01, Math.min(
-      baseCanvasHeight / canvasHeight,
-      (safeRight - safeLeft) / visibleWidth,
-      (baseline - safeTop) / visibleHeight,
-    ));
-    const renderedWidth = canvasWidth * scale;
-    const renderedHeight = canvasHeight * scale;
-    const anchorX = platformRect.left - arenaRect.left + platformRect.width / 2;
-    let left = anchorX - (visibleX + visibleWidth / 2) * scale;
-    const visibleLeft = () => left + visibleX * scale;
-    const visibleRight = () => visibleLeft() + visibleWidth * scale;
-    if (visibleLeft() < safeLeft) left += safeLeft - visibleLeft();
-    if (visibleRight() > safeRight) left -= visibleRight() - safeRight;
-    const top = baseline - (visibleY + visibleHeight) * scale;
+    const stageScale = arenaRect.width / 640;
+    const calibration = battleSpriteCalibration.player;
+    const spriteScale = stageScale * 2 * calibration.scale;
+    const renderedWidth = canvasWidth * spriteScale;
+    const renderedHeight = canvasHeight * spriteScale;
+    const anchorX = (210 + calibration.x) * stageScale;
+    const anchorY = (245 + calibration.y) * stageScale;
+    const left = anchorX - renderedWidth / 2;
+    const top = anchorY - renderedHeight / 2;
     image.style.setProperty("--player-sprite-left", `${left}px`);
     image.style.setProperty("--player-sprite-top", `${top}px`);
     image.style.setProperty("--player-sprite-width", `${renderedWidth}px`);
     image.style.setProperty("--player-sprite-height", `${renderedHeight}px`);
-    image.dataset.visibleLeft = String(left + visibleX * scale);
-    image.dataset.visibleRight = String(left + (visibleX + visibleWidth) * scale);
-    image.dataset.visibleTop = String(top + visibleY * scale);
-    image.dataset.visibleBottom = String(top + (visibleY + visibleHeight) * scale);
-    image.dataset.safeLeft = String(safeLeft);
-    image.dataset.safeRight = String(safeRight);
-    image.dataset.safeTop = String(safeTop);
-    image.dataset.safeBottom = String(baseline);
+    image.dataset.visibleLeft = String(left + visibleX * spriteScale);
+    image.dataset.visibleRight = String(left + (visibleX + visibleWidth) * spriteScale);
+    image.dataset.visibleTop = String(top + visibleY * spriteScale);
+    image.dataset.visibleBottom = String(top + (visibleY + visibleHeight) * spriteScale);
+    slot.style.setProperty("--sprite-anchor-x", `${anchorX}px`);
+    slot.style.setProperty("--sprite-anchor-y", `${anchorY}px`);
     slot.classList.add("is-aligned");
   }
 
   function alignBattleSprites() {
     alignOpponentSprite();
     alignPlayerSprite();
+  }
+
+  const battleAnimationDelay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+  function animateBattleElement(element, keyframes, options) {
+    if (!element) return Promise.resolve();
+    const animation = element.animate(keyframes, { easing: "cubic-bezier(.2,.75,.25,1)", fill: "none", ...options });
+    return animation.finished.catch(() => {});
+  }
+
+  function battleSpriteFor(side, name = "") {
+    const image = document.querySelector(`.battler-slot.${side === "player" ? "player" : "enemy"} .active-sprite`);
+    if (!image || (name && toId(image.alt) !== toId(name))) return null;
+    return image;
+  }
+
+  function updateBattleHudPercent(side, percent) {
+    const hudSide = side === "player" ? "player" : "enemy";
+    const bar = document.querySelector(`.battle-hud.${hudSide} .hp-bar`);
+    if (!bar) return;
+    bar.className = `hp-bar ${healthTone(percent)}`;
+    const fill = bar.querySelector("i");
+    if (fill) fill.style.width = `${percent}%`;
+    const label = bar.parentElement.querySelector(".battle-hud-detail small");
+    if (label) label.textContent = `${percent}%`;
+  }
+
+  async function setBattleSideVisual(side, pokemon) {
+    if (!pokemon) return null;
+    const arena = document.querySelector(".battle-arena");
+    if (!arena) return null;
+    const hudSide = side === "player" ? "player" : "enemy";
+    let slot = arena.querySelector(`.battler-slot.${hudSide}`);
+    if (!slot) {
+      slot = document.createElement("div");
+      slot.className = `battler-slot ${hudSide}`;
+      arena.append(slot);
+    }
+    slot.classList.remove("is-aligned");
+    slot.dataset.pokemon = pokemon.id;
+    const image = document.createElement("img");
+    image.className = "sprite active-sprite";
+    image.src = battleSpriteSource(pokemon, side);
+    image.alt = pokemon.name;
+    slot.replaceChildren(image);
+    let hud = arena.querySelector(`.battle-hud.${hudSide}`);
+    if (!hud) {
+      hud = document.createElement("section");
+      hud.className = `battle-hud ${hudSide}`;
+      arena.append(hud);
+    }
+    hud.setAttribute("aria-label", `${side === "player" ? "Your" : "Opponent"} ${pokemon.name}`);
+    hud.innerHTML = `<div class="battle-hud-title"><strong>${escapeHtml(pokemon.name)}</strong><span>Lv. ${pokemon.level}</span></div><div class="hp-bar ${healthTone(pokemon.percent)}"><i style="width:${pokemon.percent}%"></i></div><div class="battle-hud-detail"><span>HP</span><small>${pokemon.percent}%</small>${pokemon.status ? `<b>${escapeHtml(pokemon.status.toUpperCase())}</b>` : ""}</div>`;
+    if (!image.complete || !image.naturalWidth) await new Promise((resolve) => {
+      image.addEventListener("load", resolve, { once: true });
+      image.addEventListener("error", resolve, { once: true });
+    });
+    if (side === "player") alignPlayerSprite();
+    else alignOpponentSprite();
+    return battleSpriteFor(side, pokemon.name);
+  }
+
+  async function syncBattleSideToState(side, pokemon) {
+    if (!pokemon) return;
+    let image = battleSpriteFor(side, pokemon.name);
+    if (!image) image = await setBattleSideVisual(side, pokemon);
+    updateBattleHudPercent(side, pokemon.percent);
+    const detail = document.querySelector(`.battle-hud.${side === "player" ? "player" : "enemy"} .battle-hud-detail`);
+    let badge = detail?.querySelector("b");
+    if (pokemon.status) {
+      if (detail && !badge) {
+        badge = document.createElement("b");
+        detail.append(badge);
+      }
+      if (badge) badge.textContent = pokemon.status.toUpperCase();
+    } else {
+      badge?.remove();
+    }
+    if (image) {
+      if (pokemon.percent > 0) image.style.removeProperty("opacity");
+      else image.style.opacity = "0";
+    }
+  }
+
+  function battleEffectPoint(element, arena) {
+    const arenaRect = arena.getBoundingClientRect();
+    const rect = element?.getBoundingClientRect() || arenaRect;
+    return { x: rect.left - arenaRect.left + rect.width / 2, y: rect.top - arenaRect.top + rect.height * .52 };
+  }
+
+  function addBattleEffect(arena, className, point) {
+    const effect = document.createElement("i");
+    effect.className = `battle-fx ${className}`;
+    effect.style.left = `${point.x}px`;
+    effect.style.top = `${point.y}px`;
+    arena.querySelector(".battle-fx-layer")?.append(effect);
+    return effect;
+  }
+
+  function showdownProjection(location, baseZ = location.z || 0) {
+    const loc = { x: 0, y: 0, z: 0, scale: 1, xscale: null, yscale: null, opacity: 1, ...location };
+    const perspective = Math.max(.1, 1.5 - .5 * (loc.z / 200));
+    const basePerspective = Math.max(.1, 1.5 - .5 * (baseZ / 200));
+    const xscale = loc.xscale ?? loc.scale;
+    const yscale = loc.yscale ?? loc.scale;
+    return {
+      x: 210 + 220 * (loc.z / 200) + loc.x * perspective,
+      y: 245 - 110 * (loc.z / 200) - loc.y * perspective,
+      scaleX: perspective / basePerspective * xscale,
+      scaleY: perspective / basePerspective * yscale,
+      opacity: loc.opacity,
+    };
+  }
+
+  function showdownSpriteTransform(location, baseZ, arena) {
+    const projected = showdownProjection(location, baseZ);
+    const origin = showdownProjection({ x: 0, y: 0, z: baseZ }, baseZ);
+    const scale = arena.clientWidth / 640;
+    return {
+      transform: `translate(${(projected.x - origin.x) * scale}px, ${(projected.y - origin.y) * scale}px) scale(${projected.scaleX}, ${projected.scaleY})`,
+      opacity: projected.opacity,
+    };
+  }
+
+  class NuzzleShowdownSprite {
+    constructor(element, side, scene) {
+      this.element = element;
+      this.scene = scene;
+      this.isFrontSprite = side === "opponent";
+      this.isMissedPokemon = false;
+      this.x = 0;
+      this.y = 0;
+      this.z = this.isFrontSprite ? 200 : 0;
+      this.queueTime = 0;
+      this.state = { x: this.x, y: this.y, z: this.z, scale: 1, opacity: 1 };
+      this.sp = {
+        url: element?.currentSrc || element?.src || "",
+        w: element?.naturalWidth || 96,
+        h: element?.naturalHeight || 96,
+        shiny: false,
+      };
+    }
+    leftof(offset) {
+      return this.x + (this.isFrontSprite ? 1 : -1) * offset;
+    }
+    behind(offset) {
+      return this.z + (this.isFrontSprite ? 1 : -1) * offset;
+    }
+    delay(time) {
+      this.queueTime += time;
+      this.scene.maxEnd = Math.max(this.scene.maxEnd, this.queueTime);
+      return this;
+    }
+    anim(destination = {}, transition = "linear") {
+      const end = { x: this.x, y: this.y, z: this.z, scale: 1, opacity: 1, time: 500, ...destination };
+      const start = { ...this.state };
+      const delay = this.queueTime;
+      const duration = end.time ?? 500;
+      this.queueTime += duration;
+      this.state = { ...end };
+      this.scene.maxEnd = Math.max(this.scene.maxEnd, this.queueTime);
+      this.scene.schedule(delay, () => {
+        if (!this.element?.isConnected) return;
+        const startFrame = showdownSpriteTransform(start, this.z, this.scene.arena);
+        const endFrame = showdownSpriteTransform(end, this.z, this.scene.arena);
+        const keyframes = [startFrame];
+        if (String(transition).startsWith("ballistic")) {
+          const midpoint = {
+            ...start,
+            x: (Number(start.x) + Number(end.x)) / 2,
+            y: (Number(start.y) + Number(end.y)) / 2 + (String(transition).includes("Under") ? -28 : 28),
+            z: (Number(start.z) + Number(end.z)) / 2,
+            scale: ((start.scale ?? 1) + (end.scale ?? 1)) / 2,
+            opacity: ((start.opacity ?? 1) + (end.opacity ?? 1)) / 2,
+          };
+          keyframes.push({ ...showdownSpriteTransform(midpoint, this.z, this.scene.arena), offset: .5 });
+        }
+        keyframes.push(endFrame);
+        const animation = this.element.animate(keyframes, {
+          duration: Math.max(1, duration),
+          easing: transition === "swing" ? "ease-in-out" : transition === "decel" ? "cubic-bezier(0,0,.25,1)" : "linear",
+          fill: "forwards",
+        });
+        this.scene.running.push(animation.finished.catch(() => {}));
+      });
+      return this;
+    }
+  }
+
+  class NuzzleShowdownScene {
+    constructor(arena, attackerSide) {
+      this.arena = arena;
+      this.layer = arena.querySelector(".battle-fx-layer");
+      this.timeOffset = 0;
+      this.maxEnd = 0;
+      this.timers = [];
+      this.running = [];
+      this.effects = new Set();
+      this.battle = { mySide: { x: 0, y: 0, z: attackerSide === "player" ? 0 : 200 } };
+    }
+    wait(time) {
+      this.timeOffset += time;
+      this.maxEnd = Math.max(this.maxEnd, this.timeOffset);
+    }
+    schedule(delay, callback) {
+      const timer = setTimeout(callback, Math.max(0, delay));
+      this.timers.push(timer);
+    }
+    effectData(effect) {
+      return typeof effect === "string" ? window.BattleEffects?.[effect] : effect;
+    }
+    effectFrame(location, effect) {
+      const loc = { x: 0, y: 0, z: 0, scale: 1, opacity: 1, ...location };
+      const projected = showdownProjection(loc, loc.z);
+      const perspective = Math.max(.1, 1.5 - .5 * (loc.z / 200));
+      const stageScale = this.arena.clientWidth / 640;
+      const xscale = loc.xscale ?? loc.scale;
+      const yscale = loc.yscale ?? loc.scale;
+      const width = (effect.w || 100) * perspective * xscale * stageScale;
+      const height = (effect.h || 100) * perspective * yscale * stageScale;
+      return {
+        left: `${projected.x * stageScale - width / 2}px`,
+        top: `${projected.y * stageScale - height / 2}px`,
+        width: `${width}px`,
+        height: `${height}px`,
+        opacity: loc.opacity,
+      };
+    }
+    showEffect(effect, start = {}, end = {}, transition = "linear", after = "", additionalCss = null) {
+      const data = this.effectData(effect) || { w: 100, h: 100 };
+      let element;
+      if (data.url) {
+        element = document.createElement("img");
+        element.src = /^(?:https?:|data:|\/|assets\/)/.test(data.url) ? data.url : `https://play.pokemonshowdown.com/fx/${data.url}`;
+      } else {
+        element = document.createElement("div");
+        element.className = "showdown-raw-effect";
+      }
+      element.classList.add("showdown-battle-effect");
+      Object.assign(element.style, additionalCss || {});
+      this.layer?.append(element);
+      this.effects.add(element);
+      return this.animateEffect(element, data, start, end, transition, after);
+    }
+    animateEffect(element, effect, start = {}, end = {}, transition = "linear", after = "") {
+      const data = this.effectData(effect) || effect || { w: 100, h: 100 };
+      const startTime = (start.time || 0) + this.timeOffset;
+      let endTime = (end.time || (start.time || 0) + 500) + this.timeOffset;
+      const mergedEnd = { ...start, ...end };
+      const afterDuration = after === "explode" ? 200 : after === "fade" ? 100 : 0;
+      this.maxEnd = Math.max(this.maxEnd, endTime + afterDuration);
+      Object.assign(element.style, this.effectFrame(start, data), { position: "absolute", display: "block", opacity: "0" });
+      this.schedule(startTime, () => {
+        if (!element.isConnected) return;
+        const frames = [this.effectFrame(start, data)];
+        if (String(transition).startsWith("ballistic")) {
+          const midpoint = {
+            ...start,
+            ...mergedEnd,
+            x: ((start.x || 0) + (mergedEnd.x || 0)) / 2,
+            y: ((start.y || 0) + (mergedEnd.y || 0)) / 2 + (String(transition).includes("Under") ? -28 : 28),
+            z: ((start.z || 0) + (mergedEnd.z || 0)) / 2,
+          };
+          frames.push({ ...this.effectFrame(midpoint, data), offset: .5 });
+        }
+        frames.push(this.effectFrame(mergedEnd, data));
+        if (after === "fade") frames.push({ ...this.effectFrame(mergedEnd, data), opacity: 0 });
+        if (after === "explode") frames.push({ ...this.effectFrame({ ...mergedEnd, scale: (mergedEnd.scale || 1) * 3, opacity: 0 }, data), opacity: 0 });
+        const animation = element.animate(frames, {
+          duration: Math.max(1, endTime - startTime + afterDuration),
+          easing: transition === "swing" ? "ease-in-out" : transition === "decel" ? "cubic-bezier(0,0,.25,1)" : "linear",
+          fill: "forwards",
+        });
+        this.running.push(animation.finished.catch(() => {}));
+      });
+      return element;
+    }
+    backgroundEffect(background, duration, opacity = 1, delay = 0) {
+      const element = document.createElement("div");
+      element.className = "showdown-battle-background-effect";
+      element.style.background = background;
+      this.layer?.append(element);
+      this.effects.add(element);
+      const start = this.timeOffset + delay;
+      this.maxEnd = Math.max(this.maxEnd, start + duration + 250);
+      this.schedule(start, () => {
+        const animation = element.animate([{ opacity: 0 }, { opacity, offset: .2 }, { opacity, offset: .8 }, { opacity: 0 }], { duration: duration + 250, fill: "forwards" });
+        this.running.push(animation.finished.catch(() => {}));
+      });
+    }
+    async finish() {
+      await battleAnimationDelay(this.maxEnd + 30);
+      await Promise.all(this.running);
+      this.effects.forEach((element) => element.remove());
+    }
+  }
+
+  async function animateWithShowdownScene(entry, arena, attackerElement, defenderElement) {
+    if (!window.$ || !window.BattleScene || !window.Sprite) return false;
+    const $ = window.$;
+    const stage = document.createElement("div");
+    stage.className = "showdown-native-stage";
+    stage.style.visibility = "hidden";
+    stage.style.transform = `scale(${arena.clientWidth / 640})`;
+    const backdrop = document.createElement("div");
+    backdrop.className = "showdown-native-backdrop";
+    const arenaStyle = getComputedStyle(arena);
+    backdrop.style.backgroundImage = arenaStyle.backgroundImage;
+    backdrop.style.backgroundPosition = arenaStyle.backgroundPosition;
+    backdrop.style.backgroundSize = arenaStyle.backgroundSize;
+    backdrop.style.backgroundRepeat = arenaStyle.backgroundRepeat;
+    const spriteLayer = document.createElement("div");
+    spriteLayer.className = "showdown-native-sprites";
+    const fxLayer = document.createElement("div");
+    fxLayer.className = "showdown-native-fx";
+    const backgroundLayer = document.createElement("div");
+    backgroundLayer.className = "showdown-native-background-effects";
+    stage.append(backdrop, backgroundLayer, spriteLayer, fxLayer);
+    arena.querySelector(".battle-fx-layer")?.append(stage);
+
+    const scene = Object.create(window.BattleScene.prototype);
+    scene.animating = true;
+    scene.acceleration = 1;
+    scene.timeOffset = 0;
+    scene.minDelay = 0;
+    scene.activeAnimations = $();
+    scene.$fx = $(fxLayer);
+    scene.$bg = $(backdrop);
+    scene.$bgEffect = $(backgroundLayer);
+    scene.$delay = $("<div></div>");
+    scene.battle = { mySide: { x: 0, y: 0, z: 0 } };
+
+    const makeSprite = (source, side) => {
+      const isFront = side === "opponent";
+      const calibration = battleSpriteCalibration[side];
+      const perspective = isFront ? 1 : 2;
+      const spriteData = {
+        url: source.currentSrc || source.src,
+        w: (source.naturalWidth || 96) * calibration.scale,
+        h: (source.naturalHeight || 96) * calibration.scale,
+        gen: 5,
+      };
+      const spriteObject = new window.Sprite(spriteData, {
+        x: calibration.x / perspective,
+        y: -calibration.y / perspective,
+        z: isFront ? 200 : 0,
+        opacity: 1,
+      }, scene);
+      spriteObject.isFrontSprite = isFront;
+      spriteObject.isMissedPokemon = false;
+      spriteObject.leftof = function (offset) { return this.x + (this.isFrontSprite ? 1 : -1) * offset; };
+      spriteObject.behind = function (offset) { return this.z + (this.isFrontSprite ? 1 : -1) * offset; };
+      spriteObject.$el.css("display", "block");
+      $(spriteLayer).append(spriteObject.$el);
+      return spriteObject;
+    };
+    const attackerSide = entry.side === "opponent" ? "opponent" : "player";
+    const defenderSide = attackerSide === "player" ? "opponent" : "player";
+    const attacker = makeSprite(attackerElement, attackerSide);
+    const defender = makeSprite(defenderElement, defenderSide);
+    const playerSprite = attackerSide === "player" ? attacker : defender;
+    scene.battle.mySide = { x: playerSprite.x, y: playerSprite.y, z: playerSprite.z };
+    try {
+      await Promise.all([attacker.$el[0], defender.$el[0]].map((image) => image.decode?.().catch(() => {})));
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      const handoffError = [[attackerElement, attacker.$el[0]], [defenderElement, defender.$el[0]]].reduce((largest, [source, clone]) => {
+        const sourceRect = source.getBoundingClientRect();
+        const cloneRect = clone.getBoundingClientRect();
+        return Math.max(largest, ...["left", "top", "width", "height"].map((key) => Math.abs(sourceRect[key] - cloneRect[key])));
+      }, 0);
+      lastShowdownHandoffError = handoffError.toFixed(3);
+      arena.dataset.showdownHandoffError = lastShowdownHandoffError;
+      if (handoffError > 1) throw new Error(`Showdown sprite handoff shifted by ${handoffError.toFixed(2)}px`);
+      stage.style.visibility = "visible";
+      window.BattleMoveAnims[entry.animation.moveId].anim(scene, [attacker, defender]);
+      const queues = [attacker.$el.promise(), defender.$el.promise(), scene.$fx.children().promise(), scene.$bgEffect.children().promise()];
+      if (scene.timeOffset || scene.minDelay) scene.$delay.delay(Math.max(scene.timeOffset, scene.minDelay));
+      queues.push(scene.$delay.promise());
+      await Promise.race([
+        new Promise((resolve) => $.when(...queues).done(resolve)),
+        battleAnimationDelay(6000),
+      ]);
+      lastShowdownEngine = "native";
+      arena.dataset.showdownEngine = lastShowdownEngine;
+      return true;
+    } finally {
+      stage.remove();
+    }
+  }
+
+  async function animateShowdownMove(entry, arena) {
+    const moveAnimation = window.BattleMoveAnims?.[entry.animation.moveId];
+    if (!moveAnimation?.anim || !window.BattleEffects || !window.BattleOtherAnims) {
+      arena.dataset.showdownAnimationFallback = `missing definition for ${entry.animation.moveId}`;
+      return false;
+    }
+    const attackerSide = entry.side === "opponent" ? "opponent" : "player";
+    const defenderSide = attackerSide === "player" ? "opponent" : "player";
+    const attackerElement = battleSpriteFor(attackerSide, entry.animation.name);
+    const defenderElement = battleSpriteFor(defenderSide);
+    if (!attackerElement || !defenderElement) {
+      arena.dataset.showdownAnimationFallback = `missing ${!attackerElement ? "attacker" : "defender"} sprite for ${entry.animation.moveId}`;
+      return false;
+    }
+    const scene = new NuzzleShowdownScene(arena, attackerSide);
+    const attacker = new NuzzleShowdownSprite(attackerElement, attackerSide, scene);
+    const defender = new NuzzleShowdownSprite(defenderElement, defenderSide, scene);
+    try {
+      lastShowdownAnimation = entry.animation.moveId;
+      arena.dataset.showdownAnimation = lastShowdownAnimation;
+      if (await animateWithShowdownScene(entry, arena, attackerElement, defenderElement)) return true;
+      moveAnimation.anim(scene, [attacker, defender]);
+      await scene.finish();
+      attackerElement.getAnimations().forEach((animation) => animation.cancel());
+      defenderElement.getAnimations().forEach((animation) => animation.cancel());
+      attackerElement.style.removeProperty("transform");
+      defenderElement.style.removeProperty("transform");
+      return true;
+    } catch (error) {
+      delete arena.dataset.showdownAnimation;
+      lastShowdownAnimation = "";
+      lastShowdownEngine = "";
+      arena.dataset.showdownAnimationFallback = `${entry.animation.moveId}: ${String(error?.stack || error?.message || error).slice(0, 600)}`;
+      console.warn(`Showdown animation failed for ${entry.animation.moveId}`, error);
+      scene.effects.forEach((element) => element.remove());
+      return false;
+    }
+  }
+
+  async function animateMoveEntry(entry, arena) {
+    if (await animateShowdownMove(entry, arena)) return;
+    const animation = entry.animation;
+    const attackerSide = entry.side === "opponent" ? "opponent" : "player";
+    const targetSide = attackerSide === "player" ? "opponent" : "player";
+    const attacker = battleSpriteFor(attackerSide, animation.name);
+    const target = battleSpriteFor(targetSide);
+    const direction = attackerSide === "player" ? 1 : -1;
+    const distance = Math.max(14, arena.clientWidth * .075);
+    const attackerMotion = animateBattleElement(attacker, [
+      { transform: "translate(0, 0) scale(1)" },
+      { transform: `translate(${direction * distance}px, ${-distance * .28}px) scale(1.06)`, offset: .55 },
+      { transform: "translate(0, 0) scale(1)" },
+    ], { duration: 360 });
+    const targetPoint = battleEffectPoint(target, arena);
+    const typeClass = `fx-type-${toId(animation.type || "normal")}`;
+    if (animation.category === "Physical") {
+      await battleAnimationDelay(135);
+      const impact = addBattleEffect(arena, `battle-fx-impact ${typeClass}`, targetPoint);
+      await Promise.all([
+        attackerMotion,
+        animateBattleElement(impact, [
+          { opacity: 0, transform: "translate(-50%, -50%) scale(.25) rotate(-18deg)" },
+          { opacity: 1, transform: "translate(-50%, -50%) scale(1.15) rotate(4deg)", offset: .45 },
+          { opacity: 0, transform: "translate(-50%, -50%) scale(1.55) rotate(16deg)" },
+        ], { duration: 330 }),
+      ]);
+      impact.remove();
+      return;
+    }
+    if (animation.category === "Status") {
+      const aura = addBattleEffect(arena, `battle-fx-aura ${typeClass}`, targetPoint);
+      await Promise.all([
+        attackerMotion,
+        animateBattleElement(aura, [
+          { opacity: 0, transform: "translate(-50%, -50%) scale(.35)" },
+          { opacity: .9, transform: "translate(-50%, -50%) scale(1)", offset: .45 },
+          { opacity: 0, transform: "translate(-50%, -50%) scale(1.45)" },
+        ], { duration: 520 }),
+      ]);
+      aura.remove();
+      return;
+    }
+    const startPoint = battleEffectPoint(attacker, arena);
+    const projectile = addBattleEffect(arena, `battle-fx-projectile ${typeClass}`, startPoint);
+    const deltaX = targetPoint.x - startPoint.x;
+    const deltaY = targetPoint.y - startPoint.y;
+    await Promise.all([
+      attackerMotion,
+      animateBattleElement(projectile, [
+        { opacity: 0, transform: "translate(-50%, -50%) scale(.35)" },
+        { opacity: 1, offset: .18, transform: "translate(-50%, -50%) scale(1)" },
+        { opacity: 1, offset: .82, transform: `translate(-50%, -50%) translate(${deltaX}px, ${deltaY}px) scale(1.15)` },
+        { opacity: 0, transform: `translate(-50%, -50%) translate(${deltaX}px, ${deltaY}px) scale(1.7)` },
+      ], { duration: 500 }),
+    ]);
+    projectile.remove();
+  }
+
+  async function animateBattleEntry(entry, arena, percents, sequence) {
+    const animation = entry.animation;
+    if (!animation) return;
+    const side = entry.side === "opponent" ? "opponent" : "player";
+    let spriteElement = battleSpriteFor(side, animation.name);
+    if (animation.kind === "move") {
+      await animateMoveEntry(entry, arena);
+      return;
+    }
+    if (animation.kind === "switch") {
+      if (!spriteElement) {
+        const pokemon = sequence.rosters[side].find((candidate) => toId(candidate.name) === toId(animation.name));
+        spriteElement = await setBattleSideVisual(side, pokemon);
+        if (pokemon) percents[side] = pokemon.percent;
+      }
+      if (!spriteElement) return;
+      const direction = side === "player" ? -1 : 1;
+      await animateBattleElement(spriteElement, [
+        { opacity: 0, transform: `translateX(${direction * 34}px) scale(.35)` },
+        { opacity: 1, transform: "translateX(0) scale(1.08)", offset: .75 },
+        { opacity: 1, transform: "translateX(0) scale(1)" },
+      ], { duration: 430 });
+      return;
+    }
+    if (animation.kind === "damage") {
+      if (!spriteElement) return;
+      const bar = document.querySelector(`.battle-hud.${side === "player" ? "player" : "enemy"} .hp-bar i`);
+      const from = percents[side];
+      percents[side] = animation.percent;
+      updateBattleHudPercent(side, animation.percent);
+      const shake = animateBattleElement(spriteElement, [
+        { transform: "translateX(0)", filter: "brightness(1)" },
+        { transform: "translateX(-7px)", filter: "brightness(2.2)", offset: .22 },
+        { transform: "translateX(7px)", filter: "brightness(.65)", offset: .48 },
+        { transform: "translateX(-4px)", filter: "brightness(1.7)", offset: .72 },
+        { transform: "translateX(0)", filter: "brightness(1)" },
+      ], { duration: 310 });
+      const hp = animateBattleElement(bar, [{ width: `${from}%` }, { width: `${animation.percent}%` }], { duration: 430, easing: "ease-in-out" });
+      await Promise.all([shake, hp]);
+      return;
+    }
+    if (animation.kind === "heal") {
+      if (!spriteElement) return;
+      const bar = document.querySelector(`.battle-hud.${side === "player" ? "player" : "enemy"} .hp-bar i`);
+      const from = percents[side];
+      percents[side] = animation.percent;
+      updateBattleHudPercent(side, animation.percent);
+      const point = battleEffectPoint(spriteElement, arena);
+      const aura = addBattleEffect(arena, "battle-fx-aura fx-type-grass", point);
+      await Promise.all([
+        animateBattleElement(bar, [{ width: `${from}%` }, { width: `${animation.percent}%` }], { duration: 430, easing: "ease-in-out" }),
+        animateBattleElement(aura, [{ opacity: 0, transform: "translate(-50%, -50%) scale(.3)" }, { opacity: .85, offset: .5 }, { opacity: 0, transform: "translate(-50%, -70%) scale(1.35)" }], { duration: 520 }),
+      ]);
+      aura.remove();
+      return;
+    }
+    if (animation.kind === "faint") {
+      if (!spriteElement) return;
+      await animateBattleElement(spriteElement, [{ opacity: 1, transform: "translateY(0) scale(1)" }, { opacity: 0, transform: "translateY(28px) scale(.72)" }], { duration: 500, easing: "ease-in" });
+      spriteElement.style.opacity = "0";
+      return;
+    }
+    const point = battleEffectPoint(spriteElement, arena);
+    const tone = animation.kind === "status" ? `fx-type-${toId(animation.status || "poison")}` : animation.direction === "down" ? "battle-fx-down" : "battle-fx-up";
+    const aura = addBattleEffect(arena, `battle-fx-aura ${tone}`, point);
+    await animateBattleElement(aura, [
+      { opacity: 0, transform: `translate(-50%, -40%) scale(.35)` },
+      { opacity: .9, offset: .45, transform: `translate(-50%, ${animation.direction === "down" ? "-35%" : "-65%"}) scale(1)` },
+      { opacity: 0, transform: `translate(-50%, ${animation.direction === "down" ? "-10%" : "-90%"}) scale(1.35)` },
+    ], { duration: 500 });
+    aura.remove();
+    if (animation.kind === "status" && spriteElement) {
+      const detail = document.querySelector(`.battle-hud.${side === "player" ? "player" : "enemy"} .battle-hud-detail`);
+      let badge = detail?.querySelector("b");
+      if (detail && !badge) {
+        badge = document.createElement("b");
+        detail.append(badge);
+      }
+      if (badge) badge.textContent = String(animation.status || "").toUpperCase();
+    }
+  }
+
+  async function playPendingBattleAnimation() {
+    const sequence = pendingBattleAnimation;
+    if (!sequence || sequence.battleId !== battleState?.id || route !== "battle") return;
+    pendingBattleAnimation = null;
+    const run = ++battleAnimationRun;
+    const arena = document.querySelector(".battle-arena");
+    if (!arena || matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      battleAnimating = false;
+      if (battleState?.ended) resultOverlayOpen = true;
+      render();
+      return;
+    }
+    await spriteBoundsReady;
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    if (run !== battleAnimationRun || !arena.isConnected) return;
+    alignBattleSprites();
+    arena.classList.add("is-animating");
+    const percents = { ...sequence.previousPercents };
+    for (const entry of sequence.entries) {
+      if (run !== battleAnimationRun || !arena.isConnected) return;
+      await animateBattleEntry(entry, arena, percents, sequence);
+      await battleAnimationDelay(45);
+    }
+    if (run !== battleAnimationRun) return;
+    await Promise.all([
+      syncBattleSideToState("player", battleState.player.active),
+      syncBattleSideToState("opponent", battleState.opponent.active),
+    ]);
+    battleAnimating = false;
+    arena.classList.remove("is-animating");
+    if (battleState?.ended) {
+      resultOverlayOpen = true;
+      if (route === "battle" && battleState?.id === sequence.battleId) render();
+      return;
+    }
+    if (route !== "battle" || battleState?.id !== sequence.battleId) return;
+    document.querySelectorAll("[data-battle-move]").forEach((button) => {
+      const move = battleState.moves.find((candidate) => candidate.slot === Number(button.dataset.battleMove));
+      button.disabled = Boolean(move?.disabled);
+    });
+    document.querySelectorAll("[data-battle-switch]").forEach((button) => {
+      const pokemon = battleState.player.team.find((candidate) => candidate.slot === Number(button.dataset.battleSwitch));
+      button.disabled = !pokemon?.canSwitch;
+    });
+    const prompt = document.querySelector(".battle-command-area .prompt");
+    if (prompt) prompt.innerHTML = `${battleState.forcedSwitch ? "Choose your next Pokémon." : `What will <strong>${escapeHtml(battleState.player.active?.name)}</strong> do?`} <small>Turn ${battleState.turn}</small>`;
   }
 
   function showTooltip(target, html) {

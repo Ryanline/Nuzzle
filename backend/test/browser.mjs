@@ -31,6 +31,31 @@ const representativeDesktopViewports = [
   { name: "full HD", width: 1920, height: 1080 },
 ];
 
+async function assertBattleStageAspectRatio(selector, label) {
+  const previousViewport = page.viewportSize();
+  for (const viewport of [
+    { width: 320, height: 568 },
+    { width: 390, height: 844 },
+    { width: 844, height: 390 },
+    { width: 1366, height: 768 },
+  ]) {
+    await page.setViewportSize(viewport);
+    const geometry = await page.locator(selector).evaluate((arena) => {
+      const arenaRect = arena.getBoundingClientRect();
+      const appRect = document.querySelector(".app").getBoundingClientRect();
+      return {
+        width: arenaRect.width,
+        height: arenaRect.height,
+        centerOffset: Math.abs((arenaRect.left + arenaRect.width / 2) - (appRect.left + appRect.width / 2)),
+      };
+    });
+    const ratio = geometry.width / geometry.height;
+    if (Math.abs(ratio - 16 / 9) > .01) throw new Error(`${label} was not 16:9 at ${viewport.width}x${viewport.height}: ${JSON.stringify({ ...geometry, ratio })}`);
+    if (geometry.centerOffset > 1) throw new Error(`${label} was not centered at ${viewport.width}x${viewport.height}: ${JSON.stringify(geometry)}`);
+  }
+  await page.setViewportSize(previousViewport);
+}
+
 async function swipePcSheet(direction) {
   await page.locator(".pokemon-summary").evaluate((target, swipeDirection) => {
     const bounds = target.getBoundingClientRect();
@@ -264,6 +289,7 @@ page.on("pageerror", (error) => errors.push(error.message));
 
 await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
 await page.waitForSelector(".home-screen .screen-title");
+if (await page.evaluate(() => typeof window.BattleMoveAnims?.aquastep?.anim !== "function" || typeof window.BattleOtherAnims !== "object" || typeof window.BattleEffects !== "object")) throw new Error("The official Pokémon Showdown animation tables did not load.");
 const localSpriteResponse = await fetch(`${baseUrl}/assets/showdown/gen5/charizard.png`);
 if (!localSpriteResponse.ok || localSpriteResponse.headers.get("content-type") !== "image/png" || !localSpriteResponse.headers.get("cache-control")?.includes("immutable")) {
   throw new Error("Local sprites were not served as long-lived immutable PNG assets.");
@@ -1049,6 +1075,7 @@ if (await page.locator(".lead-move-grid > span").count() !== 4) throw new Error(
 const leadChoiceTops = await page.locator(".lead-choice").evaluateAll((choices) => choices.map((choice) => Math.round(choice.getBoundingClientRect().top)));
 if (new Set(leadChoiceTops).size !== 1) throw new Error("The six lead choices did not fit in one row.");
 if (!(await page.locator(".lead-arena").evaluate((element) => getComputedStyle(element).backgroundImage)).includes("assets/arena.jpg")) throw new Error("The lead preview did not load the grassy arena background.");
+await assertBattleStageAspectRatio(".lead-arena", "The lead battlefield");
 if (await page.locator(".lead-arena .battle-platform").count() !== 2) throw new Error("The lead preview did not use the shared CSS battlefield platforms.");
 if (await page.locator(".lead-arena .battle-platform").first().evaluate((element) => getComputedStyle(element).backgroundImage) !== "none") throw new Error("The lead preview still shows an oval platform.");
 const trainerAnchorError = await page.locator(".lead-arena").evaluate((arena) => {
@@ -1065,6 +1092,10 @@ await assertDesktopLayout("active battle", [".battle-panel", ".battle-log-body"]
 ]);
 await assertContainedLandscape("active battle", ".battle-panel");
 await page.waitForSelector(".battler-slot.enemy.is-aligned");
+await page.waitForFunction(() => !document.querySelector(".battle-arena")?.classList.contains("is-animating"));
+await assertBattleStageAspectRatio(".battle-arena", "The active battlefield");
+await page.evaluate(() => window.dispatchEvent(new Event("resize")));
+await page.locator(".battle-arena").evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
 
 const battlePanelFallback = await page.locator(".battle-panel").evaluate((panel) => {
   const originalStyle = panel.getAttribute("style");
@@ -1115,10 +1146,10 @@ const battlefieldBounds = await page.locator(".battle-arena").evaluate((arena) =
     return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom };
   };
   const playerPlatform = arena.querySelector(".battle-platform.player").getBoundingClientRect();
-  const enemyPlatform = arena.querySelector(".battle-platform.enemy").getBoundingClientRect();
   const enemyImage = arena.querySelector(".battler-slot.enemy img");
   const enemyImageRect = enemyImage.getBoundingClientRect();
   const playerImage = arena.querySelector(".battler-slot.player img");
+  const playerImageRect = playerImage.getBoundingClientRect();
   const playerVisible = {
     left: arenaRect.left + Number(playerImage.dataset.visibleLeft),
     right: arenaRect.left + Number(playerImage.dataset.visibleRight),
@@ -1131,17 +1162,19 @@ const battlefieldBounds = await page.locator(".battle-arena").evaluate((arena) =
     enemySprite: bounds(".battler-slot.enemy img"),
     playerSprite: playerVisible,
     playerPlatformVisibleFraction: (arenaRect.bottom - playerPlatform.top) / playerPlatform.height,
-    enemyAnchorErrorX: Math.abs((enemyImageRect.left + enemyImageRect.width / 2) - (enemyPlatform.left + enemyPlatform.width / 2)),
-    enemyAnchorErrorY: Math.abs(enemyImageRect.bottom - (enemyPlatform.bottom - enemyPlatform.height * .1 + 30 - enemyImageRect.height * .12)),
+    enemyAnchorErrorX: Math.abs((enemyImageRect.left + enemyImageRect.width / 2) - (arenaRect.left + arenaRect.width * 471 / 640)),
+    enemyAnchorErrorY: Math.abs((enemyImageRect.top + enemyImageRect.height / 2) - (arenaRect.top + arenaRect.height * 132 / 360)),
+    playerAnchorErrorX: Math.abs((playerImageRect.left + playerImageRect.width / 2) - (arenaRect.left + arenaRect.width * 170 / 640)),
+    playerAnchorErrorY: Math.abs((playerImageRect.top + playerImageRect.height / 2) - (arenaRect.top + arenaRect.height * 301 / 360)),
     enemyContained: enemyImageRect.left >= arenaRect.left && enemyImageRect.right <= arenaRect.right && enemyImageRect.top >= arenaRect.top && enemyImageRect.bottom <= arenaRect.bottom,
-    playerContained: playerVisible.left >= arenaRect.left && playerVisible.right <= arenaRect.right && playerVisible.top >= arenaRect.top && playerVisible.bottom <= arenaRect.bottom,
+    playerContained: playerVisible.left >= arenaRect.left - 4 && playerVisible.right <= arenaRect.right + 4 && playerVisible.top >= arenaRect.top - 4,
   };
 });
 const overlaps = (one, two) => one.left < two.right && one.right > two.left && one.top < two.bottom && one.bottom > two.top;
 if (overlaps(battlefieldBounds.enemyHud, battlefieldBounds.enemySprite) || overlaps(battlefieldBounds.playerHud, battlefieldBounds.playerSprite)) throw new Error("A health card overlaps its Pokémon sprite slot.");
 if (battlefieldBounds.enemyHud.left >= battlefieldBounds.enemySprite.left || battlefieldBounds.playerHud.left <= battlefieldBounds.playerSprite.left) throw new Error("The battlefield does not use the intended opposing-corner layout.");
 if (battlefieldBounds.playerPlatformVisibleFraction < 0.45 || battlefieldBounds.playerPlatformVisibleFraction > 0.6) throw new Error("The player's platform is not approximately half-clipped by the bottom of the arena.");
-if (battlefieldBounds.enemyAnchorErrorX > 1 || battlefieldBounds.enemyAnchorErrorY > 1) throw new Error("The foe's full-canvas bottom-center was not aligned to the shared platform anchor.");
+if (battlefieldBounds.enemyAnchorErrorX > 1 || battlefieldBounds.enemyAnchorErrorY > 1 || battlefieldBounds.playerAnchorErrorX > 1 || battlefieldBounds.playerAnchorErrorY > 1) throw new Error("The battler canvases were not aligned to Pokémon Showdown's native singles coordinates.");
 if (!battlefieldBounds.enemyContained) throw new Error(`The foe sprite canvas falls outside the battle arena: ${JSON.stringify(battlefieldBounds.enemySprite)}`);
 if (!battlefieldBounds.playerContained) throw new Error(`The player's visible sprite pixels fall outside the battle arena: ${JSON.stringify(battlefieldBounds.playerSprite)}`);
 
@@ -1157,9 +1190,16 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 390, height: 568 }
     await page.evaluate(() => window.dispatchEvent(new Event("resize")));
     const placement = await page.locator(".battler-slot.player img").evaluate(async (image) => {
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-      return Object.fromEntries(["visibleLeft", "visibleRight", "visibleTop", "visibleBottom", "safeLeft", "safeRight", "safeTop", "safeBottom"].map((key) => [key, Number(image.dataset[key])]));
+      const arena = image.closest(".battle-arena").getBoundingClientRect();
+      const hud = image.closest(".battle-arena").querySelector(".battle-hud.player").getBoundingClientRect();
+      return {
+        ...Object.fromEntries(["visibleLeft", "visibleRight", "visibleTop", "visibleBottom"].map((key) => [key, Number(image.dataset[key])])),
+        arenaWidth: arena.width,
+        arenaHeight: arena.height,
+        hudLeft: hud.left - arena.left,
+      };
     });
-    if (placement.visibleLeft < placement.safeLeft - 1 || placement.visibleRight > placement.safeRight + 1 || placement.visibleTop < placement.safeTop - 1 || placement.visibleBottom > placement.safeBottom + 1 || Math.abs(placement.visibleBottom - placement.safeBottom) > 1) throw new Error(`Content-aware player placement failed for ${species} at ${viewport.width}x${viewport.height}: ${JSON.stringify(placement)}`);
+    if (placement.visibleLeft < -4 || placement.visibleRight > placement.arenaWidth + 4 || placement.visibleTop < -4 || placement.visibleRight > placement.hudLeft + 1) throw new Error(`Showdown-coordinate player placement failed for ${species} at ${viewport.width}x${viewport.height}: ${JSON.stringify(placement)}`);
   }
 }
 await page.setViewportSize({ width: 390, height: 844 });
@@ -1180,6 +1220,10 @@ if ((await page.locator(".prompt").textContent())?.includes("Choose your next"))
   if (!(await switchResponse).ok()) throw new Error("The forced-switch request failed.");
 }
 await page.waitForFunction(() => document.querySelector(".prompt")?.textContent.includes("Turn 2"));
+if (!await page.locator(".battle-arena").getAttribute("data-showdown-animation")) throw new Error(`The completed turn did not use an official Pokémon Showdown move animation: ${await page.locator(".battle-arena").getAttribute("data-showdown-animation-fallback") || "no move event reached the adapter"}`);
+if (await page.locator(".battle-arena").getAttribute("data-showdown-engine") !== "native") throw new Error("The completed turn did not run through Pokémon Showdown's native BattleScene animation queue.");
+const showdownHandoffError = Number(await page.locator(".battle-arena").getAttribute("data-showdown-handoff-error"));
+if (!Number.isFinite(showdownHandoffError) || showdownHandoffError > 1) throw new Error(`The idle and animated Pokémon sprites did not share a seamless bounding box (${showdownHandoffError}px).`);
 if (await page.locator(".battle-log-entry", { hasText: "used" }).count() < 1) throw new Error("The battle log omitted every completed move.");
 if (await page.locator(".battle-log-turn", { hasText: "Turn 2" }).count()) throw new Error("The empty upcoming turn consumed battle-log space.");
 if (await page.locator(".battle-log-row.is-new").count() < 1) throw new Error("New battle-log entries were not marked for animation.");

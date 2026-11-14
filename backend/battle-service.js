@@ -336,24 +336,32 @@ export function eventEntry(line, context) {
   let side = sideFrom(subject);
   let text = null;
   let category = type.replace(/^-/, "") || "system";
+  let animation = null;
   switch (type) {
     case "turn":
       context.logTurn = Number(subject);
       text = `Turn ${subject}`;
       category = "turn";
       break;
-    case "move": text = `${name} used ${detail}!`; break;
+    case "move": {
+      const move = Dex.moves.get(detail);
+      text = `${name} used ${detail}!`;
+      animation = { kind: "move", name, moveId: move.id, type: move.type, category: move.category };
+      break;
+    }
     case "switch":
     case "drag": {
       const percent = conditionPercent(extra);
       if (percent != null) context.health.set(subject, percent);
       text = type === "drag" ? `${name} was dragged into battle.` : `${name} entered the battle.`;
       category = "switch";
+      animation = { kind: "switch", name };
       break;
     }
     case "faint":
       context.health.set(subject, 0);
       text = `${name} fainted!`;
+      animation = { kind: "faint", name };
       break;
     case "-damage":
     case "-heal": {
@@ -365,9 +373,13 @@ export function eventEntry(line, context) {
       text = type === "-heal"
         ? change ? `${name} restored ${change}% HP.` : `${name}'s HP was restored to ${current}%.`
         : change ? `${name} lost ${change}% HP.` : `${name}'s HP fell to ${current}%.`;
+      animation = { kind: type === "-heal" ? "heal" : "damage", name, percent: current };
       break;
     }
-    case "-status": text = `${name} is now ${detail.toUpperCase()}.`; break;
+    case "-status":
+      text = `${name} is now ${detail.toUpperCase()}.`;
+      animation = { kind: "status", name, status: detail };
+      break;
     case "-curestatus": text = `${name} recovered from ${detail.toUpperCase()}.`; break;
     case "-start":
     case "-end": {
@@ -389,8 +401,14 @@ export function eventEntry(line, context) {
     case "-item": text = `${name}'s ${detail} activated.`; break;
     case "-enditem": text = `${name} lost its ${detail}.`; break;
     case "-activate": text = `${name} activated ${effectName(detail)}.`; break;
-    case "-boost": text = `${name}'s ${detail.toUpperCase()} rose${Number(extra) > 1 ? " sharply" : ""}.`; break;
-    case "-unboost": text = `${name}'s ${detail.toUpperCase()} fell${Number(extra) > 1 ? " sharply" : ""}.`; break;
+    case "-boost":
+      text = `${name}'s ${detail.toUpperCase()} rose${Number(extra) > 1 ? " sharply" : ""}.`;
+      animation = { kind: "boost", name, direction: "up" };
+      break;
+    case "-unboost":
+      text = `${name}'s ${detail.toUpperCase()} fell${Number(extra) > 1 ? " sharply" : ""}.`;
+      animation = { kind: "boost", name, direction: "down" };
+      break;
     case "-weather": text = detail === "none" ? "The weather cleared." : `${effectName(detail)} began.`; break;
     case "-fieldstart": text = `${effectName(detail)} took effect.`; break;
     case "-fieldend": text = `${effectName(detail)} ended.`; break;
@@ -401,7 +419,7 @@ export function eventEntry(line, context) {
     default: break;
   }
   if (!text) return null;
-  return { turn: context.logTurn, side, category, text };
+  return { turn: context.logTurn, side, category, text, ...(animation ? { animation } : {}) };
 }
 
 function pokemonView(pokemon, ownSide) {

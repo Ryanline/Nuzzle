@@ -181,7 +181,7 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .home-actions { display: grid; gap: 7px; margin-top: auto; }
 
 .arena { position: relative; height: clamp(370px, 56vh, 560px); margin: 0 -26px; overflow: hidden; background: #58ad62 url("assets/arena.jpg") center center / cover no-repeat; }
-.lead-arena .trainer { position: absolute; z-index: 2; top: calc(-2% + 16px); left: calc(73.5% - 60.5px); width: 121px; height: 157px; }
+.lead-arena .trainer { position: absolute; z-index: 2; top: calc(-2% + 16px); left: calc(67.1875% - 60.5px); width: 121px; height: 157px; }
 .lead-arena .trainer-misty { transform: translateY(-2px) scale(.72); }
 .lead-prompt, .battle-panel { padding-top: 14px; }
 .lead-prompt { min-height: 0; flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain; }
@@ -225,8 +225,13 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .lead-actions .gloss-button:disabled { opacity: .48; cursor: default; filter: grayscale(.3); }
 
 .battle-arena {
+  --battle-arena-max-width: 590px;
   isolation: isolate;
-  height: clamp(300px, 42vh, 430px);
+  width: min(calc(100% + 52px), var(--battle-arena-max-width));
+  height: auto;
+  align-self: center;
+  margin: 0;
+  aspect-ratio: 16 / 9;
   border-top: 1px solid #999183;
   border-bottom: 1px solid #6f6961;
 }
@@ -239,8 +244,8 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
   box-shadow: none;
   transform: skewX(-5deg);
 }
-.battle-platform.enemy { top: 40.8%; right: 2%; width: 49%; }
-.battle-platform.player { bottom: -9.5%; left: -4%; width: 57%; }
+.battle-platform.enemy { top: 40.8%; right: 8.3125%; width: 49%; }
+.battle-platform.player { bottom: -9.5%; left: 4.3125%; width: 57%; }
 .battler-slot {
   --sprite-scale: 1;
   --sprite-x: 0px;
@@ -283,6 +288,38 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
   transform: none;
 }
 .battler-slot.player.is-aligned .active-sprite { opacity: 1; }
+.battle-fx-layer { position: absolute; z-index: 3; inset: 0; overflow: hidden; pointer-events: none; }
+.showdown-native-stage { position: absolute; top: 0; left: 0; width: 640px; height: 360px; overflow: hidden; pointer-events: none; transform-origin: top left; }
+.showdown-native-stage > div { position: absolute; inset: 0; }
+.showdown-native-stage img { position: absolute; max-width: none; image-rendering: auto; }
+.showdown-native-stage .background { position: absolute; inset: 0; background-position: center !important; background-size: cover !important; }
+.showdown-battle-effect { position: absolute; max-width: none; image-rendering: auto; pointer-events: none; transform-origin: center; }
+.showdown-battle-background-effect { position: absolute; inset: 0; background-position: center !important; background-size: cover !important; opacity: 0; pointer-events: none; }
+.showdown-raw-effect { border: 3px solid rgba(190,235,255,.78); border-radius: 50%; background: rgba(135,205,235,.3); box-shadow: inset 0 0 12px rgba(255,255,255,.75), 0 0 10px rgba(85,165,205,.6); }
+.battle-fx { --fx-color: #d9e3ec; --fx-glow: rgba(217,227,236,.72); position: absolute; display: block; width: clamp(18px, 6.5%, 38px); aspect-ratio: 1; pointer-events: none; }
+.battle-fx-projectile { border: 2px solid rgba(255,255,255,.88); border-radius: 50%; background: radial-gradient(circle at 34% 30%, #fff 0 9%, var(--fx-color) 32% 62%, transparent 68%); box-shadow: 0 0 7px 3px var(--fx-glow), 0 0 18px 5px var(--fx-glow); }
+.battle-fx-impact { width: clamp(32px, 11%, 66px); background: linear-gradient(35deg, transparent 42%, #fff 43% 48%, var(--fx-color) 49% 56%, transparent 57%), linear-gradient(-35deg, transparent 42%, #fff 43% 48%, var(--fx-color) 49% 56%, transparent 57%); filter: drop-shadow(0 0 5px var(--fx-glow)); }
+.battle-fx-impact::before, .battle-fx-impact::after { position: absolute; border: 3px solid var(--fx-color); border-radius: 50%; content: ""; inset: 9%; box-shadow: 0 0 7px var(--fx-glow); }
+.battle-fx-impact::after { border-color: rgba(255,255,255,.9); inset: 29%; }
+.battle-fx-aura { width: clamp(42px, 16%, 94px); border: 4px solid var(--fx-color); border-radius: 50%; background: radial-gradient(circle, var(--fx-glow), transparent 66%); box-shadow: inset 0 0 12px var(--fx-glow), 0 0 12px var(--fx-glow); }
+.battle-fx-aura::before, .battle-fx-aura::after { position: absolute; border: 2px solid rgba(255,255,255,.8); border-radius: 50%; content: ""; inset: 18%; }
+.battle-fx-aura::after { border-color: var(--fx-color); inset: -18%; opacity: .65; }
+.battle-fx-up { --fx-color: #6bc985; --fx-glow: rgba(76,195,110,.55); }
+.battle-fx-down { --fx-color: #8b7ac8; --fx-glow: rgba(120,94,190,.55); }
+.fx-type-normal { --fx-color: #d7d2c5; --fx-glow: rgba(203,196,178,.62); }
+.fx-type-fire, .fx-type-brn { --fx-color: #f06b3f; --fx-glow: rgba(239,80,38,.65); }
+.fx-type-water { --fx-color: #4f9ee8; --fx-glow: rgba(52,139,224,.62); }
+.fx-type-electric, .fx-type-par { --fx-color: #f2cf3d; --fx-glow: rgba(239,196,25,.68); }
+.fx-type-grass { --fx-color: #65b957; --fx-glow: rgba(73,177,63,.6); }
+.fx-type-ice, .fx-type-frz { --fx-color: #76d8e7; --fx-glow: rgba(79,199,220,.64); }
+.fx-type-fighting, .fx-type-ground, .fx-type-rock { --fx-color: #c77d4d; --fx-glow: rgba(178,101,55,.58); }
+.fx-type-poison, .fx-type-psn, .fx-type-tox { --fx-color: #a95ac0; --fx-glow: rgba(151,69,179,.62); }
+.fx-type-psychic, .fx-type-fairy { --fx-color: #e875ad; --fx-glow: rgba(221,78,148,.6); }
+.fx-type-bug { --fx-color: #a5b83f; --fx-glow: rgba(139,158,36,.58); }
+.fx-type-flying { --fx-color: #91a9dc; --fx-glow: rgba(112,139,201,.58); }
+.fx-type-ghost, .fx-type-dark, .fx-type-slp { --fx-color: #7666a7; --fx-glow: rgba(86,66,145,.62); }
+.fx-type-dragon { --fx-color: #7864e2; --fx-glow: rgba(91,70,211,.62); }
+.fx-type-steel { --fx-color: #aebdca; --fx-glow: rgba(145,164,180,.62); }
 .battle-hud {
   position: absolute;
   z-index: 4;
@@ -1112,7 +1149,7 @@ html[data-theme="dark"] .final-run-reminder { border-color: #965157; background:
   .pc-stage .page-back, .encounter-stage .page-back, .mart-stage .page-back, .bag-stage .page-back, .simple-stage .page-back, .leaderboard-stage .page-back { margin-bottom: 0; }
 
   .lead-screen, .battle-screen { display: flex; }
-  .lead-screen .arena, .battle-screen .arena { width: min(780px, 100%); height: clamp(205px, 36vh, 340px); margin: 0 auto; border-radius: 8px; }
+  .lead-screen .arena, .battle-screen .arena { --battle-arena-max-width: min(604.44px, 64vh); width: min(100%, var(--battle-arena-max-width)); height: auto; margin: 0 auto; border-radius: 8px; }
   .lead-screen .lead-prompt, .lead-screen > .battle-error, .lead-actions, .battle-screen .battle-panel { width: min(780px, 100%); align-self: center; }
   .lead-prompt, .battle-panel { padding-top: 10px; }
   .lead-actions { gap: 7px; margin: 0 auto; padding-top: 10px; }
@@ -1197,6 +1234,7 @@ html[data-theme="dark"] .final-run-reminder { border-color: #965157; background:
   .home-actions { gap: 4px; }
   .home-actions .gloss-button { min-height: 37px; padding: 2px 10px 4px; border-radius: 6px; font-size: 17px; }
   .arena { margin-right: -14px; margin-left: -14px; }
+  .battle-arena { width: min(100%, var(--battle-arena-max-width)); margin-right: 0; margin-left: 0; }
   .trainer-wrap { min-height: 154px; }
   .trainer { width: 124px; height: 154px; }
   .opponent-team { gap: 4px 0; margin: 0 auto 9px; }
@@ -1271,7 +1309,6 @@ html[data-theme="dark"] .final-run-reminder { border-color: #965157; background:
   .move-button strong { font-size: 16px; }
   .lead-screen .screen-header, .battle-screen .screen-header { flex: 0 0 62px; }
   .battle-unavailable { overflow-y: auto; overscroll-behavior: contain; }
-  .battle-arena { height: clamp(205px, 30dvh, 320px); }
   .battle-panel { overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; }
   .battle-panel.log-expanded { overflow: hidden; touch-action: none; }
   .battle-hud { width: min(43%, 205px); padding: 5px 7px 4px; border-width: 1px; box-shadow: 2px 3px 0 rgba(67,53,35,.2), inset 0 0 0 1px rgba(255,255,255,.6); }
@@ -1302,8 +1339,8 @@ html[data-theme="dark"] .final-run-reminder { border-color: #965157; background:
 
 @media (max-width: 520px) and (max-height: 860px), (min-width: 521px) and (max-width: 1000px) and (max-height: 520px) {
   .arena { height: 235px; }
-  .battle-arena { height: min(205px, 27dvh); }
-  .lead-arena { height: min(235px, 31dvh); }
+  .battle-arena { --battle-arena-max-width: min(364.44px, 48dvh); height: auto; }
+  .lead-arena { --battle-arena-max-width: min(417.78px, 55.11dvh); height: auto; }
   .lead-prompt, .battle-panel { padding-top: 5px; }
   .prompt { font-size: 15px; }
   .section-label { margin-bottom: 3px; font-size: 18px; }
@@ -1340,11 +1377,11 @@ html[data-theme="dark"] .final-run-reminder { border-color: #965157; background:
   .has-developer-actions .more-developer h3 { font-size: 10px; }
   .has-developer-actions .more-status { min-height: 12px; font-size: 10px; }
   .more-stage.has-developer-actions .page-back { min-height: 36px; margin-top: 2px; margin-bottom: 4px; }
-  .lead-arena { height: 240px; }
+  .lead-arena { --battle-arena-max-width: 426.67px; height: auto; }
   .lead-choice { height: 50px; }
   .lead-choice img { height: 48px; }
   .battle-screen .screen-header { flex-basis: 56px; }
-  .battle-screen .battle-arena { height: min(160px, 24dvh); }
+  .battle-screen .battle-arena { --battle-arena-max-width: min(284.44px, 42.67dvh); height: auto; }
   .battle-screen .battle-panel { padding-top: 3px; }
   .battle-screen .battle-log-card { height: 72px; flex-basis: 72px; margin-bottom: 4px; }
   .battle-screen .prompt { min-height: 17px; font-size: 14px; line-height: 1.15; }

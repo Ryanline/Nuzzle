@@ -12,6 +12,13 @@
   <body>
     <main id="app" class="app" aria-live="polite"></main>
     <div id="tooltip" class="info-tooltip" role="tooltip" hidden></div>
+    <script>
+      window.Config = { routes: { client: "play.pokemonshowdown.com" } };
+      window.Dex = { resourcePrefix: "https://play.pokemonshowdown.com/", fxPrefix: "https://play.pokemonshowdown.com/fx/" };
+    </script>
+    <script src="https://play.pokemonshowdown.com/js/lib/jquery-2.2.4.min.js"></script>
+    <script src="https://play.pokemonshowdown.com/js/battle-animations.js"></script>
+    <script src="https://play.pokemonshowdown.com/js/battle-animations-moves.js"></script>
     <script src="app.js"></script>
   </body>
 </html>
