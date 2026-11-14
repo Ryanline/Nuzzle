@@ -1211,8 +1211,17 @@ await page.locator(".battler-slot.player img").evaluate((image, source) => new P
 await page.evaluate(() => window.dispatchEvent(new Event("resize")));
 
 const turnResponse = page.waitForResponse((response) => response.url().includes("/choices") && response.request().method() === "POST");
+const nativeDepthCheck = page.waitForFunction(() => {
+  const attacker = document.querySelector(".showdown-native-attacker");
+  const defender = document.querySelector(".showdown-native-defender");
+  const effects = document.querySelector(".showdown-native-fx");
+  if (!attacker || !defender || !effects) return false;
+  return Number(getComputedStyle(attacker).zIndex) > Number(getComputedStyle(defender).zIndex)
+    && Number(getComputedStyle(effects).zIndex) > Number(getComputedStyle(attacker).zIndex);
+});
 await page.click('[data-battle-move="1"]');
 if (!(await turnResponse).ok()) throw new Error("The battle choice request failed.");
+await nativeDepthCheck;
 await page.waitForFunction(() => !document.querySelector(".prompt")?.textContent.includes("Resolving"));
 if ((await page.locator(".prompt").textContent())?.includes("Choose your next")) {
   const switchResponse = page.waitForResponse((response) => response.url().includes("/choices") && response.request().method() === "POST");

@@ -291,6 +291,12 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .battle-fx-layer { position: absolute; z-index: 3; inset: 0; overflow: hidden; pointer-events: none; }
 .showdown-native-stage { position: absolute; top: 0; left: 0; width: 640px; height: 360px; overflow: hidden; pointer-events: none; transform-origin: top left; }
 .showdown-native-stage > div { position: absolute; inset: 0; }
+.showdown-native-backdrop { z-index: 0; }
+.showdown-native-background-effects { z-index: 1; }
+.showdown-native-sprites { z-index: 2; }
+.showdown-native-fx { z-index: 3; }
+.showdown-native-defender { z-index: 1; }
+.showdown-native-attacker { z-index: 2; }
 .showdown-native-stage img { position: absolute; max-width: none; image-rendering: auto; }
 .showdown-native-stage .background { position: absolute; inset: 0; background-position: center !important; background-size: cover !important; }
 .showdown-battle-effect { position: absolute; max-width: none; image-rendering: auto; pointer-events: none; transform-origin: center; }

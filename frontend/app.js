@@ -1976,7 +1976,7 @@
     scene.$delay = $("<div></div>");
     scene.battle = { mySide: { x: 0, y: 0, z: 0 } };
 
-    const makeSprite = (source, side, invisible = false) => {
+    const makeSprite = (source, side, role, invisible = false) => {
       const isFront = side === "opponent";
       const calibration = battleSpriteCalibration[side];
       const perspective = isFront ? 1 : 2;
@@ -1996,14 +1996,16 @@
       spriteObject.isMissedPokemon = false;
       spriteObject.leftof = function (offset) { return this.x + (this.isFrontSprite ? 1 : -1) * offset; };
       spriteObject.behind = function (offset) { return this.z + (this.isFrontSprite ? 1 : -1) * offset; };
-      spriteObject.$el.css({ display: "block", visibility: invisible ? "hidden" : "visible" });
+      spriteObject.$el
+        .addClass(`showdown-native-${role}`)
+        .css({ display: "block", visibility: invisible ? "hidden" : "visible" });
       $(spriteLayer).append(spriteObject.$el);
       return spriteObject;
     };
     const attackerSide = entry.side === "opponent" ? "opponent" : "player";
     const defenderSide = attackerSide === "player" ? "opponent" : "player";
-    const attacker = makeSprite(attackerElement, attackerSide);
-    const defender = makeSprite(defenderElement, defenderSide, Boolean(entry.animation.noTarget));
+    const attacker = makeSprite(attackerElement, attackerSide, "attacker");
+    const defender = makeSprite(defenderElement, defenderSide, "defender", Boolean(entry.animation.noTarget));
     const playerSprite = attackerSide === "player" ? attacker : defender;
     scene.battle.mySide = { x: playerSprite.x, y: playerSprite.y, z: playerSprite.z };
     try {
@@ -2051,7 +2053,13 @@
     const scene = new NuzzleShowdownScene(arena, attackerSide);
     const attacker = new NuzzleShowdownSprite(attackerElement, attackerSide, scene);
     const defender = new NuzzleShowdownSprite(defenderElement, defenderSide, scene);
+    const attackerSlot = attackerElement.closest(".battler-slot");
+    const defenderSlot = defenderElement.closest(".battler-slot");
+    const attackerZIndex = attackerSlot?.style.zIndex || "";
+    const defenderZIndex = defenderSlot?.style.zIndex || "";
     const defenderVisibility = defenderElement.style.visibility;
+    if (attackerSlot) attackerSlot.style.zIndex = "2";
+    if (defenderSlot) defenderSlot.style.zIndex = "1";
     if (entry.animation.noTarget) defenderElement.style.visibility = "hidden";
     try {
       lastShowdownAnimation = entry.animation.moveId;
@@ -2073,6 +2081,8 @@
       scene.effects.forEach((element) => element.remove());
       return false;
     } finally {
+      if (attackerSlot) attackerSlot.style.zIndex = attackerZIndex;
+      if (defenderSlot) defenderSlot.style.zIndex = defenderZIndex;
       defenderElement.style.visibility = defenderVisibility;
     }
   }
