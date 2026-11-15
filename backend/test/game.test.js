@@ -393,6 +393,7 @@ test("held-item purchases, atomic training builds, and battle snapshots are serv
   for (let slot = 0; slot < 12; slot++) state = await store.claimEncounter("shop-user", slot);
   state = await store.setTeam("shop-user", state.roster.slice(0, 6).map((pokemon) => pokemon.id));
   state = await store.buy("shop-user", "leftovers", 1);
+  const ownedLeftovers = state.inventory.leftovers;
   await assert.rejects(store.buy("shop-user", "leftovers", 1), /once per run/i);
   const [firstHolder, secondHolder, wrongSource] = state.roster.filter((pokemon) => !pokemon.heldItemId);
   state = await store.equip("shop-user", firstHolder.id, "leftovers");
@@ -401,7 +402,7 @@ test("held-item purchases, atomic training builds, and battle snapshots are serv
   await assert.rejects(store.equip("shop-user", secondHolder.id, "leftovers", wrongSource.id), /no longer holding/i);
   state = await store.equip("shop-user", secondHolder.id, "leftovers", firstHolder.id);
   assert.equal(state.roster.find((pokemon) => pokemon.id === firstHolder.id).heldItemId, null);
-  assert.equal(state.inventory.leftovers, 1);
+  assert.equal(state.inventory.leftovers, ownedLeftovers, "transferring an item must not change how many are owned");
   assert.equal(state.roster.find((pokemon) => pokemon.id === secondHolder.id).heldItemId, "leftovers");
   await assert.rejects(store.equip("shop-user", firstHolder.id, "leftovers", firstHolder.id), /no longer holding/i);
   state = await store.unequip("shop-user", secondHolder.id);
