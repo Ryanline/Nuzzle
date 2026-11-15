@@ -214,6 +214,25 @@ export class TrainerStore {
     });
   }
 
+  async replaceDailyPokemon(date, fromSpecies, replacementTeamText) {
+    return this.mutate(() => {
+      const challenge = this.data.daily[date];
+      if (!challenge) trainerError(`No trainer has been published for ${date}.`, 404);
+
+      const parsed = validateTeam(replacementTeamText);
+      if (parsed.team.length !== 1) trainerError("A live Pokémon replacement must contain exactly one set.");
+
+      const fromId = Dex.species.get(fromSpecies).id;
+      const replacement = parsed.team[0];
+      const index = challenge.trainer.team.findIndex((set) => Dex.species.get(set.species || set.name).id === fromId);
+      if (index < 0) return false;
+
+      challenge.trainer.team[index] = replacement;
+      challenge.trainer.teamText = Teams.export(challenge.trainer.team);
+      return true;
+    });
+  }
+
   async reorder(ids) {
     return this.mutate(() => {
       if (!Array.isArray(ids) || ids.length !== this.data.queue.length || new Set(ids).size !== ids.length) trainerError("The trainer order is invalid.");

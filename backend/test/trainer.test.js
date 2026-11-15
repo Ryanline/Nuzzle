@@ -6,6 +6,7 @@ import test from "node:test";
 import { encounterPokemon } from "../content.js";
 import { gameDate, gameNumber, nextRolloverAt } from "../game-clock.js";
 import { trainerSprites, TrainerStore, validateTeam } from "../trainer-store.js";
+import { applyLiveTrainerAdjustments } from "../live-trainer-adjustments.js";
 
 const mistyTeam = `Starmie @ Leftovers
 Ability: Natural Cure
@@ -99,4 +100,40 @@ test("queued trainers can be reordered and publish one immutable snapshot per da
 
   await store.add({ name: "Changed Erika", spriteId: "erika", teamText: mistyTeam });
   assert.equal((await store.current()).trainer.name, "Erika", "today's published trainer must remain immutable");
+});
+
+test("the November 15 live swap updates scouting and new battles without changing an existing battle snapshot", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "nuzzle-live-trainer-"));
+  let now = new Date("2026-11-14T15:00:00Z");
+  const store = new TrainerStore(path.join(directory, "trainers.json"), { now: () => now });
+  await store.initialize();
+  await store.current();
+  await store.add({
+    name: "Live Trainer",
+    spriteId: "brock",
+    teamText: `Arboliva @ Leftovers
+Ability: Seed Sower
+- Giga Drain
+
+Sudowoodo
+Ability: Sturdy
+- Rock Slide`,
+  });
+
+  now = new Date("2026-11-15T15:00:00Z");
+  const beforeSwap = await store.current();
+  const existingBattleTeam = structuredClone(beforeSwap.opponentTeam);
+
+  assert.equal(await applyLiveTrainerAdjustments(store), true);
+  const afterSwap = await store.current();
+  assert.deepEqual(existingBattleTeam.map((set) => set.species), ["Arboliva", "Sudowoodo"]);
+  assert.deepEqual(afterSwap.opponentTeam.map((set) => set.species), ["Vanilluxe", "Sudowoodo"]);
+
+  const vanilluxe = afterSwap.opponentTeam[0];
+  assert.equal(vanilluxe.item, "Focus Sash");
+  assert.equal(vanilluxe.ability, "Snow Warning");
+  assert.equal(vanilluxe.nature, "Quiet");
+  assert.deepEqual(vanilluxe.evs, { hp: 252, atk: 4, def: 0, spa: 252, spd: 0, spe: 0 });
+  assert.deepEqual(vanilluxe.moves, ["Blizzard", "Freeze-Dry", "Ice Shard", "Aurora Veil"]);
+  assert.equal(await applyLiveTrainerAdjustments(store), false, "the adjustment must be safe to run again after a restart");
 });
