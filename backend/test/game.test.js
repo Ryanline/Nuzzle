@@ -179,6 +179,27 @@ test("a wipe defers twelve fresh-run encounters until the next day without addin
   assert.equal(dailyClaim.teamIds.includes(dailyClaim.encounters[0].pokemon[0].id), false);
 });
 
+test("a one-time rollback restores the exact run archived by a loss", async () => {
+  const { store } = await fixture(new Date("2026-11-14T16:00:00Z"));
+  let original = await store.get("rollback-user");
+  for (let slot = 0; slot < 12; slot++) original = await store.claimEncounter("rollback-user", slot);
+  original = await store.setTeam("rollback-user", original.roster.slice(0, 4).map((pokemon) => pokemon.id));
+  original = await store.buy("rollback-user", "leftovers", 1);
+  await store.resetAfterWipe("rollback-user", "forfeited-battle");
+
+  const restored = await store.restoreArchivedLoss("rollback-user", "2026-11-14", "rollback-gift");
+  assert.equal(restored.applied, true);
+  assert.equal(restored.state.runId, original.runId);
+  assert.equal(restored.state.money, original.money);
+  assert.deepEqual(restored.state.roster, original.roster);
+  assert.deepEqual(restored.state.teamIds, original.teamIds);
+  assert.deepEqual(restored.state.inventory, original.inventory);
+
+  const repeated = await store.restoreArchivedLoss("rollback-user", "2026-11-14", "rollback-gift");
+  assert.equal(repeated.applied, false);
+  assert.equal(repeated.state.runId, original.runId);
+});
+
 test("the developer wipe immediately creates a clean run with twelve encounters", async () => {
   const { store: wipeStore } = await fixture();
   let wipeState = await wipeStore.get("developer-wipe-user");

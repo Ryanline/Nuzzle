@@ -1459,9 +1459,18 @@ export class BattleService {
       .sort((left, right) => String(right.record.createdAt).localeCompare(String(left.record.createdAt)))[0] || null;
   }
 
+  hasForgivenDailyWin(userId, challengeDate) {
+    return [...this.battles.values()].some((battle) => (
+      battle.record.userId === userId
+      && battle.record.challengeDate === challengeDate
+      && battle.record.dailyAttemptReset
+      && battle.record.streakForgiven
+    ));
+  }
+
   dailyOutcome(userId, challengeDate) {
     const battle = this.dailyBattle(userId, challengeDate);
-    if (!battle) return null;
+    if (!battle) return this.hasForgivenDailyWin(userId, challengeDate) ? "win" : null;
     const state = battle.state();
     if (!state.ended) return "incomplete";
     return state.winner === "Player" ? "win" : "loss";
@@ -1593,7 +1602,10 @@ export class BattleService {
         const identityBoundary = identity.streakStartDate || null;
         const streakBoundary = identityBoundary && identityBoundary > defaultLaunchDate ? identityBoundary : defaultLaunchDate;
         const hasSeasonBoundary = challengeDate >= streakBoundary;
-        while ((!hasSeasonBoundary || date >= streakBoundary) && attempts.get(date)?.state.winner === "Player") {
+        while ((!hasSeasonBoundary || date >= streakBoundary) && (
+          attempts.get(date)?.state.winner === "Player"
+          || (!attempts.has(date) && this.hasForgivenDailyWin(playerId, date))
+        )) {
           streak++;
           date = previousDate(date);
         }
@@ -1661,7 +1673,10 @@ export class BattleService {
       let date = challengeDate;
       const streakStartDate = defaultLaunchDate;
       const hasSeasonBoundary = challengeDate >= streakStartDate;
-      while ((!hasSeasonBoundary || date >= streakStartDate) && attempts.get(date)?.won) {
+      while ((!hasSeasonBoundary || date >= streakStartDate) && (
+        attempts.get(date)?.won
+        || (!attempts.has(date) && this.hasForgivenDailyWin(userId, date))
+      )) {
         streak++;
         date = previousDate(date);
       }
@@ -1689,6 +1704,26 @@ export class BattleService {
     }
     const key = this.dailyAttemptKey(userId, challengeDate);
     if (key) this.dailyAttempts.delete(key);
+  }
+
+  async grantForfeitRollback(userId, challengeDate, rollbackKey) {
+    const matching = [...this.battles.values()]
+      .filter((battle) => (
+        battle.record.userId === userId
+        && battle.record.challengeDate === challengeDate
+        && battle.record.forfeited
+        && (!battle.record.dailyAttemptReset || battle.record.oneTimeRollbackKey === rollbackKey)
+      ))
+      .sort((left, right) => String(right.record.createdAt).localeCompare(String(left.record.createdAt)));
+    const battle = matching[0];
+    if (!battle) return null;
+    battle.record.dailyAttemptReset = true;
+    battle.record.streakForgiven = true;
+    battle.record.oneTimeRollbackKey = rollbackKey;
+    await this.store.save(battle.record);
+    const key = this.dailyAttemptKey(userId, challengeDate);
+    if (key) this.dailyAttempts.delete(key);
+    return battle.record.id;
   }
 
   async initialize() {

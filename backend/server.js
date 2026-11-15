@@ -12,6 +12,7 @@ import { GameStore, publicContent } from "./game-store.js";
 import { SupportStore } from "./support-store.js";
 import { avatarSprites, trainerSprites, TrainerStore } from "./trainer-store.js";
 import { showdownTrainerSpriteIds } from "./trainer-sprite-ids.js";
+import { applyInfinightHypeRollback } from "./one-time-rollback.js";
 
 const require = createRequire(import.meta.url);
 const { Dex } = require("pokemon-showdown");
@@ -81,6 +82,7 @@ await game.initialize();
 await trainers.initialize();
 await service.initialize();
 game.setDailyOutcomeLookup((userId, date) => service.dailyOutcome(userId, date));
+await applyInfinightHypeRollback({ auth, game, service });
 await discordRecaps.initialize();
 
 const loginAttempts = new Map();

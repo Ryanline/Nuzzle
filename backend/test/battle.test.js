@@ -319,6 +319,41 @@ test("daily attempts are limited to one and a reset survives restart", async () 
   await restoredService.create({ ...challenge, challengeDate: "2026-10-24", challengeNumber: 3 }, "daily-player");
 });
 
+test("a one-time forfeit rollback permits a replay and forgives the date only when no replay exists", async () => {
+  const { service } = await serviceFixture();
+  const challenge = { partyIds: defaultParty, leadId: "gengar", challengeDate: "2026-11-14", challengeNumber: 19 };
+  const initial = await service.create(challenge, "rollback-player");
+  await service.get(initial.id).forfeit();
+
+  assert.equal(await service.grantForfeitRollback("rollback-player", "2026-11-14", "rollback-gift"), initial.id);
+  assert.equal(service.hasDailyAttempt("rollback-player", "2026-11-14"), false);
+  assert.equal(service.dailyBattle("rollback-player", "2026-11-14"), null);
+  assert.equal(service.dailyOutcome("rollback-player", "2026-11-14"), "win");
+  assert.equal(service.winningStreak("rollback-player", "2026-11-14"), 1);
+
+  service.battles.set("tomorrow-win", {
+    record: {
+      id: "tomorrow-win",
+      userId: "rollback-player",
+      challengeDate: "2026-11-15",
+      createdAt: "2026-11-15T13:00:00.000Z",
+      completedAt: "2026-11-15T13:05:00.000Z",
+    },
+    state: () => ({ ended: true, winner: "Player", player: { team: [] } }),
+  });
+  const identity = () => ({ username: "Rollback Player", streakStartDate: "2026-10-27", isGuest: false });
+  assert.equal(service.winningStreak("rollback-player", "2026-11-15"), 2);
+  assert.equal(service.combinedLeaderboard("2026-11-15", identity)[0].streak, 2);
+  assert.equal(service.streakLeaderboard("2026-11-15", identity)[0].streak, 2);
+
+  const replay = await service.create(challenge, "rollback-player");
+  assert.equal(service.dailyOutcome("rollback-player", "2026-11-14"), "incomplete");
+  await service.get(replay.id).forfeit();
+  assert.equal(service.dailyOutcome("rollback-player", "2026-11-14"), "loss");
+  assert.equal(service.winningStreak("rollback-player", "2026-11-14"), 0);
+  assert.equal(service.winningStreak("rollback-player", "2026-11-15"), 1);
+});
+
 test("forfeit produces a Brock win", async () => {
   const { service } = await serviceFixture();
   const initial = await service.create({ partyIds: defaultParty, leadId: "gengar" });

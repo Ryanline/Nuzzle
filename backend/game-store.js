@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { mkdir, readFile, readdir, rename, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { createRequire } from "node:module";
-import { gzip } from "node:zlib";
+import { gunzip, gzip } from "node:zlib";
 import { promisify } from "node:util";
 import {
   abilityCatalog,
@@ -28,6 +28,7 @@ const directTrainingVersion = 1;
 const runLifespanDays = 7;
 const runArchiveRetentionDays = 30;
 const gzipAsync = promisify(gzip);
+const gunzipAsync = promisify(gunzip);
 const oneTimeEncounterGift = Object.freeze({
   key: "yomama-shiny-legends",
   username: "yomama",
@@ -668,6 +669,42 @@ export class GameStore {
       replacement.daily = { date: run.daily.date, encounters: [] };
       this.data.runs[userId] = replacement;
       return this.publicState(replacement);
+    });
+  }
+
+  async restoreArchivedLoss(userId, date, rollbackKey) {
+    return this.mutate(userId, async (run) => {
+      this.data.oneTimeRollbacks ||= {};
+      if (this.data.oneTimeRollbacks[rollbackKey]) {
+        return { applied: false, state: this.publicState(run) };
+      }
+      let archivedRun = null;
+      for (const name of await readdir(this.archiveDirectory).catch((error) => {
+        if (error.code === "ENOENT") return [];
+        throw error;
+      })) {
+        if (!name.endsWith(".json.gz")) continue;
+        try {
+          const archive = JSON.parse((await gunzipAsync(await readFile(path.join(this.archiveDirectory, name)))).toString("utf8"));
+          if (archive.reason !== "loss" || archive.resetDate !== date || archive.run?.userId !== userId) continue;
+          if (!archivedRun || String(archive.createdAt || archive.run?.createdAt || "").localeCompare(String(archivedRun.createdAt || archivedRun.run?.createdAt || "")) > 0) {
+            archivedRun = archive;
+          }
+        } catch (error) {
+          console.error(`Could not inspect archived run ${name} for rollback:`, error);
+        }
+      }
+      if (!archivedRun?.run) throw new Error(`No archived loss was found for ${userId} on ${date}.`);
+      const restored = structuredClone(archivedRun.run);
+      this.data.runs[userId] = restored;
+      this.data.oneTimeRollbacks[rollbackKey] = {
+        userId,
+        date,
+        restoredRunId: restored.id,
+        archiveId: archivedRun.archiveId || null,
+        appliedAt: new Date().toISOString(),
+      };
+      return { applied: true, state: this.publicState(restored) };
     });
   }
 
