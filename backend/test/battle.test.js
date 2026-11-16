@@ -80,6 +80,24 @@ test("the battle log identifies delayed attacks when they are set and when they 
   });
 });
 
+test("the battle log announces substitute creation and fading", () => {
+  const context = { logTurn: 3, health: new Map(), record: {} };
+  assert.deepEqual(eventEntry("|-start|p1a: Gengar|Substitute", context), {
+    turn: 3,
+    side: "player",
+    category: "substitute",
+    text: "Gengar made a substitute!",
+    animation: { kind: "substitute", name: "Gengar", active: true },
+  });
+  assert.deepEqual(eventEntry("|-end|p1a: Gengar|Substitute", context), {
+    turn: 3,
+    side: "player",
+    category: "substitute",
+    text: "Gengar's substitute faded!",
+    animation: { kind: "substitute", name: "Gengar", active: false },
+  });
+});
+
 test("moves aimed at a fainted slot retain their animation without gaining a target", () => {
   const context = { logTurn: 4, health: new Map(), record: {} };
   assert.deepEqual(eventEntry("|move|p1a: Shuckle|Tackle|p2: Gourgeist|[notarget]", context), {
@@ -177,6 +195,23 @@ test("Showdown advances a real turn and rejects stale choices", async () => {
     service.get(initial.id).choose({ type: "move", slot: 1 }, initial.rqid),
     /earlier turn/
   );
+});
+
+test("battle state exposes substitutes, screens, hazards, and weather for visual feedback", async () => {
+  const { service } = await serviceFixture();
+  let state = await service.create({
+    partyIds: ["mew"],
+    leadId: "mew",
+    playerTeam: [{ name: "Mew", species: "Mew", level: 100, moves: ["Substitute", "Reflect", "Stealth Rock", "Rain Dance"] }],
+    opponentTeam: [{ name: "Magikarp", species: "Magikarp", level: 1, moves: ["Splash"] }],
+    trainerName: "Tester",
+  });
+  for (const slot of [1, 2, 3, 4]) state = await service.get(state.id).choose({ type: "move", slot }, state.rqid);
+  assert.equal(state.player.active.substitute, true);
+  assert.equal(state.effects.weather, "raindance");
+  assert.ok(state.effects.player.reflect);
+  assert.ok(state.effects.opponent.stealthrock);
+  assert.ok(state.log.some((entry) => entry.text === "Mew made a substitute!"));
 });
 
 test("a slower move animates into an empty slot after Explosion without dealing damage", async () => {

@@ -582,6 +582,7 @@
       visualState: {
         player: structuredClone(sameBattle ? previousState.player?.active : nextState.player?.active),
         opponent: structuredClone(sameBattle ? previousState.opponent?.active : nextState.opponent?.active),
+        effects: structuredClone(sameBattle ? previousState.effects : nextState.effects),
       },
       rosters: {
         player: structuredClone(nextState.player?.team || []),
@@ -837,11 +838,38 @@
     </article>`;
   }
 
+  function battleSubstitute(side, active) {
+    if (!active) return "";
+    const directory = side === "player" ? "gen5-back" : "gen5";
+    return `<img class="battle-substitute ${side}" data-battle-substitute="${side}" src="https://play.pokemonshowdown.com/sprites/${directory}/substitute.png" alt="" aria-hidden="true">`;
+  }
+
+  function battleSideEffects(side, conditions = {}) {
+    const screens = ["reflect", "lightscreen", "auroraveil", "safeguard"].filter((id) => conditions[id]);
+    const hazards = ["stealthrock", "spikes", "toxicspikes", "stickyweb"].filter((id) => conditions[id]);
+    return `${screens.map((id) => `<i class="battle-screen-effect ${side} ${id}" data-field-effect="${side}-${id}" aria-hidden="true"></i>`).join("")}
+      ${hazards.map((id) => `<i class="battle-hazard ${side} ${id}" data-field-effect="${side}-${id}" data-layers="${conditions[id]?.layers || 1}" aria-hidden="true"></i>`).join("")}
+      ${conditions.tailwind ? `<i class="battle-tailwind ${side}" data-field-effect="${side}-tailwind" aria-hidden="true"></i>` : ""}`;
+  }
+
+  function battleFieldEffects(effects = {}) {
+    const weather = toId(effects.weather);
+    const terrain = toId(effects.terrain);
+    const pseudoWeather = effects.pseudoWeather || [];
+    return `<div class="battle-field-state" aria-hidden="true">
+      ${terrain ? `<i class="battle-terrain terrain-${terrain}" data-field-effect="terrain-${terrain}"></i>` : ""}
+      ${pseudoWeather.includes("trickroom") ? '<i class="battle-trick-room" data-field-effect="trickroom"></i>' : ""}
+      ${battleSideEffects("opponent", effects.opponent)}${battleSideEffects("player", effects.player)}
+      ${weather ? `<i class="battle-weather weather-${weather}" data-field-effect="weather-${weather}"></i>` : ""}
+    </div>`;
+  }
+
   function battle() {
     if (!battleState) return `<section class="screen battle-screen">${header()}<div class="battle-unavailable"><h2>Battle unavailable</h2><p>${escapeHtml(battleError || "Start a battle from the lead-selection screen.")}</p><button class="gloss-button purple" data-route="lead">Back</button></div></section>`;
     const visualState = battleAnimating ? pendingBattleAnimation?.visualState : null;
     const player = visualState ? visualState.player : battleState.player.active;
     const enemy = visualState ? visualState.opponent : battleState.opponent.active;
+    const effects = visualState?.effects || battleState.effects || {};
     const logEntries = battleState.log || (battleState.events || []).map((text, index) => ({ id: index + 1, side: "system", category: "event", text }));
     const visibleLogEntries = logEntries.at(-1)?.category === "turn" ? logEntries.slice(0, -1) : logEntries;
     const latestAnnouncement = [...logEntries].reverse().find((entry) => entry.category !== "turn")?.text || "";
@@ -866,10 +894,11 @@
           ? "Resolving the turn…"
           : `What will <strong>${escapeHtml(player?.name)}</strong> do?`;
     return `<section class="screen battle-screen">${header()}<div class="arena battle-arena${battleAnimating ? " is-animating" : ""}" aria-label="Grassy battlefield"${lastShowdownAnimation ? ` data-showdown-animation="${escapeHtml(lastShowdownAnimation)}"` : ""}${lastShowdownEngine ? ` data-showdown-engine="${escapeHtml(lastShowdownEngine)}"` : ""}${lastShowdownHandoffError ? ` data-showdown-handoff-error="${escapeHtml(lastShowdownHandoffError)}"` : ""}>
+      ${battleFieldEffects(effects)}
       <div class="battle-fx-layer" aria-hidden="true"></div>
       <div class="battle-platform enemy" aria-hidden="true"></div><div class="battle-platform player" aria-hidden="true"></div>
-      ${enemy ? `<div class="battler-slot enemy" data-pokemon="${escapeHtml(enemy.id)}"><img class="sprite active-sprite" src="${battleSpriteSource(enemy, "opponent")}" alt="${escapeHtml(enemy.name)}" /></div><section class="battle-hud enemy" aria-label="Opponent ${escapeHtml(enemy.name)}"><div class="battle-hud-title"><strong>${escapeHtml(enemy.name)}</strong><span>Lv. ${enemy.level}</span></div><div class="hp-bar ${healthTone(enemy.percent)}"><i style="width:${enemy.percent}%"></i></div><div class="battle-hud-detail"><span>HP</span><small>${enemy.percent}%</small>${enemy.status ? `<b>${escapeHtml(enemy.status.toUpperCase())}</b>` : ""}</div></section>` : ""}
-      ${player ? `<div class="battler-slot player" data-pokemon="${escapeHtml(player.id)}"><img class="sprite active-sprite" src="${battleSpriteSource(player, "player")}" alt="${escapeHtml(player.name)}" /></div><section class="battle-hud player" aria-label="Your ${escapeHtml(player.name)}"><div class="battle-hud-title"><strong>${escapeHtml(player.name)}</strong><span>Lv. ${player.level}</span></div><div class="hp-bar ${healthTone(player.percent)}"><i style="width:${player.percent}%"></i></div><div class="battle-hud-detail"><span>HP</span><small>${player.percent}%</small>${player.status ? `<b>${escapeHtml(player.status.toUpperCase())}</b>` : ""}</div></section>` : ""}
+      ${enemy ? `<div class="battler-slot enemy${enemy.substitute ? " has-substitute" : ""}" data-pokemon="${escapeHtml(enemy.id)}"><img class="sprite active-sprite" src="${battleSpriteSource(enemy, "opponent")}" alt="${escapeHtml(enemy.name)}" /></div>${battleSubstitute("opponent", enemy.substitute)}<section class="battle-hud enemy" aria-label="Opponent ${escapeHtml(enemy.name)}"><div class="battle-hud-title"><strong>${escapeHtml(enemy.name)}</strong><span>Lv. ${enemy.level}</span></div><div class="hp-bar ${healthTone(enemy.percent)}"><i style="width:${enemy.percent}%"></i></div><div class="battle-hud-detail"><span>HP</span><small>${enemy.percent}%</small>${enemy.status ? `<b>${escapeHtml(enemy.status.toUpperCase())}</b>` : ""}</div></section>` : ""}
+      ${player ? `<div class="battler-slot player${player.substitute ? " has-substitute" : ""}" data-pokemon="${escapeHtml(player.id)}"><img class="sprite active-sprite" src="${battleSpriteSource(player, "player")}" alt="${escapeHtml(player.name)}" /></div>${battleSubstitute("player", player.substitute)}<section class="battle-hud player" aria-label="Your ${escapeHtml(player.name)}"><div class="battle-hud-title"><strong>${escapeHtml(player.name)}</strong><span>Lv. ${player.level}</span></div><div class="hp-bar ${healthTone(player.percent)}"><i style="width:${player.percent}%"></i></div><div class="battle-hud-detail"><span>HP</span><small>${player.percent}%</small>${player.status ? `<b>${escapeHtml(player.status.toUpperCase())}</b>` : ""}</div></section>` : ""}
     </div><div class="battle-panel${battleLogExpanded ? " log-expanded" : ""}"><section class="battle-log-card${battleLogExpanded ? " expanded" : ""}" aria-labelledby="battle-log-title"><header><h2 id="battle-log-title">Battle log</h2><div>${battleLogHasNew ? '<button type="button" data-battle-log-new>New events</button>' : ""}<button type="button" data-toggle-battle-log aria-expanded="${battleLogExpanded}">${battleLogExpanded ? "Collapse" : "Expand"}</button></div></header><div class="battle-log-body" data-battle-log role="log" aria-label="Battle events" tabindex="0"><div class="battle-log-stack">${logHtml || '<p class="battle-log-empty">The battle is starting…</p>'}</div></div></section><span class="visually-hidden" role="status" aria-live="polite">${escapeHtml(latestAnnouncement)}</span>
       <div class="battle-command-area" ${battleLogExpanded ? 'inert aria-hidden="true"' : ""}><p class="prompt">${prompt} <small>Turn ${battleState.turn}</small></p>${battleState.forcedSwitch || battleState.ended ? "" : `<h2 class="section-label attack">Attack</h2><div class="move-grid">${movesHtml}</div>`}
       <h2 class="section-label">Switch</h2><div class="switch-grid">${switchesHtml}</div>${battleError ? `<p class="battle-error" role="alert">${escapeHtml(battleError)}</p>` : ""}</div>
@@ -1731,6 +1760,35 @@
     }
   }
 
+  function syncPersistentBattleVisuals() {
+    const arena = document.querySelector(".battle-arena");
+    if (!arena) return;
+    const template = document.createElement("template");
+    template.innerHTML = battleFieldEffects(battleState.effects || {});
+    const currentField = arena.querySelector(".battle-field-state");
+    if (currentField && template.content.firstElementChild) currentField.replaceWith(template.content.firstElementChild);
+    for (const side of ["player", "opponent"]) {
+      const hudSide = side === "player" ? "player" : "enemy";
+      const pokemon = battleState[side].active;
+      const slot = arena.querySelector(`.battler-slot.${hudSide}`);
+      const spriteElement = slot?.querySelector(".active-sprite");
+      spriteElement?.getAnimations().forEach((animation) => animation.cancel());
+      slot?.classList.toggle("has-substitute", Boolean(pokemon?.substitute));
+      let substitute = arena.querySelector(`[data-battle-substitute="${side}"]`);
+      substitute?.getAnimations().forEach((animation) => animation.cancel());
+      if (!pokemon?.substitute) {
+        substitute?.remove();
+      } else if (!substitute) {
+        substitute = document.createElement("img");
+        substitute.className = `battle-substitute ${side}`;
+        substitute.dataset.battleSubstitute = side;
+        substitute.alt = "";
+        substitute.src = `https://play.pokemonshowdown.com/sprites/${side === "player" ? "gen5-back" : "gen5"}/substitute.png`;
+        arena.append(substitute);
+      }
+    }
+  }
+
   function battleEffectPoint(element, arena) {
     const arenaRect = arena.getBoundingClientRect();
     const rect = element?.getBoundingClientRect() || arenaRect;
@@ -2158,6 +2216,42 @@
       await animateMoveEntry(entry, arena);
       return;
     }
+    if (animation.kind === "field") {
+      await animateBattleElement(arena, [
+        { filter: "brightness(1)" },
+        { filter: animation.active ? "brightness(1.12) saturate(1.12)" : "brightness(.94) saturate(.82)", offset: .5 },
+        { filter: "brightness(1)" },
+      ], { duration: 360 });
+      return;
+    }
+    if (animation.kind === "substitute") {
+      const slot = document.querySelector(`.battler-slot.${side === "player" ? "player" : "enemy"}`);
+      const activeSprite = slot?.querySelector(".active-sprite");
+      let substitute = arena.querySelector(`[data-battle-substitute="${side}"]`);
+      if (animation.active && !substitute) {
+        substitute = document.createElement("img");
+        substitute.className = `battle-substitute ${side}`;
+        substitute.dataset.battleSubstitute = side;
+        substitute.alt = "";
+        substitute.src = `https://play.pokemonshowdown.com/sprites/${side === "player" ? "gen5-back" : "gen5"}/substitute.png`;
+        arena.append(substitute);
+      }
+      if (animation.active) {
+        slot?.classList.add("has-substitute");
+        await Promise.all([
+          activeSprite && animateBattleElement(activeSprite, [{ opacity: 1, transform: "translateX(0)" }, { opacity: .42, transform: `translateX(${side === "player" ? -16 : 16}px)` }], { duration: 360, fill: "forwards" }),
+          substitute && animateBattleElement(substitute, [{ opacity: 0, transform: "translateY(18px) scale(.5)" }, { opacity: 1, transform: "translateY(-5px) scale(1.08)", offset: .75 }, { opacity: 1, transform: "translateY(0) scale(1)" }], { duration: 430, fill: "forwards" }),
+        ].filter(Boolean));
+      } else {
+        await Promise.all([
+          activeSprite && animateBattleElement(activeSprite, [{ opacity: .42 }, { opacity: 1 }], { duration: 340, fill: "forwards" }),
+          substitute && animateBattleElement(substitute, [{ opacity: 1, transform: "scale(1)" }, { opacity: 0, transform: "scale(.62) translateY(14px)" }], { duration: 340, fill: "forwards" }),
+        ].filter(Boolean));
+        substitute?.remove();
+        slot?.classList.remove("has-substitute");
+      }
+      return;
+    }
     if (animation.kind === "switch") {
       if (!spriteElement) {
         const pokemon = sequence.rosters[side].find((candidate) => toId(candidate.name) === toId(animation.name));
@@ -2259,6 +2353,7 @@
       syncBattleSideToState("player", battleState.player.active),
       syncBattleSideToState("opponent", battleState.opponent.active),
     ]);
+    syncPersistentBattleVisuals();
     battleAnimating = false;
     arena.classList.remove("is-animating");
     if (battleState?.ended) {

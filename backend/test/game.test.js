@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { gunzipSync } from "node:zlib";
-import { abilityCatalog, contentSummary, itemCatalog, pokemonById, pokemonCatalog } from "../content.js";
+import { abilityCatalog, contentSummary, encounterPokemon, itemCatalog, pokemonById, pokemonCatalog } from "../content.js";
 import { GameStore, publicContent } from "../game-store.js";
 import { encounterSignatureMoves, generateEncounterMoves } from "../movesets.js";
 
@@ -21,10 +21,10 @@ async function fixture(now = new Date("2026-10-20T16:00:00Z")) {
 }
 
 test("the approvals snapshot resolves to canonical Pokémon, item, and complete TM catalogs", () => {
-  assert.deepEqual(contentSummary(), { pokemon: 522, starters: 30, heldItems: 139, trainingItems: 24, tms: 690 });
+  assert.deepEqual(contentSummary(), { pokemon: 522, starters: 30, heldItems: 139, trainingItems: 24, tms: 689 });
   assert.equal(pokemonCatalog.every((pokemon) => pokemonById.has(pokemon.id)), true);
-  assert.equal(itemCatalog.filter((item) => item.group === "TMs").length, 690);
-  assert.equal(publicContent().items.length, 853);
+  assert.equal(itemCatalog.filter((item) => item.group === "TMs").length, 689);
+  assert.equal(publicContent().items.length, 852);
   assert.equal(publicContent().abilities, abilityCatalog);
   assert.equal(abilityCatalog.length > 200, true);
   assert.equal(abilityCatalog.every((ability) => ability.id && ability.name && ability.description), true);
@@ -49,13 +49,21 @@ test("the approvals snapshot resolves to canonical Pokémon, item, and complete 
   assert.equal(itemCatalog.find((item) => item.id === "tm-sleeppowder").price, 750);
   assert.equal(itemCatalog.find((item) => item.id === "tm-crunch").pp, 24);
   assert.equal(itemCatalog.filter((item) => item.group === "TMs").every((item) => Number.isInteger(item.pp) && item.pp > 0), true);
-  assert.equal(itemCatalog.find((item) => item.id === "tm-growl").price, 250);
+  assert.equal(itemCatalog.find((item) => item.id === "tm-growl").price, 24000);
   assert.equal(itemCatalog.find((item) => item.id === "tm-splash").price, 100);
   assert.equal(itemCatalog.find((item) => item.id === "tm-aurasphere").price, 1400);
   assert.equal(itemCatalog.find((item) => item.id === "tm-aurorabeam").price, 1050);
   assert.equal(itemCatalog.find((item) => item.id === "tm-acidspray").price, 850);
-  assert.equal(itemCatalog.find((item) => item.id === "tm-protect").price, 2000);
-  assert.equal(itemCatalog.find((item) => item.id === "tm-kingsshield").price, 2000);
+  assert.equal(itemCatalog.find((item) => item.id === "tm-protect").price, 27500);
+  assert.equal(itemCatalog.find((item) => item.id === "tm-detect").price, 27500);
+  assert.equal(itemCatalog.find((item) => item.id === "tm-kingsshield").price, 32500);
+  assert.equal(itemCatalog.find((item) => item.id === "tm-spikyshield").price, 32500);
+  assert.equal(itemCatalog.find((item) => item.id === "tm-endure").price, 32500);
+  assert.equal(itemCatalog.find((item) => item.id === "tm-substitute").price, 30000);
+  assert.equal(itemCatalog.find((item) => item.id === "tm-snarl").price, 24000);
+  assert.equal(itemCatalog.find((item) => item.id === "tm-charm").price, 30000);
+  assert.equal(itemCatalog.find((item) => item.id === "tm-partingshot").price, 30000);
+  assert.equal(itemCatalog.find((item) => item.id === "tm-moonblast").price, 1550);
   assert.equal(itemCatalog.find((item) => item.id === "tm-suckerpunch").price, 1650);
   assert.equal(itemCatalog.find((item) => item.id === "tm-extremespeed").price, 1800);
   assert.equal(itemCatalog.find((item) => item.id === "tm-fierydance").price, 1800);
@@ -72,7 +80,7 @@ test("the approvals snapshot resolves to canonical Pokémon, item, and complete 
   assert.equal(itemCatalog.find((item) => item.id === "tm-lastresort").price, 1800);
   assert.equal(itemCatalog.find((item) => item.id === "tm-rapidspin").price, 1300);
   assert.equal(itemCatalog.find((item) => item.id === "tm-dreameater").price, 1100);
-  assert.equal(itemCatalog.some((item) => ["tm-aeroblast", "tm-spore", "tm-swordsdance", "tm-batonpass", "tm-doubleteam"].includes(item.id)), false);
+  assert.equal(itemCatalog.some((item) => ["tm-aeroblast", "tm-spore", "tm-swordsdance", "tm-batonpass", "tm-doubleteam", "tm-poweruppunch"].includes(item.id)), false);
   assert.equal(itemCatalog.filter((item) => item.group === "TMs").every((item) => item.price % 50 === 0), true);
 });
 
@@ -94,6 +102,8 @@ test("encounter movesets guarantee damaging STAB and approved signature moves", 
     }
   }
   assert.equal(pokemonCatalog.some((pokemon) => pokemon.id === "smeargle"), false);
+  assert.equal(encounterPokemon.some((pokemon) => pokemon.id === "shedinja"), false);
+  assert.equal(encounterSignatureMoves.aegislash, undefined);
   assert.deepEqual(encounterSignatureMoves.palafin, ["jetpunch"]);
   assert.deepEqual(encounterSignatureMoves.wugtrio, ["tripledive"]);
   assert.deepEqual(encounterSignatureMoves.revavroom, ["spinout"]);

@@ -5,7 +5,6 @@ const require = createRequire(import.meta.url);
 const { Dex } = require("pokemon-showdown");
 
 const guaranteedSignatures = Object.freeze({
-  aegislash: ["kingsshield"],
   archaludon: ["electroshot"],
   braviaryhisui: ["esperwing"],
   cacturne: ["needlearm"],
@@ -78,6 +77,10 @@ const optionalSignaturePool = Object.freeze({
 });
 
 const priorityStabExceptions = new Set(["accelerock", "bulletpunch"]);
+const protectionMoveIds = new Set([
+  "banefulbunker", "burningbulwark", "craftyshield", "detect", "endure", "kingsshield", "matblock",
+  "obstruct", "protect", "quickguard", "silktrap", "spikyshield", "wideguard",
+]);
 const bannedRandomMoves = new Set([
   "doubleedge", "explosion", "finalgambit", "gigaimpact", "healingwish", "hyperbeam",
   "lunardance", "memento", "selfdestruct", "splash", "takedown",
@@ -107,6 +110,7 @@ function isDamaging(move) {
 
 function validRandomMove(move) {
   if (!move.exists || move.isMax || move.isZ || bannedRandomMoves.has(move.id)) return false;
+  if (move.stallingMove || protectionMoveIds.has(move.id)) return false;
   if (move.ohko || move.selfdestruct) return false;
   if (move.category !== "Status" && (!isDamaging(move) || (effectivePower(move) < 60 && !priorityStabExceptions.has(move.id)))) return false;
   if (isDamaging(move) && accuracy(move) < 70) return false;

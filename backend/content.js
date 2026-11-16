@@ -185,7 +185,7 @@ for (const id of ["arceus", "giratina", "rayquaza"]) {
     starterEligible: false,
   }));
 }
-export const encounterPokemon = pokemonCatalog.filter((pokemon) => !pokemon.starterEligible);
+export const encounterPokemon = pokemonCatalog.filter((pokemon) => !pokemon.starterEligible && pokemon.id !== "shedinja");
 export const starterPokemon = pokemonCatalog.filter((pokemon) => pokemon.starterEligible);
 
 const approvedAbilityNames = new Set([...pokemonById.values()].flatMap((pokemon) => [
@@ -262,15 +262,15 @@ const excludedTmMoves = new Set([
   "filletaway", "geomancy", "growth", "honeclaws", "howl", "irondefense", "minimize",
   "nastyplot", "noretreat", "quiverdance", "revivalblessing", "rockpolish", "shedtail",
   "shellsmash", "shiftgear", "spore", "swordsdance", "tailglow", "tidyup", "victorydance",
-  "workup",
+  "workup", "poweruppunch",
 ]);
 const recoveryMoves = new Set([
   "healorder", "milkdrink", "recover", "roost", "shoreup", "slackoff", "softboiled", "strengthsap",
 ]);
 const weatherHealingMoves = new Set(["moonlight", "morningsun", "synthesis"]);
 const protectionMoves = new Set([
-  "banefulbunker", "burningbulwark", "detect", "kingsshield", "matblock", "obstruct", "protect",
-  "silktrap", "spikyshield",
+  "banefulbunker", "burningbulwark", "craftyshield", "detect", "endure", "kingsshield", "matblock",
+  "obstruct", "protect", "quickguard", "silktrap", "spikyshield", "wideguard",
 ]);
 const weatherAndTerrainMoves = new Set([
   "electricterrain", "grassyterrain", "hail", "mistyterrain", "psychicterrain", "raindance",
@@ -280,7 +280,7 @@ const premiumStatusMoves = new Map(Object.entries({
   auroraveil: 1500,
   lightscreen: 1350,
   reflect: 1350,
-  substitute: 1500,
+  substitute: 30000,
   wish: 1500,
 }));
 const strongStatusMoves = new Set([
@@ -342,12 +342,37 @@ function effectiveBasePower(move) {
   return move.basePower * hits;
 }
 
+function attackReductionPrice(move) {
+  const reductions = { atk: 0, spa: 0 };
+  const include = (boosts) => {
+    for (const stat of Object.keys(reductions)) reductions[stat] = Math.min(reductions[stat], Number(boosts?.[stat] || 0));
+  };
+  include(move.boosts);
+  const secondaries = move.secondaries || (move.secondary ? [move.secondary] : []);
+  for (const secondary of secondaries) {
+    if (Number(secondary?.chance ?? 100) > 50) include(secondary.boosts);
+  }
+  const customReductions = {
+    partingshot: { atk: -1, spa: -1 },
+    strengthsap: { atk: -1 },
+    venomdrench: { atk: -1, spa: -1 },
+  };
+  include(customReductions[move.id]);
+  if (reductions.atk <= -2 || reductions.spa <= -2 || (reductions.atk <= -1 && reductions.spa <= -1)) return 30000;
+  if (reductions.atk <= -1 || reductions.spa <= -1) return 24000;
+  return null;
+}
+
 function tmPrice(move) {
   if (fixedTmPrices.has(move.id)) return fixedTmPrices.get(move.id);
+  if (move.id === "protect" || move.id === "detect") return 27500;
+  if (protectionMoves.has(move.id) || move.stallingMove) return 32500;
+  const reductionPrice = attackReductionPrice(move);
+  if (reductionPrice) return reductionPrice;
   if (move.category === "Status") {
     if (move.id === "splash") return 100;
     if (lowValueStatusMoves.has(move.id)) return 250;
-    if (protectionMoves.has(move.id) || move.id === "perishsong") return 2000;
+    if (move.id === "perishsong") return 2000;
     if (weatherHealingMoves.has(move.id)) return 1750;
     if (weatherAndTerrainMoves.has(move.id)) return 1200;
     if (recoveryMoves.has(move.id)) return 2000;

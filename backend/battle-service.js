@@ -387,6 +387,13 @@ export function eventEntry(line, context) {
     case "-start":
     case "-end": {
       const delayedMove = effectName(detail);
+      if (toID(delayedMove) === "substitute") {
+        const active = type === "-start";
+        text = active ? `${name} made a substitute!` : `${name}'s substitute faded!`;
+        category = "substitute";
+        animation = { kind: "substitute", name, active };
+        break;
+      }
       if (!["futuresight", "doomdesire"].includes(toID(delayedMove))) break;
       text = type === "-start" ? `${name} set up ${delayedMove}.` : `${delayedMove} struck ${name}!`;
       category = "delayed";
@@ -420,11 +427,26 @@ export function eventEntry(line, context) {
       text = `${name}'s ${detail.toUpperCase()} fell${Number(extra) > 1 ? " sharply" : ""}.`;
       animation = { kind: "boost", name, direction: "down" };
       break;
-    case "-weather": text = detail === "none" ? "The weather cleared." : `${effectName(detail)} began.`; break;
-    case "-fieldstart": text = `${effectName(detail)} took effect.`; break;
-    case "-fieldend": text = `${effectName(detail)} ended.`; break;
-    case "-sidestart": text = `${effectName(detail)} affected ${subject === "p1: Player" ? "your team" : `${context.record.trainerName || "Brock"}'s team`}.`; break;
-    case "-sideend": text = `${effectName(detail)} ended for ${subject === "p1: Player" ? "your team" : `${context.record.trainerName || "Brock"}'s team`}.`; break;
+    case "-weather":
+      text = detail === "none" ? "The weather cleared." : `${effectName(detail)} began.`;
+      animation = { kind: "field", scope: "weather", effect: toID(detail), active: detail !== "none" };
+      break;
+    case "-fieldstart":
+      text = `${effectName(detail)} took effect.`;
+      animation = { kind: "field", scope: "terrain", effect: toID(effectName(detail)), active: true };
+      break;
+    case "-fieldend":
+      text = `${effectName(detail)} ended.`;
+      animation = { kind: "field", scope: "terrain", effect: toID(effectName(detail)), active: false };
+      break;
+    case "-sidestart":
+      text = `${effectName(detail)} affected ${subject === "p1: Player" ? "your team" : `${context.record.trainerName || "Brock"}'s team`}.`;
+      animation = { kind: "field", scope: "side", effect: toID(effectName(detail)), active: true };
+      break;
+    case "-sideend":
+      text = `${effectName(detail)} ended for ${subject === "p1: Player" ? "your team" : `${context.record.trainerName || "Brock"}'s team`}.`;
+      animation = { kind: "field", scope: "side", effect: toID(effectName(detail)), active: false };
+      break;
     case "win": text = `${subject} won the battle.`; category = "result"; break;
     case "tie": text = "The battle ended in a tie."; category = "result"; break;
     default: break;
@@ -449,6 +471,21 @@ function pokemonView(pokemon, ownSide) {
     status: pokemon.status || "",
     active: pokemon.isActive,
     fainted: pokemon.fainted,
+    substitute: Boolean(pokemon.volatiles?.substitute),
+  };
+}
+
+function battleEffectsView(battle) {
+  const sideConditions = (side) => Object.fromEntries(Object.entries(side.sideConditions || {}).map(([id, condition]) => [id, {
+    layers: condition.layers || 1,
+    duration: condition.duration || null,
+  }]));
+  return {
+    weather: battle.field.weather || "",
+    terrain: battle.field.terrain || "",
+    pseudoWeather: Object.keys(battle.field.pseudoWeather || {}),
+    player: sideConditions(battle.p1),
+    opponent: sideConditions(battle.p2),
   };
 }
 
@@ -1430,6 +1467,7 @@ export class BattleController {
       challengeDate: this.record.challengeDate || null,
       challengeNumber: this.record.challengeNumber || null,
       knockouts: structuredClone(this.knockouts),
+      effects: battleEffectsView(battle),
       moves,
       log: [...this.log],
       events: this.log.map((entry) => entry.text),
