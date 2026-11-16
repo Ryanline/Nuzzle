@@ -242,7 +242,7 @@ async function cacheShowdownAsset(relative, timeoutMs = 15_000) {
 }
 
 function showdownAssetCatalog() {
-  const species = [...new Set(Dex.species.all().filter((entry) => entry.exists && entry.spriteid).map((entry) => entry.spriteid))].sort();
+  const species = [...new Set(Dex.species.all().filter((entry) => entry.exists && entry.spriteid && !entry.spriteid.includes("/")).map((entry) => entry.spriteid))].sort();
   const types = Dex.types.all().filter((entry) => entry.exists).map((entry) => entry.name).sort();
   return [
     "itemicons-sheet.png",

@@ -412,6 +412,9 @@ if (await page.locator("[data-avatar-sprite]").count() < 1400) throw new Error("
 await page.fill("[data-avatar-search]", "diya");
 if (await page.locator('[data-avatar-sprite="diya"]').count() !== 1) throw new Error("The custom Diya sprite was not searchable in the player avatar picker.");
 if (!(await page.locator('[data-avatar-sprite="diya"] img').getAttribute("src"))?.includes("assets/trainers/diya.svg")) throw new Error("The player avatar picker did not use the custom Diya asset.");
+await page.fill("[data-avatar-search]", "tai");
+if (await page.locator('[data-avatar-sprite="tai"]').count() !== 1) throw new Error("Tai was not searchable in the player avatar picker.");
+if (!(await page.locator('[data-avatar-sprite="tai"] img').getAttribute("src"))?.includes("assets/sprites/digimon/tai.svg")) throw new Error("The player avatar picker did not use the custom Tai asset.");
 await page.fill("[data-avatar-search]", "misty");
 if (await page.locator('[data-avatar-sprite="misty"]').count() !== 1) throw new Error("Searching account avatars did not find Misty.");
 const avatarUpdateResponse = page.waitForResponse((response) => response.url().endsWith("/api/account/avatar") && response.request().method() === "PUT");
@@ -489,6 +492,9 @@ if (!(await page.locator('[data-trainer-sprite-option="ramsay"] img').getAttribu
 await page.fill("[data-trainer-sprite-search]", "diya");
 if (await page.locator('.trainer-sprite-choice[data-trainer-sprite-option="diya"]').count() !== 1) throw new Error("The custom Diya sprite was not searchable in the scheduler picker.");
 if (!(await page.locator('[data-trainer-sprite-option="diya"] img').getAttribute("src"))?.includes("assets/trainers/diya.svg")) throw new Error("The scheduler picker did not use the custom Diya asset.");
+await page.fill("[data-trainer-sprite-search]", "tai");
+if (await page.locator('.trainer-sprite-choice[data-trainer-sprite-option="tai"]').count() !== 1) throw new Error("Tai was not searchable in the scheduler picker.");
+if (!(await page.locator('[data-trainer-sprite-option="tai"] img').getAttribute("src"))?.includes("assets/sprites/digimon/tai.svg")) throw new Error("The scheduler picker did not use the custom Tai asset.");
 await page.fill("[data-trainer-sprite-search]", "misty-mast");
 const narrowedSpriteCount = await page.locator(".trainer-sprite-choice").count();
 if (narrowedSpriteCount < 1 || narrowedSpriteCount >= 1000) throw new Error("Typing did not narrow the trainer sprite grid.");
@@ -536,6 +542,11 @@ if (!(await reorderResponse).ok()) throw new Error("Reordering the daily trainer
 await page.waitForFunction(() => document.querySelector("[data-trainer-row] .trainer-queue-copy strong")?.textContent?.trim() === "Red");
 if (!(await page.locator("[data-trainer-row]").first().textContent())?.includes("Red")) throw new Error("The daily trainer queue did not retain its reordered position.");
 if (!(await page.locator("[data-trainer-row]").first().locator(".trainer-queue-copy img").getAttribute("src"))?.includes("/gen5-shiny/mew.png")) throw new Error("A queued shiny trainer Pokémon did not use its shiny sprite.");
+await addQueuedTrainer("Tai", "tai", "Greymon");
+const taiQueueRow = page.locator("[data-trainer-row]", { hasText: "Tai" });
+if (await taiQueueRow.count() !== 1) throw new Error("A reusable Digimon team could not be added to the scheduler.");
+if (!(await taiQueueRow.locator(".trainer-queue-copy img").getAttribute("src"))?.includes("assets/sprites/digimon/greymon.svg")) throw new Error("The queued Digimon did not use its custom sprite.");
+if (!(await taiQueueRow.locator(".trainer-queue-avatar").getAttribute("src"))?.includes("assets/sprites/digimon/tai.svg")) throw new Error("The queued Tai battle did not use the custom trainer sprite.");
 await page.click('.config-back[data-route="settings"]');
 await page.click(".page-back");
 const emptyRunBattleButton = page.locator('button[data-route="encounters"]', { hasText: /^battle$/i });

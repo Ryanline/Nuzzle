@@ -3,10 +3,15 @@ import { mkdtemp } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { encounterPokemon } from "../content.js";
+import { createRequire } from "node:module";
+import { customBattleSpecies } from "../custom-battle-species.js";
+import { encounterPokemon, pokemonCatalog } from "../content.js";
 import { gameDate, gameNumber, nextRolloverAt } from "../game-clock.js";
 import { trainerSprites, TrainerStore, validateTeam } from "../trainer-store.js";
 import { applyLiveTrainerAdjustments } from "../live-trainer-adjustments.js";
+
+const require = createRequire(import.meta.url);
+const { Dex } = require("pokemon-showdown");
 
 const mistyTeam = `Starmie @ Leftovers
 Ability: Natural Cure
@@ -55,13 +60,51 @@ Ability: Vital Spirit
   assert.equal(encounterPokemon.some((pokemon) => ["tangela", "primeape"].includes(pokemon.id)), false);
 });
 
+test("battle-only Digimon accept arbitrary valid Pokepaste builds without entering player catalogs", () => {
+  const parsed = validateTeam(`Greymon @ Choice Specs
+Ability: Levitate
+EVs: 4 HP / 252 SpA / 252 Spe
+Timid Nature
+- Hydro Pump
+- Psychic
+- Ice Beam
+- Recover`);
+  assert.equal(parsed.team[0].species, "Greymon");
+  assert.equal(parsed.team[0].item, "Choice Specs");
+  assert.equal(parsed.team[0].ability, "Levitate");
+  assert.deepEqual(parsed.team[0].moves, ["Hydro Pump", "Psychic", "Ice Beam", "Recover"]);
+  assert.deepEqual(parsed.team[0].evs, { hp: 4, atk: 0, def: 0, spa: 252, spd: 0, spe: 252 });
+
+  const expected = {
+    Angemon: { types: ["Fairy", "Flying"], bst: 540, weightkg: 65 },
+    Garurumon: { types: ["Ice"], bst: 534, weightkg: 110 },
+    Gatomon: { types: ["Fairy", "Electric"], bst: 520, weightkg: 9.5 },
+    Greymon: { types: ["Fire", "Dragon"], bst: 534, weightkg: 450 },
+    Kabuterimon: { types: ["Bug", "Electric"], bst: 525, weightkg: 180 },
+    Togemon: { types: ["Grass", "Fighting"], bst: 515, weightkg: 80 },
+  };
+  for (const definition of customBattleSpecies) {
+    const species = Dex.species.get(definition.name);
+    assert.equal(species.exists, true);
+    assert.deepEqual(species.types, expected[definition.name].types);
+    assert.deepEqual(species.baseStats, definition.baseStats);
+    assert.equal(species.bst, expected[definition.name].bst);
+    assert.equal(species.weightkg, expected[definition.name].weightkg);
+    assert.equal(species.spriteid, `digimon/${definition.id}`);
+  }
+  const customIds = new Set(customBattleSpecies.map(({ id }) => id));
+  assert.equal(encounterPokemon.some(({ id }) => customIds.has(id)), false);
+  assert.equal(pokemonCatalog.some(({ id }) => customIds.has(id)), false);
+});
+
 test("the trainer editor exposes the full Showdown sprite catalog and custom sprites", () => {
   assert.ok(trainerSprites.length >= 1_400);
-  for (const id of ["brock", "misty", "cynthia", "red", "youngster-gen9", "ramsay", "diya"]) {
+  for (const id of ["brock", "misty", "cynthia", "red", "youngster-gen9", "ramsay", "diya", "tai"]) {
     assert.ok(trainerSprites.some((sprite) => sprite.id === id), `missing trainer sprite ${id}`);
   }
   assert.equal(trainerSprites.find((sprite) => sprite.id === "ramsay")?.name, "Ramsay");
   assert.equal(trainerSprites.find((sprite) => sprite.id === "diya")?.name, "Diya");
+  assert.equal(trainerSprites.find((sprite) => sprite.id === "tai")?.name, "Tai");
 });
 
 test("queued trainers can be reordered and publish one immutable snapshot per day", async () => {

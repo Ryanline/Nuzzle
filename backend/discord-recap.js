@@ -57,8 +57,16 @@ function publicAssetUrl(publicUrl, relative) {
 
 function trainerSpritePath(spriteId) {
   if (spriteId === "brock") return "assets/trainers/brock.png";
+  if (spriteId === "tai") return "assets/sprites/digimon/tai.svg";
   if (spriteId === "ramsay" || spriteId === "diya") return `assets/trainers/${spriteId}.svg`;
   return `assets/showdown/trainers/${spriteId}.png`;
+}
+
+function pokemonSpritePath(spriteId) {
+  const customMatch = String(spriteId || "").match(/^digimon\/([a-z0-9-]+)$/);
+  return customMatch
+    ? `assets/sprites/digimon/${customMatch[1]}.svg`
+    : `assets/showdown/gen5/${spriteId}.png`;
 }
 
 function localMinutes(now, timeZone) {
@@ -78,7 +86,7 @@ export function discordRecapPayload(recap, { publicUrl = "https://nuzzle-game.du
     ? publicAssetUrl(publicUrl, trainerSpritePath(recap.trainerSpriteId))
     : null;
   const deadliestSprite = recap.deadliestPokemon?.spriteId
-    ? publicAssetUrl(publicUrl, `assets/showdown/gen5/${recap.deadliestPokemon.spriteId}.png`)
+    ? publicAssetUrl(publicUrl, pokemonSpritePath(recap.deadliestPokemon.spriteId))
     : null;
   if (!recap.challengers) {
     return {

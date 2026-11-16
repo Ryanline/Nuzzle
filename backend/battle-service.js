@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { createRequire } from "node:module";
+import "./custom-battle-species.js";
 import { buildBrockTeam, buildPlayerTeam } from "./teams.js";
 import { defaultLaunchDate } from "./game-clock.js";
 

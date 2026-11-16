@@ -6,6 +6,8 @@
     const speciesId = mons[id]?.speciesId || id;
     const isShiny = shiny ?? Boolean(mons[id]?.shiny);
     const spriteId = currentSpriteId || mons[id]?.spriteId || pokemonContent.get(speciesId)?.spriteId || speciesId;
+    const customMatch = String(spriteId).match(/^digimon\/([a-z0-9-]+)$/);
+    if (customMatch) return `assets/sprites/digimon/${encodeURIComponent(customMatch[1])}.svg`;
     const directory = isShiny ? (back ? "gen5-back-shiny" : "gen5-shiny") : (back ? "gen5-back" : "gen5");
     return `assets/showdown/${directory}/${encodeURIComponent(spriteId)}.png`;
   };
@@ -21,6 +23,7 @@
   const healthTone = (percent) => percent <= 20 ? "critical" : percent <= 50 ? "warning" : "healthy";
   const trainerSprite = (id = "brock") => {
     if (id === "brock") return "assets/trainers/brock.png";
+    if (id === "tai") return "assets/sprites/digimon/tai.svg";
     if (id === "ramsay" || id === "diya") return `assets/trainers/${id}.svg`;
     return `assets/showdown/trainers/${encodeURIComponent(id)}.png`;
   };

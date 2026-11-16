@@ -130,6 +130,7 @@ The game is intentionally Nuzlocke-like and can be harsh. It should create inter
 
 - Admin tooling supports trainer drafts, a queued daily schedule, reordering, and immutable published daily snapshots.
 - Trainer sets are imported in Showdown format with species, ability, nature, IVs, EVs, moves, held item, gender, and shiny state.
+- Angemon, Garurumon, Gatomon, Greymon, Kabuterimon, and Togemon are private battle-only species with fixed custom typings, base stats, default abilities, weights, and sprites. Admin Poképastes may give them any otherwise valid Showdown moves, ability, item, nature, level, IVs, and EVs. They are deliberately excluded from encounters and every player Pokémon catalog. Tai is available as both a scheduled trainer sprite and a player avatar.
 - Each date has one persisted shared opponent for all players. Encounters remain individualized.
 - The active implementation uses the configured queue; automatic Friday Gym and month-end Elite Four/Champion selection is still future campaign logic.
 

@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { createRequire } from "node:module";
+import "./custom-battle-species.js";
 import { buildBrockTeam } from "./teams.js";
 import { datesAfter, gameDate, gameNumber, nextGameDate, nextRolloverAt } from "./game-clock.js";
 import { avatarSpriteIds, trainerSpriteIds } from "./trainer-sprite-ids.js";

@@ -1505,10 +1505,12 @@ export const showdownTrainerSpriteIds = Object.freeze([
 export const customTrainerSpriteIds = Object.freeze([
   "ramsay",
   "diya",
+  "tai",
 ]);
 
 export const customAvatarSpriteIds = Object.freeze([
   "diya",
+  "tai",
 ]);
 
 export const trainerSpriteIds = Object.freeze([

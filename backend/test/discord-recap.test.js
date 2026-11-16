@@ -78,6 +78,8 @@ test("daily Discord recaps aggregate trainer results, KOs, survivors, and users"
   assert.equal(JSON.stringify(payload).includes("—"), false);
   assert.equal(discordRecapPayload({ ...recap, trainerSpriteId: "ramsay" }, { publicUrl: "https://nuzzle.example/" }).embeds[0].thumbnail.url, "https://nuzzle.example/assets/trainers/ramsay.svg");
   assert.equal(discordRecapPayload({ ...recap, trainerSpriteId: "diya" }, { publicUrl: "https://nuzzle.example/" }).embeds[0].thumbnail.url, "https://nuzzle.example/assets/trainers/diya.svg");
+  assert.equal(discordRecapPayload({ ...recap, trainerSpriteId: "tai" }, { publicUrl: "https://nuzzle.example/" }).embeds[0].thumbnail.url, "https://nuzzle.example/assets/sprites/digimon/tai.svg");
+  assert.equal(discordRecapPayload({ ...recap, deadliestPokemon: { ...recap.deadliestPokemon, spriteId: "digimon/greymon" } }, { publicUrl: "https://nuzzle.example/" }).embeds[0].image.url, "https://nuzzle.example/assets/sprites/digimon/greymon.svg");
 });
 
 test("the Discord recap scheduler posts the previous day only once across restarts", async () => {

@@ -250,6 +250,36 @@ test("a daily trainer and team are snapshotted into the battle", async () => {
   assert.equal(state.challengeNumber, 9);
 });
 
+test("battle-only Digimon use their custom mechanics and sprite identities", async () => {
+  const { service } = await serviceFixture();
+  const state = await service.create({
+    partyIds: ["vaporeon"],
+    leadId: "vaporeon",
+    opponentTeam: [{
+      name: "Greymon",
+      species: "Greymon",
+      ability: "Strong Jaw",
+      item: "Choice Band",
+      nature: "Adamant",
+      level: 100,
+      evs: { hp: 4, atk: 252, spe: 252 },
+      moves: ["Fire Fang", "Dragon Claw", "Crunch", "Megahorn"],
+    }],
+    trainerName: "Tai",
+    trainerSpriteId: "tai",
+  });
+  const greymon = service.get(state.id).stream.battle.p2.pokemon[0];
+  assert.equal(state.opponent.name, "Tai");
+  assert.equal(state.opponent.spriteId, "tai");
+  assert.equal(state.opponent.active.id, "greymon");
+  assert.equal(state.opponent.active.spriteId, "digimon/greymon");
+  assert.deepEqual(greymon.getTypes(), ["Fire", "Dragon"]);
+  assert.deepEqual(greymon.species.baseStats, { hp: 90, atk: 115, def: 90, spa: 100, spd: 69, spe: 70 });
+  assert.equal(greymon.species.weightkg, 450);
+  assert.equal(greymon.getAbility().name, "Strong Jaw");
+  assert.equal(greymon.getItem().name, "Choice Band");
+});
+
 test("Zero to Hero exposes Palafin's transformed stats and sprite after switching out", async () => {
   const { service } = await serviceFixture();
   const playerTeam = [
