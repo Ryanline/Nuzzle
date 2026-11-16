@@ -630,8 +630,11 @@ const outgoingPokemon = generatedGame.roster.find((pokemon) => pokemon.id === ou
 const content = await page.evaluate(() => fetch("/api/content").then((response) => response.json()));
 const teachableTm = content.items.find((item) => item.group === "TMs" && outgoingPokemon.learnableMoveIds.includes(item.moveId) && !outgoingPokemon.moves.some((move) => move.toLowerCase().replace(/[^a-z0-9]+/g, "") === item.moveId));
 if (!teachableTm) throw new Error("No compatible TM was available for the PC teaching flow.");
-const replacementId = generatedGame.roster.find((pokemon) => !generatedGame.teamIds.includes(pokemon.id) && pokemon.ability !== "Illusion" && !pokemon.heldItemId).id;
-const replacementName = generatedGame.roster.find((pokemon) => pokemon.id === replacementId).name;
+const entryFormAbilities = new Set(["Flower Gift", "Forecast", "Illusion", "Schooling", "Tera Shift"]);
+const replacementPokemon = generatedGame.roster.find((pokemon) => !generatedGame.teamIds.includes(pokemon.id) && !entryFormAbilities.has(pokemon.ability) && !pokemon.heldItemId);
+if (!replacementPokemon) throw new Error("No stable-form boxed Pokémon was available for the PC replacement flow.");
+const replacementId = replacementPokemon.id;
+const replacementName = replacementPokemon.name;
 await page.click(".page-back");
 await page.click('[data-route="encounters"]');
 if (await page.locator(".encounter-card.revealed").count()) throw new Error("Previously claimed encounters remained visible after returning to the screen.");
