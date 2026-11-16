@@ -64,6 +64,7 @@ test("the approvals snapshot resolves to canonical Pokémon, item, and complete 
   assert.equal(itemCatalog.find((item) => item.id === "tm-charm").price, 30000);
   assert.equal(itemCatalog.find((item) => item.id === "tm-partingshot").price, 30000);
   assert.equal(itemCatalog.find((item) => item.id === "tm-moonblast").price, 1550);
+  assert.equal(itemCatalog.find((item) => item.id === "tm-toxicspikes").price, 32500);
   assert.equal(itemCatalog.find((item) => item.id === "tm-suckerpunch").price, 1650);
   assert.equal(itemCatalog.find((item) => item.id === "tm-extremespeed").price, 1800);
   assert.equal(itemCatalog.find((item) => item.id === "tm-fierydance").price, 1800);

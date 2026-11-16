@@ -313,6 +313,7 @@ const fixedTmPrices = new Map(Object.entries({
   lastresort: 1800,
   populationbomb: 2400,
   rapidspin: 1300,
+  toxicspikes: 32500,
 }));
 
 function roundTmPrice(value, minimum = 100) {

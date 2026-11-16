@@ -279,7 +279,7 @@ These are first-pass balance values. Tune them in content data rather than chang
 - Fixed multihit moves use total power; variable 2–5-hit moves use 3.5 hits.
 - Formula results have a ₽500 floor and round upward to the nearest ₽50.
 - Electro Ball and Gyro Ball cost ₽1,000.
-- Population Bomb costs ₽2,400; Aura Wheel, Focus Punch, and Last Resort ₽1,800; Rapid Spin ₽1,300; Dream Eater ₽1,100.
+- Toxic Spikes costs ₽32,500. Population Bomb costs ₽2,400; Aura Wheel, Focus Punch, and Last Resort ₽1,800; Rapid Spin ₽1,300; Dream Eater ₽1,100.
 - Protect and Detect cost ₽27,500; other protection moves cost ₽32,500 and never generate on encounters. Substitute costs ₽30,000. Guaranteed Attack or Sp. Atk drops cost ₽24,000 for one stage, or ₽30,000 for two stages or both offensive stats; effects with a 50% chance or less keep their normal price. Recover equivalents cost ₽2,000; Synthesis/Morning Sun/Moonlight cost ₽1,750. Reflect/Light Screen cost ₽1,350. Weather/terrain setters cost ₽1,200. Perish Song costs ₽2,000.
 - Strong accurate status moves such as Thunder Wave cost around ₽1,000; useful unreliable moves such as Sleep Powder ₽750; niche status ₽500; ordinary low-value status moves ₽250; Splash ₽100. Offensive-stat drops use the higher prices above.
 
