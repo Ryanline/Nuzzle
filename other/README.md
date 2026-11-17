@@ -78,15 +78,15 @@ The game is intentionally Nuzlocke-like and can be harsh. It should create inter
 - Shows today's trainer team first as a preparation reference, then the player's Team, then boxed Pokémon.
 - A Pokémon appears in Team or Box, never both. Team size is at most six.
 - Supports adding/removing team members and drag reordering.
-- The detail drawer has Summary and Training sections. Summary shows identity, types, ability, nature, held item, calculated battle stats, and moves. Tapping the ability opens its description in the same lightweight detail style used by moves. Its Remove, Held item, and Close actions reuse the home screen's Battle, Mart, and Settings colors in both themes. Player team and box cards show a transparent held-item sprite inset above the name line.
-- Training provides a compact, non-scrolling, Showdown-inspired mobile editor in a drawer that shares its height, Pokémon header sizing, and normalized bottom actions with Summary. Each horizontal stat row shows the stat name, base value, synchronized numeric EV and slider controls, numeric IV with a compact Max IV shortcut, and final calculated value. Nature choices are grouped by the stat they raise, followed by neutral natures; ability, eligible forms, and a searchable legal-move catalog follow below. Changes and resulting stats are previewed before purchase, then applied together in one server-authoritative transaction.
+- The detail drawer has one Summary view showing identity, types, ability, held item, base stats, and moves. Tapping the ability opens its description and the other selectable abilities; tapping a move opens the searchable legal-move catalog. Its Remove, Held item, and Close actions reuse the home screen's Battle, Mart, and Settings colors in both themes. Player team and box cards show a transparent held-item sprite inset above the name line.
+- Ability and move changes are staged in Summary, priced before purchase, and applied together in one server-authoritative transaction.
 - Held items can be given or taken without closing the item view; the holder and Bag update immediately. Giving an item that has no free copy prompts for confirmation and then transfers it atomically from its current holder.
-- Training shows the pending-change count, total cost, and resulting balance. Lowering EVs or IVs is free; only values raised above their persisted baseline are charged. Resetting or restoring a value before applying costs nothing.
+- Summary shows the pending-change count and total cost. Resetting or restoring a value before applying costs nothing.
 - There is currently no box capacity, release action, filtering, or selling.
 
 ### Bag and Mart
 
-- The Mart and Bag contain held items. Training and moves are purchased directly through a Pokémon's Training editor in the PC.
+- The Mart and Bag contain held items. Ability and move changes are purchased directly through a Pokémon's Summary drawer in the PC.
 - The Bag shows owned inventory and contextual use/equip actions.
 - The Mart uses compact rows, optional item information, and a purchase drawer.
 - Stackable items use a mobile quantity selector showing current money, owned quantity, selected quantity, and total price.
@@ -162,9 +162,7 @@ Approved campaign direction, not yet automatically implemented:
 Every player encounter, including the guaranteed starter, uses:
 
 - Level `100`.
-- Six independent uniformly random IVs from `0–31`.
-- `0` EVs in all six stats.
-- A uniformly random nature.
+- No individual IV, EV, or nature data. Player battle sets use the same implicit competitive baseline: perfect IVs, zero EVs, and neutral stat modifiers.
 - A uniformly random distinct ordinary, non-hidden ability.
 - Normal species/form gender rules.
 - Base shiny odds of `1/4096`, without a Sunday bonus or Shiny Charm.
@@ -207,17 +205,12 @@ Optional signature-pool moves, favored but not forced, are:
 
 `Volt Tackle` (Raichu), `Crabhammer` (Kingler), `Bonemerang`/`Bone Club` (Marowak), `Shadow Bone` (Alolan Marowak), `Blaze Kick` (Blaziken), `Muddy Water` (Swampert), `Heat Crash` (Emboar), `Ceaseless Edge` (Hisuian Samurott), `Night Daze` (Zoroark), `Fire Lash` (Salazzle), `Clanging Scales` (Kommo-o), `Dire Claw` (Sneasler), and `Kowtow Cleave` (Kingambit).
 
-## Training Items and Form Changes
+## PC Changes and Form Changes
 
-Training-item names and prices define the cost of direct PC training; they are no longer purchased or stored in the Bag. A staged build is charged only after the complete final build validates and succeeds. Canceling, resetting, errors, or restoring the current value costs nothing.
+Ability, move, and eligible form-change prices define the cost of direct PC changes; they are not purchased or stored in the Bag. A staged build is charged only after the complete final build validates and succeeds. Canceling, resetting, errors, or restoring the current value costs nothing.
 
-Legacy runs are migrated once: owned Training Items and TMs are removed and fully refunded at their current catalog prices.
+Legacy runs are migrated once: IVs, EVs, and natures are removed from every current player Pokémon and encounter candidate. Every balance below ₽50,000 is raised to ₽50,000 once; later spending does not trigger another top-up. Previously owned Training Items and TMs are also removed and fully refunded at their current catalog prices.
 
-- HP Up, Protein, Iron, Calcium, Zinc, and Carbos price EV increases at ₽10 per point in their respective stat.
-- EVs may be lowered directly for free. A staged value is charged only for the amount above that Pokémon's persisted EV value.
-- Enforce `0–252` per stat and `510` total EVs.
-- Raising one IV above its persisted value costs one Bottle Cap. Lowering an IV is free; the UI defaults its quick-set action to `31`.
-- A Nature Mint lets the player choose any nature.
 - An Ability Capsule never grants a hidden ability. It switches automatically between eligible ordinary abilities, is unusable when no alternative ordinary ability exists, and lets a hidden-ability holder return to an eligible ordinary ability.
 - An Ability Patch only changes an ordinary ability to an eligible hidden ability. It never reverses a hidden ability and cannot grant Zen Mode.
 

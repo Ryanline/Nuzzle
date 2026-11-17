@@ -217,10 +217,7 @@
     encounters = nextState.encounters || [];
     team = new Set(nextState.teamIds || []);
     pcOrder = nextState.roster.map((pokemon) => pokemon.id);
-    mons = Object.fromEntries(nextState.roster.map((pokemon) => {
-      const nature = natureOptions.find((option) => option.name === pokemon.nature) || {};
-      return [pokemon.id, { ...pokemon, natureUp: nature.up || "", natureDown: nature.down || "" }];
-    }));
+    mons = Object.fromEntries(nextState.roster.map((pokemon) => [pokemon.id, pokemon]));
   }
 
   async function loadContent() {
@@ -824,9 +821,7 @@
     const statValues = mon.calculatedStats || {};
     const statLine = statOrder.map((stat) => {
       const label = statLabels[stat];
-      const natureChange = label === mon.natureUp ? " raised" : label === mon.natureDown ? " lowered" : "";
-      const marker = natureChange === " raised" ? " ↑" : natureChange === " lowered" ? " ↓" : "";
-      return `<span class="lead-stat${natureChange}" aria-label="${label}, ${statValues[stat] ?? "—"}${natureChange ? `, ${natureChange.trim()} by ${mon.nature} nature` : ""}"><small>${label}${marker}</small> <strong>${statValues[stat] ?? "—"}</strong></span>`;
+      return `<span class="lead-stat" aria-label="${label}, ${statValues[stat] ?? "—"}"><small>${label}</small> <strong>${statValues[stat] ?? "—"}</strong></span>`;
     }).join("");
     const moveDetails = mon.moveDetails || mon.moves.map((name) => ({ name, type: "Normal" }));
     return `<article class="lead-details-card" aria-label="${escapeHtml(mon.name)} battle details">
@@ -1011,9 +1006,6 @@
   function beginTraining(mon) {
     trainingDraft = {
       speciesId: mon.speciesId,
-      ivs: { ...mon.ivs },
-      evs: { ...mon.evs },
-      nature: mon.nature,
       ability: mon.ability,
       moves: [...mon.moves],
     };
@@ -1032,38 +1024,11 @@
     return (mon.trainingForms || []).filter((form) => form.id === mon.speciesId || (mon.speciesId.startsWith("rotom") && form.id.startsWith("rotom")) || targets.has(form.id));
   }
 
-  function previewTrainingStats(mon) {
-    const draft = trainingDraft;
-    const form = trainingForm(mon);
-    const nature = natureOptions.find((option) => option.name === draft.nature) || {};
-    const labelByStat = { atk: "Atk", def: "Def", spa: "SpA", spd: "SpD", spe: "Spe" };
-    return Object.fromEntries(trainingStats.map(([stat]) => {
-      const base = form.baseStats[stat];
-      const core = Math.floor(((2 * base + draft.ivs[stat] + Math.floor(draft.evs[stat] / 4)) * mon.level) / 100);
-      const adjustment = nature.up === labelByStat[stat] ? 1.1 : nature.down === labelByStat[stat] ? .9 : 1;
-      return [stat, stat === "hp" ? (base === 1 ? 1 : core + mon.level + 10) : Math.floor((core + 5) * adjustment)];
-    }));
-  }
-
   function localTrainingQuote(mon) {
     const draft = trainingDraft;
     const form = trainingForm(mon);
     const lines = [];
     const add = (key, label, cost) => lines.push({ key, label, cost });
-    for (const [stat, label] of trainingStats) {
-      const evDifference = draft.evs[stat] - mon.evs[stat];
-      if (evDifference > 0) {
-        const item = shopItems.find((candidate) => candidate.effect === "ev" && candidate.stat === stat && candidate.amount > 0);
-        add(`ev-${stat}`, `${label} EV +${evDifference}`, evDifference * item.price);
-      } else if (evDifference < 0) {
-        add(`ev-${stat}`, `${label} EV −${Math.abs(evDifference)}`, 0);
-      }
-      if (draft.ivs[stat] !== mon.ivs[stat]) {
-        const cost = draft.ivs[stat] > mon.ivs[stat] ? shopItems.find((item) => item.effect === "iv").price : 0;
-        add(`iv-${stat}`, `${label} IV ${mon.ivs[stat]} → ${draft.ivs[stat]}`, cost);
-      }
-    }
-    if (draft.nature !== mon.nature) add("nature", `Nature ${mon.nature} → ${draft.nature}`, shopItems.find((item) => item.effect === "nature").price);
     if (draft.ability !== mon.ability) {
       const effect = draft.ability === form.hiddenAbility ? "ability-patch" : "ability-capsule";
       add("ability", `Ability ${mon.ability} → ${draft.ability}`, shopItems.find((item) => item.effect === effect).price);
@@ -1081,8 +1046,7 @@
       const item = shopItems.find((candidate) => candidate.id === `tm-${moveId}`);
       add(`move-${moveId}`, `Learn ${move}`, item.price);
     }
-    const changed = draft.speciesId !== mon.speciesId || draft.nature !== mon.nature || draft.ability !== mon.ability
-      || trainingStats.some(([stat]) => draft.ivs[stat] !== mon.ivs[stat] || draft.evs[stat] !== mon.evs[stat])
+    const changed = draft.speciesId !== mon.speciesId || draft.ability !== mon.ability
       || draft.moves.some((move, slot) => move !== mon.moves[slot]);
     return { lines, total: lines.reduce((sum, line) => sum + line.cost, 0), changed };
   }
@@ -1114,28 +1078,6 @@
     const currentMoveName = trainingDraft.moves[trainingMoveSlot];
     const currentMove = moveCatalogItem(currentMoveName);
     return `<section class="training-move-picker"><header><div class="training-move-nav"><button type="button" data-close-move-picker aria-label="Back to summary">←</button><small>Replace move ${trainingMoveSlot + 1}</small></div><div class="showdown-move-row training-current-move" data-current-training-move>${showdownMoveRow(currentMove)}</div></header><label class="move-search"><span>Search available moves</span><input type="search" value="${escapeHtml(trainingMoveSearch)}" placeholder="Search by name, type, category, or effect" data-training-move-search autofocus><small aria-live="polite" data-training-move-count>${matchCount} matching move${matchCount === 1 ? "" : "s"}</small></label><div class="training-move-list">${moves.map((item) => `<button class="showdown-move-row" type="button" data-select-training-move="${item.id}" data-move-search-text="${escapeHtml(`${item.name} ${item.type} ${item.category} ${item.description || ""}`.toLowerCase())}" ${matches(item) ? "" : "hidden"}>${showdownMoveRow(item, item.price)}</button>`).join("")}<p class="training-empty" ${matchCount ? "hidden" : ""}>No matching moves.</p></div></section>`;
-  }
-
-  function trainingEditor(mon) {
-    if (!trainingDraft) beginTraining(mon);
-    if (trainingMoveSlot !== null) return trainingMovePicker(mon);
-    const form = trainingForm(mon);
-    const stats = previewTrainingStats(mon);
-    const quote = localTrainingQuote(mon);
-    const invalidMoveSlots = trainingDraft.moves.map((move, slot) => form.legalMoveIds.includes(toId(move)) ? null : slot).filter((slot) => slot !== null);
-    const statCards = trainingStats.map(([stat]) => {
-      const nature = natureOptions.find((option) => option.name === trainingDraft.nature) || {};
-      const labelByStat = { atk: "Atk", def: "Def", spa: "SpA", spd: "SpD", spe: "Spe" };
-      const raised = nature.up === labelByStat[stat];
-      const lowered = nature.down === labelByStat[stat];
-      const marker = raised ? " ↑" : lowered ? " ↓" : "";
-      return `<div class="training-stat-card${raised ? " raised" : lowered ? " lowered" : ""}"><span>${trainingStatNames[stat]}${marker}</span><strong>${stats[stat]}</strong><small>Base ${form.baseStats[stat]}</small></div>`;
-    }).join("");
-    const nature = natureOptions.find((option) => option.name === trainingDraft.nature) || {};
-    const natureEffect = nature.up ? `+${nature.up}, −${nature.down}` : "Neutral";
-    const abilities = [...form.ordinaryAbilities, form.hiddenAbility].filter(Boolean);
-    const forms = availableTrainingForms(mon);
-    return `<section class="training-editor" role="tabpanel"><div class="training-scroll"><section class="training-stat-summary" aria-labelledby="training-stats-heading"><h3 id="training-stats-heading">Stats</h3><div class="training-stat-grid">${statCards}</div></section><div class="training-profile"><div class="training-nature"><span>Nature</span><div><strong>${escapeHtml(trainingDraft.nature)}</strong><small>${escapeHtml(natureEffect)} · innate</small></div></div><label>Ability<select data-training-ability>${abilities.map((ability) => `<option ${ability === trainingDraft.ability ? "selected" : ""}>${escapeHtml(ability)}</option>`).join("")}</select></label>${forms.length > 1 ? `<label>Form<select data-training-form>${forms.map((candidate) => `<option value="${candidate.id}" ${candidate.id === trainingDraft.speciesId ? "selected" : ""}>${escapeHtml(candidate.name)}</option>`).join("")}</select></label>` : ""}</div><div class="training-moves"><h3>Moves</h3>${trainingDraft.moves.map((move, slot) => `<button class="${invalidMoveSlots.includes(slot) ? "invalid" : ""}" type="button" data-edit-training-move="${slot}"><span><small>Move ${slot + 1}${invalidMoveSlots.includes(slot) ? " · replacement required" : ""}</small><strong>${escapeHtml(move)}</strong></span><b>Change</b></button>`).join("")}</div></div><footer class="training-footer">${trainingMessage ? `<p role="alert">${escapeHtml(trainingMessage)}</p>` : ""}${invalidMoveSlots.length ? '<p role="alert">Replace moves that are illegal for the selected form.</p>' : ""}<div class="training-footer-line"><span>${quote.lines.length} pending change${quote.lines.length === 1 ? "" : "s"}<button type="button" data-reset-training ${quote.changed ? "" : "disabled"}>Reset</button></span><span>Total ₽${quote.total.toLocaleString()}</span></div><div class="training-after">Balance after ₽${Math.max(0, balance - quote.total).toLocaleString()}</div><div class="training-footer-actions"><button class="gloss-button blue" type="button" data-apply-training ${quote.changed && quote.total <= balance && !invalidMoveSlots.length ? "" : "disabled"}>Apply changes</button><button class="gloss-button neutral" type="button" data-close-pc-sheet>Close</button></div></footer></section>`;
   }
 
   function pcPokemonSheet(id) {
@@ -1185,14 +1127,6 @@
   let shopItems = [];
   const itemGroupOrder = ["Held Items", "Key Items"];
   const itemGroupLabel = (group) => group === "Held Items" ? "Held items" : group === "Key Items" ? "Key items" : group;
-  const natureOptions = [
-    { name: "Adamant", up: "Atk", down: "SpA" }, { name: "Lonely", up: "Atk", down: "Def" }, { name: "Naughty", up: "Atk", down: "SpD" }, { name: "Brave", up: "Atk", down: "Spe" },
-    { name: "Bold", up: "Def", down: "Atk" }, { name: "Impish", up: "Def", down: "SpA" }, { name: "Relaxed", up: "Def", down: "Spe" }, { name: "Lax", up: "Def", down: "SpD" },
-    { name: "Jolly", up: "Spe", down: "SpA" }, { name: "Timid", up: "Spe", down: "Atk" }, { name: "Hasty", up: "Spe", down: "Def" }, { name: "Naive", up: "Spe", down: "SpD" },
-    { name: "Modest", up: "SpA", down: "Atk" }, { name: "Mild", up: "SpA", down: "Def" }, { name: "Rash", up: "SpA", down: "SpD" }, { name: "Quiet", up: "SpA", down: "Spe" },
-    { name: "Calm", up: "SpD", down: "Atk" }, { name: "Careful", up: "SpD", down: "SpA" }, { name: "Sassy", up: "SpD", down: "Spe" }, { name: "Gentle", up: "SpD", down: "Def" },
-    { name: "Bashful" }, { name: "Docile" }, { name: "Hardy" }, { name: "Quirky" }, { name: "Serious" },
-  ];
 
   function heldItemSprite(item) {
     return `<i class="held-item-sprite" style="background-position:-${(item.spriteNumber % 16) * 24}px -${Math.floor(item.spriteNumber / 16) * 24}px"></i>`;
@@ -1232,10 +1166,7 @@
     if (pendingPcItemId) {
       const item = shopItems.find((candidate) => candidate.id === pendingPcItemId);
       let controls = "";
-      if (item.effect === "ev") controls = `<label>Quantity<input name="quantity" type="number" min="1" max="${inventory[item.id]}" value="1" inputmode="numeric"></label>`;
-      else if (item.effect === "iv") controls = `<label>Stat<select name="stat">${["hp", "atk", "def", "spa", "spd", "spe"].map((stat) => `<option value="${stat}">${stat.toUpperCase()}</option>`).join("")}</select></label><label>New IV<input name="value" type="number" min="0" max="31" value="31" inputmode="numeric"></label>`;
-      else if (item.effect === "nature") controls = `<label>Nature<select name="nature">${natureOptions.map((nature) => `<option value="${nature.name}" ${nature.name === mon.nature ? "disabled" : ""}>${nature.name}${nature.up ? ` (+${nature.up}, −${nature.down})` : " (neutral)"}</option>`).join("")}</select></label>`;
-      else if (item.effect === "ability-capsule") {
+      if (item.effect === "ability-capsule") {
         const choices = mon.ordinaryAbilities.filter((ability) => ability !== mon.ability);
         controls = choices.length ? `<label>Ability<select name="ability">${choices.map((ability) => `<option>${escapeHtml(ability)}</option>`).join("")}</select></label>` : `<p class="sheet-feedback">This Pokémon has no eligible ordinary ability to switch to.</p>`;
       } else if (item.effect === "ability-patch") controls = `<p>Change <strong>${escapeHtml(mon.ability)}</strong> to <strong>${escapeHtml(mon.hiddenAbility || "no eligible hidden ability")}</strong>.</p>`;

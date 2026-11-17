@@ -907,7 +907,8 @@ const trainingResponse = page.waitForResponse((response) => response.url().inclu
 await page.click("[data-apply-training]");
 if (!(await trainingResponse).ok()) throw new Error("Applying a staged training build failed.");
 const tmTrainedGame = await page.evaluate(() => fetch("/api/game").then((response) => response.json()));
-if (JSON.stringify(tmTrainedGame.roster.find((pokemon) => pokemon.id === outgoingId).evs) !== JSON.stringify(outgoingPokemon.evs) || JSON.stringify(tmTrainedGame.roster.find((pokemon) => pokemon.id === outgoingId).ivs) !== JSON.stringify(outgoingPokemon.ivs)) throw new Error("Move training unexpectedly changed hidden EVs or IVs.");
+const tmTrainedPokemon = tmTrainedGame.roster.find((pokemon) => pokemon.id === outgoingId);
+if ([outgoingPokemon, tmTrainedPokemon].some((pokemon) => "evs" in pokemon || "ivs" in pokemon || "nature" in pokemon)) throw new Error("Player Pokémon unexpectedly exposed retired EV, IV, or nature fields.");
 if (tmTrainedGame.roster.find((pokemon) => pokemon.id === outgoingId).moves[0] !== teachableTm.move) throw new Error("The selected move slot was not replaced.");
 await page.setViewportSize({ width: 390, height: 844 });
 await page.click("[data-open-pc-items]");

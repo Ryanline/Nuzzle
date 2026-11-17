@@ -10,7 +10,6 @@ import {
   itemById,
   itemCatalog,
   learnableMoveIds,
-  natureNames,
   pokemonById,
   pokemonCatalog,
   starterPokemon,
@@ -25,6 +24,11 @@ const statLabels = { hp: "HP", atk: "Atk", def: "Def", spa: "SpA", spd: "SpD", s
 const startingMoney = 50000;
 const victoryReward = 15000;
 const directTrainingVersion = 1;
+const simplifiedPlayerStatsVersion = 1;
+const implicitPlayerIvs = Object.freeze(Object.fromEntries(stats.map((stat) => [stat, 31])));
+const implicitPlayerEvs = Object.freeze(Object.fromEntries(stats.map((stat) => [stat, 0])));
+const implicitPlayerNature = "Serious";
+const retiredPlayerStatEffects = new Set(["ev", "iv", "nature"]);
 const runLifespanDays = 7;
 const runArchiveRetentionDays = 30;
 const gzipAsync = promisify(gzip);
@@ -72,8 +76,6 @@ function defaultMoves(speciesId) {
 }
 
 function createPokemon(speciesData) {
-  const ivs = Object.fromEntries(stats.map((stat) => [stat, crypto.randomInt(32)]));
-  const evs = Object.fromEntries(stats.map((stat) => [stat, 0]));
   const ability = randomChoice(speciesData.ordinaryAbilities);
   return {
     id: speciesData.id,
@@ -83,9 +85,6 @@ function createPokemon(speciesData) {
     spriteId: speciesData.spriteId,
     types: [...speciesData.types],
     level: 100,
-    ivs,
-    evs,
-    nature: randomChoice(natureNames),
     ability,
     gender: randomGender(speciesData),
     shiny: crypto.randomInt(4096) === 0,
@@ -171,19 +170,12 @@ function migrateOpeningEncounters(run) {
   }
 }
 
-function natureAdjustment(natureName, stat) {
-  const nature = Dex.natures.get(natureName);
-  if (nature.plus === stat) return 1.1;
-  if (nature.minus === stat) return 0.9;
-  return 1;
-}
-
 function calculatedStats(pokemon) {
   const species = pokemonById.get(pokemon.speciesId);
   return Object.fromEntries(stats.map((stat) => {
     const base = species.baseStats[stat];
-    const core = Math.floor(((2 * base + pokemon.ivs[stat] + Math.floor(pokemon.evs[stat] / 4)) * pokemon.level) / 100);
-    const value = stat === "hp" ? (base === 1 ? 1 : core + pokemon.level + 10) : Math.floor((core + 5) * natureAdjustment(pokemon.nature, stat));
+    const core = Math.floor(((2 * base + implicitPlayerIvs[stat]) * pokemon.level) / 100);
+    const value = stat === "hp" ? (base === 1 ? 1 : core + pokemon.level + 10) : core + 5;
     return [stat, value];
   }));
 }
@@ -193,7 +185,7 @@ function trainingItem(effect, predicate = () => true) {
 }
 
 function migrateDirectTraining(run) {
-  if ((run.directTrainingVersion || 0) >= directTrainingVersion) return;
+  if ((run.directTrainingVersion || 0) >= directTrainingVersion) return false;
   for (const [itemId, quantity] of Object.entries(run.inventory || {})) {
     const item = itemById.get(itemId);
     if (!item || !["Training Items", "TMs"].includes(item.group)) continue;
@@ -201,6 +193,30 @@ function migrateDirectTraining(run) {
     delete run.inventory[itemId];
   }
   run.directTrainingVersion = directTrainingVersion;
+  return true;
+}
+
+function stripPlayerStatFields(pokemon) {
+  if (!pokemon || typeof pokemon !== "object") return false;
+  let changed = false;
+  for (const field of ["ivs", "evs", "nature"]) {
+    if (!(field in pokemon)) continue;
+    delete pokemon[field];
+    changed = true;
+  }
+  return changed;
+}
+
+function migrateSimplifiedPlayerStats(run) {
+  if ((run.simplifiedPlayerStatsVersion || 0) >= simplifiedPlayerStatsVersion) return false;
+  for (const pokemon of run.roster || []) stripPlayerStatFields(pokemon);
+  for (const encounter of run.daily?.encounters || []) {
+    for (const pokemon of encounter.pokemon || []) stripPlayerStatFields(pokemon);
+  }
+  const money = Math.max(Number(run.money) || 0, startingMoney);
+  run.money = money;
+  run.simplifiedPlayerStatsVersion = simplifiedPlayerStatsVersion;
+  return true;
 }
 
 function formChangeItem(pokemon, speciesId) {
@@ -222,20 +238,6 @@ function buildTrainingQuote(pokemon, proposed = {}) {
   const species = pokemonById.get(speciesId);
   if (!species || species.encounterFamilyId !== pokemon.encounterFamilyId) gameError("Choose a valid form for this Pokémon.");
 
-  const ivs = {};
-  const evs = {};
-  for (const stat of stats) {
-    const iv = Number(proposed.ivs?.[stat] ?? pokemon.ivs[stat]);
-    const ev = Number(proposed.evs?.[stat] ?? pokemon.evs[stat]);
-    if (!Number.isInteger(iv) || iv < 0 || iv > 31) gameError(`${statLabels[stat]} IV must be from 0 to 31.`);
-    if (!Number.isInteger(ev) || ev < 0 || ev > 252) gameError(`${statLabels[stat]} EV must be from 0 to 252.`);
-    ivs[stat] = iv;
-    evs[stat] = ev;
-  }
-  if (Object.values(evs).reduce((sum, value) => sum + value, 0) > 510) gameError("A Pokémon cannot have more than 510 total EVs.");
-
-  const nature = Dex.natures.get(String(proposed.nature || pokemon.nature));
-  if (!nature.exists) gameError("Choose a valid nature.");
   const ability = String(proposed.ability || pokemon.ability);
   const eligibleAbilities = [...species.ordinaryAbilities, species.hiddenAbility].filter(Boolean);
   if (!eligibleAbilities.includes(ability)) gameError(`${ability || "That ability"} is not available to ${species.name}.`);
@@ -249,24 +251,6 @@ function buildTrainingQuote(pokemon, proposed = {}) {
   }
 
   const lineItems = [];
-  for (const stat of stats) {
-    const difference = evs[stat] - pokemon.evs[stat];
-    if (difference > 0) {
-      const item = trainingItem("ev", (candidate) => candidate.stat === stat && candidate.amount > 0);
-      lineItems.push({ key: `ev-${stat}`, label: `${statLabels[stat]} EV +${difference}`, quantity: difference, unitPrice: item.price, cost: difference * item.price });
-    } else if (difference < 0) {
-      lineItems.push({ key: `ev-${stat}`, label: `${statLabels[stat]} EV −${Math.abs(difference)}`, quantity: Math.abs(difference), unitPrice: 0, cost: 0 });
-    }
-    if (ivs[stat] !== pokemon.ivs[stat]) {
-      const raising = ivs[stat] > pokemon.ivs[stat];
-      const cost = raising ? trainingItem("iv").price : 0;
-      lineItems.push({ key: `iv-${stat}`, label: `${statLabels[stat]} IV ${pokemon.ivs[stat]} → ${ivs[stat]}`, quantity: 1, unitPrice: cost, cost });
-    }
-  }
-  if (nature.name !== pokemon.nature) {
-    const item = trainingItem("nature");
-    lineItems.push({ key: "nature", label: `Nature ${pokemon.nature} → ${nature.name}`, quantity: 1, unitPrice: item.price, cost: item.price });
-  }
   if (ability !== pokemon.ability) {
     const effect = ability === species.hiddenAbility ? "ability-patch" : "ability-capsule";
     const item = trainingItem(effect);
@@ -286,12 +270,10 @@ function buildTrainingQuote(pokemon, proposed = {}) {
     lineItems.push({ key: `move-${moveId}`, label: `Learn ${move}`, quantity: 1, unitPrice: item.price, cost: item.price });
   }
 
-  const normalized = { speciesId, ivs, evs, nature: nature.name, ability, moves };
+  const normalized = { speciesId, ability, moves };
   const preview = { ...pokemon, ...normalized, name: species.name, level: pokemon.level };
   const changed = speciesId !== pokemon.speciesId
-    || nature.name !== pokemon.nature
     || ability !== pokemon.ability
-    || stats.some((stat) => ivs[stat] !== pokemon.ivs[stat] || evs[stat] !== pokemon.evs[stat])
     || moves.some((move, slot) => move !== pokemon.moves[slot]);
   return {
     build: normalized,
@@ -355,6 +337,7 @@ function newRun(userId, startDate, resetNotice = null) {
     starterGuarantee: true,
     daily: null,
     directTrainingVersion,
+    simplifiedPlayerStatsVersion,
     trainingTransactions: [],
     resetNotice,
   };
@@ -396,6 +379,12 @@ export class GameStore {
       if (error.code !== "ENOENT") throw error;
       await this.save();
     }
+    let changed = false;
+    for (const run of Object.values(this.data.runs || {})) {
+      changed = migrateDirectTraining(run) || changed;
+      changed = migrateSimplifiedPlayerStats(run) || changed;
+    }
+    if (changed) await this.save();
     await this.supportStore?.snapshot(gameDate(this.now(), this.timeZone), { game: this.data });
   }
 
@@ -510,6 +499,7 @@ export class GameStore {
         run = this.data.runs[userId] = newRun(userId, date, resetNotice);
       }
       migrateDirectTraining(run);
+      migrateSimplifiedPlayerStats(run);
       ensureDaily(run, date);
       assignOneTimeEncounterGift(run, this.data, this.usernameForUserId(userId));
       result = await operation(run, date);
@@ -772,28 +762,10 @@ export class GameStore {
       const item = itemById.get(itemId);
       if (!pokemon) gameError("Pokémon not found.", 404);
       if (!item || !["Training Items", "TMs"].includes(item.group)) gameError("That item cannot be used for training.");
+      if (retiredPlayerStatEffects.has(item.effect)) gameError("IVs, EVs, and natures are no longer part of player Pokémon.", 409);
       if ((run.inventory[item.id] || 0) < 1) gameError(`You do not own ${item.name}.`, 409);
       let used = 1;
-      if (item.effect === "ev") {
-        const requested = Math.max(1, Math.min(999, Number(options.quantity) || 1));
-        const owned = run.inventory[item.id];
-        const total = Object.values(pokemon.evs).reduce((sum, value) => sum + value, 0);
-        const legal = item.amount > 0 ? Math.min(252 - pokemon.evs[item.stat], 510 - total) : pokemon.evs[item.stat];
-        used = Math.min(requested, owned, legal);
-        if (used < 1) gameError(`${pokemon.name}'s ${statLabels[item.stat]} EV cannot change in that direction.`, 409);
-        pokemon.evs[item.stat] += item.amount * used;
-      } else if (item.effect === "iv") {
-        const stat = String(options.stat || "");
-        const value = Number(options.value ?? 31);
-        if (!stats.includes(stat) || !Number.isInteger(value) || value < 0 || value > 31) gameError("Choose a stat and an IV from 0 to 31.");
-        if (pokemon.ivs[stat] === value) gameError("That IV already has the selected value.", 409);
-        pokemon.ivs[stat] = value;
-      } else if (item.effect === "nature") {
-        const nature = Dex.natures.get(String(options.nature || ""));
-        if (!nature.exists) gameError("Choose a valid nature.");
-        if (pokemon.nature === nature.name) gameError(`${pokemon.name} already has that nature.`, 409);
-        pokemon.nature = nature.name;
-      } else if (item.effect === "ability-capsule") {
+      if (item.effect === "ability-capsule") {
         const species = pokemonById.get(pokemon.speciesId);
         const choices = species.ordinaryAbilities.filter((ability) => ability !== pokemon.ability);
         if (!choices.length) gameError(`Ability Capsule cannot change ${pokemon.name}'s ability.`, 409);
@@ -893,12 +865,12 @@ export class GameStore {
           species: pokemonById.get(pokemon.speciesId).showdownName,
           ability: pokemon.ability,
           item: pokemon.heldItemId ? itemById.get(pokemon.heldItemId)?.name || "" : "",
-          nature: pokemon.nature,
+          nature: implicitPlayerNature,
           gender: pokemon.gender,
           shiny: pokemon.shiny,
           level: pokemon.level,
-          ivs: { ...pokemon.ivs },
-          evs: { ...pokemon.evs },
+          ivs: { ...implicitPlayerIvs },
+          evs: { ...implicitPlayerEvs },
           moves: [...pokemon.moves],
         };
       });
@@ -910,8 +882,7 @@ export function publicContent() {
   return {
     pokemon: pokemonCatalog,
     abilities: abilityCatalog,
-    items: itemCatalog,
-    natures: natureNames,
+    items: itemCatalog.filter((item) => !retiredPlayerStatEffects.has(item.effect)),
     startingMoney,
   };
 }

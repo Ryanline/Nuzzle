@@ -24,7 +24,9 @@ test("the approvals snapshot resolves to canonical Pokémon, item, and complete 
   assert.deepEqual(contentSummary(), { pokemon: 522, starters: 30, heldItems: 139, trainingItems: 24, tms: 689 });
   assert.equal(pokemonCatalog.every((pokemon) => pokemonById.has(pokemon.id)), true);
   assert.equal(itemCatalog.filter((item) => item.group === "TMs").length, 689);
-  assert.equal(publicContent().items.length, 852);
+  assert.equal(publicContent().items.length, 838);
+  assert.equal(publicContent().items.some((item) => ["ev", "iv", "nature"].includes(item.effect)), false);
+  assert.equal("natures" in publicContent(), false);
   assert.equal(publicContent().abilities, abilityCatalog);
   assert.equal(abilityCatalog.length > 200, true);
   assert.equal(abilityCatalog.every((ability) => ability.id && ability.name && ability.description), true);
@@ -152,8 +154,9 @@ test("a new run offers twelve persisted choose-one-of-three encounters", async (
   assert.equal(after.roster.filter((pokemon) => pokemonCatalog.find((entry) => entry.id === pokemon.speciesId)?.starterEligible).length, 1);
   assert.equal(new Set(after.roster.map((pokemon) => pokemon.encounterFamilyId)).size, 12);
   for (const pokemon of after.roster) {
-    assert.deepEqual(Object.values(pokemon.evs), [0, 0, 0, 0, 0, 0]);
-    assert.equal(Object.values(pokemon.ivs).every((value) => value >= 0 && value <= 31), true);
+    assert.equal("evs" in pokemon, false);
+    assert.equal("ivs" in pokemon, false);
+    assert.equal("nature" in pokemon, false);
     assert.equal(pokemon.ordinaryAbilities.includes(pokemon.ability), true);
     assert.equal(pokemon.moves.length >= 1 && pokemon.moves.length <= 4, true);
   }
@@ -443,21 +446,23 @@ test("held-item purchases, atomic training builds, and battle snapshots are serv
   const previousMove = target.moves[0];
   const build = {
     speciesId: target.speciesId,
-    ivs: { ...target.ivs },
-    evs: { ...target.evs, hp: 5 },
-    nature: target.nature,
+    ivs: { hp: 0 },
+    evs: { hp: 252 },
+    nature: "Adamant",
     ability: target.ability,
     moves: [tm.move, ...target.moves.slice(1)],
   };
   const quote = await store.quoteTrainingBuild("shop-user", target.id, build);
-  assert.equal(quote.total, 50 + tm.price);
+  assert.equal(quote.total, tm.price);
+  assert.equal("ivs" in quote.build, false);
+  assert.equal("evs" in quote.build, false);
+  assert.equal("nature" in quote.build, false);
   const moneyBeforeTraining = state.money;
-  await assert.rejects(store.quoteTrainingBuild("shop-user", target.id, { ...build, evs: { ...build.evs, hp: 252, atk: 252, def: 7 } }), /510 total EVs/i);
   await assert.rejects(store.applyTrainingBuild("shop-user", target.id, build, quote.total - 1, "wrong-price"), /price changed/i);
   const applied = await store.applyTrainingBuild("shop-user", target.id, build, quote.total, "training-one");
   state = applied.state;
   assert.equal(state.money, moneyBeforeTraining - quote.total);
-  assert.equal(state.roster.find((pokemon) => pokemon.id === target.id).evs.hp, 5);
+  assert.equal("evs" in state.roster.find((pokemon) => pokemon.id === target.id), false);
   assert.equal(state.roster.find((pokemon) => pokemon.id === target.id).moves[0], tm.move);
   assert.notEqual(previousMove, tm.move);
   const retried = await store.applyTrainingBuild("shop-user", target.id, build, quote.total, "training-one");
@@ -465,29 +470,17 @@ test("held-item purchases, atomic training builds, and battle snapshots are serv
   assert.equal(retried.state.money, state.money);
 
   const trained = state.roster.find((pokemon) => pokemon.id === target.id);
-  const loweredIvStat = Object.entries(trained.ivs).find(([, value]) => value > 0)?.[0];
-  assert.ok(loweredIvStat, "the generated Pokémon should have an IV that can be lowered");
-  const loweredBuild = {
-    speciesId: trained.speciesId,
-    ivs: { ...trained.ivs, [loweredIvStat]: 0 },
-    evs: { ...trained.evs, hp: 0 },
-    nature: trained.nature,
-    ability: trained.ability,
-    moves: [...trained.moves],
-  };
-  const freeQuote = await store.quoteTrainingBuild("shop-user", target.id, loweredBuild);
-  assert.equal(freeQuote.changed, true);
-  assert.equal(freeQuote.total, 0);
-  assert.equal(freeQuote.lineItems.every((item) => item.cost === 0), true);
-  const moneyBeforeReduction = state.money;
-  state = (await store.applyTrainingBuild("shop-user", target.id, loweredBuild, 0, "free-reduction")).state;
-  assert.equal(state.money, moneyBeforeReduction);
-  assert.equal(state.roster.find((pokemon) => pokemon.id === target.id).evs.hp, 0);
-  assert.equal(state.roster.find((pokemon) => pokemon.id === target.id).ivs[loweredIvStat], 0);
+  const ignoredStatBuild = { ...trained, ivs: { hp: 0 }, evs: { hp: 252 }, nature: "Adamant" };
+  const ignoredStatQuote = await store.quoteTrainingBuild("shop-user", target.id, ignoredStatBuild);
+  assert.equal(ignoredStatQuote.changed, false);
+  assert.equal(ignoredStatQuote.total, 0);
+  await assert.rejects(store.applyTrainingBuild("shop-user", target.id, ignoredStatBuild, 0, "ignored-stats"), /at least one training change/i);
 
   const team = await store.battleTeam("shop-user", state.teamIds, state.teamIds[2]);
   assert.equal(team[0].species, pokemonById.get(state.teamIds[2]).showdownName);
-  assert.deepEqual(team[0].evs, state.roster.find((pokemon) => pokemon.id === state.teamIds[2]).evs);
+  assert.deepEqual(team[0].ivs, { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 });
+  assert.deepEqual(team[0].evs, { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 });
+  assert.equal(team[0].nature, "Serious");
 });
 
 test("legacy training and TM inventory is refunded once", async () => {
@@ -504,6 +497,30 @@ test("legacy training and TM inventory is refunded once", async () => {
   assert.equal(state.inventory["tm-thunderbolt"], undefined);
   const again = await store.get("migration-user");
   assert.equal(again.money, state.money);
+});
+
+test("legacy player stats are removed and balances below ₽50,000 are restored once", async () => {
+  const { filename, store } = await fixture();
+  let state = await store.claimEncounter("stats-migration-user", 0);
+  const run = store.data.runs["stats-migration-user"];
+  run.simplifiedPlayerStatsVersion = 0;
+  run.money = 1234;
+  run.roster[0].ivs = { hp: 1, atk: 2, def: 3, spa: 4, spd: 5, spe: 6 };
+  run.roster[0].evs = { hp: 252, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };
+  run.roster[0].nature = "Adamant";
+  run.daily.encounters[1].pokemon[0].ivs = { hp: 0 };
+  run.daily.encounters[1].pokemon[0].evs = { hp: 252 };
+  run.daily.encounters[1].pokemon[0].nature = "Modest";
+  await store.save();
+
+  const restored = new GameStore(filename, { timeZone: "America/New_York", now: () => new Date("2026-10-20T16:00:00Z") });
+  await restored.initialize();
+  state = await restored.get("stats-migration-user");
+  assert.equal(state.money, 50000);
+  assert.equal([state.roster[0], restored.data.runs["stats-migration-user"].daily.encounters[1].pokemon[0]].every((pokemon) => !("ivs" in pokemon) && !("evs" in pokemon) && !("nature" in pokemon)), true);
+  restored.data.runs["stats-migration-user"].money = 42000;
+  state = await restored.get("stats-migration-user");
+  assert.equal(state.money, 42000, "ordinary spending after the one-time migration must not trigger another top-up");
 });
 
 test("stolen battle items persist once and equip only to an empty-handed owner", async () => {

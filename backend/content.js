@@ -480,8 +480,6 @@ export const itemCatalog = [
 
 export const itemById = new Map(itemCatalog.map((item) => [item.id, item]));
 
-export const natureNames = Object.freeze(Dex.natures.all().map((nature) => nature.name).sort());
-
 export function contentSummary() {
   return {
     pokemon: pokemonCatalog.length,
