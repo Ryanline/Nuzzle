@@ -106,10 +106,9 @@ function weightedPokemon(pool, blockedFamilies) {
   return eligible.at(-1);
 }
 
-function generateBatch(run, count, guaranteeStarter, reservedFamilies) {
+function generateBatch(count, pool, reservedFamilies) {
   const generated = [];
   for (let index = 0; index < count; index++) {
-    const pool = guaranteeStarter && index === 0 ? starterPokemon : encounterPokemon;
     const species = weightedPokemon(pool, reservedFamilies);
     generated.push(createPokemon(species));
     reservedFamilies.add(species.encounterFamilyId);
@@ -129,10 +128,14 @@ function ensureDaily(run, date) {
   const total = opening ? 12 : encounterCount(date);
   const encounters = [];
   for (let slot = 0; slot < total; slot++) {
+    const starterChoice = opening && slot === 0 && run.starterGuarantee;
     encounters.push({
       kind: opening ? "opening" : "single",
+      choiceVersion: 1,
+      revealed: false,
       claimed: false,
-      pokemon: generateBatch(run, 1, opening && slot === 0 && run.starterGuarantee, reserved),
+      selectedIndex: null,
+      pokemon: generateBatch(3, starterChoice ? starterPokemon : encounterPokemon, reserved),
     });
   }
   run.daily = { date, encounters };
@@ -147,7 +150,7 @@ function assignOneTimeEncounterGift(run, data, username) {
   for (const [index, speciesId] of oneTimeEncounterGift.speciesIds.entries()) {
     const pokemon = createPokemon(pokemonById.get(speciesId));
     pokemon.shiny = true;
-    available[index].pokemon = [pokemon];
+    available[index].pokemon[0] = pokemon;
   }
   data.oneTimeEncounterGifts[oneTimeEncounterGift.key] = {
     userId: run.userId,
@@ -158,10 +161,14 @@ function assignOneTimeEncounterGift(run, data, username) {
 }
 
 function migrateOpeningEncounters(run) {
-  if (!run.daily?.encounters?.some((encounter) => encounter.kind === "opening" && encounter.pokemon.length > 1)) return;
-  run.daily.encounters = run.daily.encounters.flatMap((encounter) => encounter.kind === "opening"
+  if (!run.daily?.encounters) return;
+  run.daily.encounters = run.daily.encounters.flatMap((encounter) => !encounter.choiceVersion && encounter.kind === "opening" && encounter.pokemon.length > 1
     ? encounter.pokemon.map((pokemon) => ({ kind: "opening", claimed: encounter.claimed, pokemon: [pokemon] }))
     : [encounter]);
+  for (const encounter of run.daily.encounters) {
+    if (encounter.revealed === undefined) encounter.revealed = Boolean(encounter.claimed);
+    if (encounter.selectedIndex === undefined) encounter.selectedIndex = encounter.claimed ? 0 : null;
+  }
 }
 
 function natureAdjustment(natureName, stat) {
@@ -513,13 +520,20 @@ export class GameStore {
   }
 
   publicState(run) {
-    const encounters = run.daily.encounters.map((encounter, slot) => ({
-      slot,
-      kind: encounter.kind,
-      count: encounter.pokemon.length,
-      claimed: encounter.claimed,
-      pokemon: encounter.claimed ? encounter.pokemon.map(pokemonView) : null,
-    }));
+    const encounters = run.daily.encounters.map((encounter, slot) => {
+      const selected = encounter.pokemon[encounter.selectedIndex ?? 0];
+      const visiblePokemon = encounter.claimed
+        ? selected ? [pokemonView(selected)] : []
+        : encounter.revealed ? encounter.pokemon.map(pokemonView) : null;
+      return {
+        slot,
+        kind: encounter.kind,
+        count: encounter.claimed ? visiblePokemon.length : encounter.pokemon.length,
+        revealed: Boolean(encounter.revealed),
+        claimed: encounter.claimed,
+        pokemon: visiblePokemon,
+      };
+    });
     return {
       runId: run.id,
       date: run.daily.date,
@@ -550,17 +564,34 @@ export class GameStore {
     });
   }
 
-  async claimEncounter(userId, slot) {
+  async revealEncounter(userId, slot) {
+    return this.mutate(userId, (run) => {
+      const encounter = run.daily.encounters[slot];
+      if (!encounter) gameError("Encounter not found.", 404);
+      if (encounter.claimed || encounter.revealed) return this.publicState(run);
+      const pendingSlot = run.daily.encounters.findIndex((candidate) => candidate.revealed && !candidate.claimed);
+      if (pendingSlot !== -1 && pendingSlot !== slot) gameError("Choose a Pokémon from the revealed encounter first.", 409);
+      encounter.revealed = true;
+      return this.publicState(run);
+    });
+  }
+
+  async claimEncounter(userId, slot, candidateIndex = null) {
     return this.mutate(userId, (run) => {
       const encounter = run.daily.encounters[slot];
       if (!encounter) gameError("Encounter not found.", 404);
       if (encounter.claimed) return this.publicState(run);
+      const legacySelection = candidateIndex === null;
+      if (legacySelection) encounter.revealed = true;
+      if (!encounter.revealed) gameError("Reveal this encounter before choosing a Pokémon.", 409);
+      const selectedIndex = legacySelection ? 0 : Number(candidateIndex);
+      if (!Number.isInteger(selectedIndex) || selectedIndex < 0 || selectedIndex >= encounter.pokemon.length) gameError("Choose one of the revealed Pokémon.");
+      const pokemon = encounter.pokemon[selectedIndex];
+      if (run.roster.some((owned) => owned.encounterFamilyId === pokemon.encounterFamilyId)) gameError("That encounter conflicts with an owned Pokémon.", 409);
       encounter.claimed = true;
-      for (const pokemon of encounter.pokemon) {
-        if (run.roster.some((owned) => owned.encounterFamilyId === pokemon.encounterFamilyId)) gameError("That encounter conflicts with an owned Pokémon.", 409);
-        run.roster.push(pokemon);
-        if (pokemon.heldItemId === "leftovers") run.inventory.leftovers = (run.inventory.leftovers || 0) + 1;
-      }
+      encounter.selectedIndex = selectedIndex;
+      run.roster.push(pokemon);
+      if (pokemon.heldItemId === "leftovers") run.inventory.leftovers = (run.inventory.leftovers || 0) + 1;
       if (encounter.kind === "opening") {
         run.openingBatchClaimed = run.daily.encounters.every((candidate) => candidate.claimed);
       }

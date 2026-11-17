@@ -111,25 +111,41 @@ test("encounter movesets guarantee damaging STAB and approved signature moves", 
   assert.deepEqual(encounterSignatureMoves.veluza, ["filletaway"]);
 });
 
-test("a new run starts empty and offers twelve individually claimed encounters", async () => {
-  const { store } = await fixture();
+test("a new run offers twelve persisted choose-one-of-three encounters", async () => {
+  const { filename, store } = await fixture();
   const before = await store.get("user-one");
   assert.equal(before.roster.length, 0);
   assert.equal(before.teamIds.length, 0);
   assert.equal(before.battleUnlocked, false);
   assert.equal(before.encounters.length, 12);
   assert.equal(before.encounters[0].kind, "opening");
-  assert.equal(before.encounters[0].count, 1);
+  assert.equal(before.encounters[0].count, 3);
   assert.equal(before.encounters[0].pokemon, null);
 
-  const first = await store.claimEncounter("user-one", 0);
+  const revealed = await store.revealEncounter("user-one", 0);
+  assert.equal(revealed.roster.length, 0);
+  assert.equal(revealed.encounters[0].revealed, true);
+  assert.equal(revealed.encounters[0].pokemon.length, 3);
+  assert.equal(revealed.encounters[0].pokemon.every((pokemon) => pokemonCatalog.find((entry) => entry.id === pokemon.speciesId)?.starterEligible), true);
+  const revealedSpecies = revealed.encounters[0].pokemon.map((pokemon) => pokemon.speciesId);
+
+  const restored = new GameStore(filename, { timeZone: "America/New_York", now: () => new Date("2026-10-20T16:00:00Z") });
+  await restored.initialize();
+  const restoredState = await restored.get("user-one");
+  assert.equal(restoredState.encounters[0].revealed, true);
+  assert.deepEqual(restoredState.encounters[0].pokemon.map((pokemon) => pokemon.speciesId), revealedSpecies);
+  await assert.rejects(restored.revealEncounter("user-one", 1), /revealed encounter first/);
+
+  const first = await restored.claimEncounter("user-one", 0, 1);
   assert.equal(first.roster.length, 1);
   assert.equal(first.teamIds.length, 0);
   assert.equal(first.battleUnlocked, false);
   assert.equal(pokemonCatalog.find((entry) => entry.id === first.roster[0].speciesId)?.starterEligible, true);
+  assert.equal(first.encounters[0].pokemon.length, 1);
+  assert.equal(first.encounters[0].pokemon[0].id, first.roster[0].id);
 
   let after = first;
-  for (let slot = 1; slot < 12; slot++) after = await store.claimEncounter("user-one", slot);
+  for (let slot = 1; slot < 12; slot++) after = await restored.claimEncounter("user-one", slot);
   assert.equal(after.roster.length, 12);
   assert.equal(after.teamIds.length, 0);
   assert.equal(after.battleUnlocked, false);
@@ -141,7 +157,7 @@ test("a new run starts empty and offers twelve individually claimed encounters",
     assert.equal(pokemon.ordinaryAbilities.includes(pokemon.ability), true);
     assert.equal(pokemon.moves.length >= 1 && pokemon.moves.length <= 4, true);
   }
-  const selected = await store.setTeam("user-one", after.roster.slice(0, 6).map((pokemon) => pokemon.id));
+  const selected = await restored.setTeam("user-one", after.roster.slice(0, 6).map((pokemon) => pokemon.id));
   assert.equal(selected.teamIds.length, 6);
   assert.equal(selected.battleUnlocked, true);
 });

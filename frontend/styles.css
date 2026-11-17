@@ -1456,3 +1456,31 @@ html[data-theme="dark"] .final-run-reminder { border-color: #965157; background:
   .pokemon-sheet, .pc-swipe-neighbor, .sheet-backdrop { transition-duration: .01ms !important; }
   *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; }
 }
+
+.encounter-choice { display: grid; gap: 6px; }
+.encounter-choice-prompt { margin: 0; color: var(--ink); font-size: 17px; font-weight: 400; text-align: center; }
+.encounter-choice-set { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.encounter-choice-set .encounter-card { display: grid; min-width: 0; min-height: 190px; grid-template-columns: 1fr; grid-template-rows: 92px auto; align-content: center; justify-items: center; gap: 7px; padding: 9px 5px; text-align: center; }
+.encounter-choice-set .encounter-card:hover { border-color: #789481; background: #f7faf7; }
+.encounter-choice-set .encounter-sprite { width: 88px; height: 88px; }
+.encounter-choice-set .encounter-copy { justify-items: center; }
+.encounter-choice-set .encounter-copy strong { max-width: 100%; overflow: hidden; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }
+.encounter-choice-set .encounter-types { justify-content: center; }
+.encounter-choice-set .type-chip { font-size: 7px; }
+.encounter-card.mystery:disabled { opacity: .45; cursor: default; }
+.encounter-card.mystery:disabled:hover { border-color: #a8b9ac; background: #f4f8f4; }
+html[data-theme="dark"] .encounter-choice-set .encounter-card { border-color: #3d484f; background: linear-gradient(#20262b, #1a1f23); }
+html[data-theme="dark"] .encounter-choice-set .encounter-card:hover { border-color: #53685d; background: linear-gradient(#242d2b, #1d2422); }
+html[data-theme="dark"] .encounter-card.mystery:disabled:hover { border-color: #3f5047; background: #1c241f; }
+
+@media (max-width: 520px) {
+  .encounter-choice { gap: 5px; }
+  .encounter-choice-prompt { font-size: 15px; }
+  .encounter-choice-set { gap: 5px; }
+  .encounter-choice-set .encounter-card { min-height: 148px; grid-template-columns: 1fr; grid-template-rows: 72px auto; gap: 5px; padding: 6px 2px; }
+  .encounter-choice-set .encounter-sprite { width: 70px; height: 70px; }
+  .encounter-choice-set .encounter-sprite img { width: 68px; height: 68px; }
+  .encounter-choice-set .encounter-copy strong { font-size: 11px; }
+  .encounter-choice-set .encounter-types { gap: 1px; }
+  .encounter-choice-set .type-chip { padding: 2px 3px; font-size: 5px; }
+}

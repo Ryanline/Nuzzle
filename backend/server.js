@@ -472,10 +472,16 @@ async function api(request, response, pathname) {
     });
     return true;
   }
-  const encounterMatch = pathname.match(/^\/api\/game\/encounters\/(\d+)$/);
+  const encounterMatch = pathname.match(/^\/api\/game\/encounters\/(\d+)(?:\/(choose))?$/);
   if (request.method === "POST" && encounterMatch) {
     const user = requirePlayer(request);
-    json(response, 200, await game.claimEncounter(user.id, Number(encounterMatch[1])));
+    if (encounterMatch[2] === "choose") {
+      const body = await requestBody(request);
+      if (!Number.isInteger(body.candidateIndex)) throw Object.assign(new Error("Choose one of the revealed Pokémon."), { statusCode: 400 });
+      json(response, 200, await game.claimEncounter(user.id, Number(encounterMatch[1]), body.candidateIndex));
+    } else {
+      json(response, 200, await game.revealEncounter(user.id, Number(encounterMatch[1])));
+    }
     return true;
   }
   if (request.method === "PUT" && pathname === "/api/game/team") {

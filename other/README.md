@@ -58,18 +58,19 @@ The game is intentionally Nuzlocke-like and can be harsh. It should create inter
 
 ### Encounters
 
-- Catching is guaranteed; there is no wild battle or capture roll.
+- Catching is guaranteed; there is no wild battle or capture roll. Revealing grass presents three persisted Pokémon choices and the player keeps exactly one.
 - A fresh run starts with zero Pokémon and twelve separate opening encounter cards.
-- The first opening result is a random fully evolved starter. There is no starter choice.
+- The first opening grass offers three random fully evolved starters and the player chooses one.
 - Every eligible final starter evolution has equal guarantee weight; standard and regional evolutions are separate equal-probability results.
-- Each opening encounter is claimed individually. Unclaimed opening encounters survive date rollover.
+- Each opening encounter is claimed individually. The first opening encounter offers three starter-eligible choices. Unclaimed and revealed-but-unresolved opening encounters survive date rollover without rerolling.
 - Claiming the first Pokémon unlocks Battle. The first six claimed Pokémon fill Team; later claims enter the Box.
 - After the opening set, ordinary dates provide three encounters and Sundays provide four.
 - Starters do not appear in ordinary encounters, including Sundays.
 - Results are generated and persisted server-side before reveal, so refreshes cannot reroll them.
+- Only one encounter may be pending at a time. Other grass remains disabled until the player chooses one of the three revealed Pokémon.
 - A claimed result stays visible for the current visit, then disappears from the encounter screen after leaving.
 - Once every encounter is claimed, the centered empty state shows only a concise completion message and the countdown to new encounters.
-- Duplicate protection covers the entire living roster and results reserved in the same batch. A dead Pokémon may be encountered again.
+- Duplicate protection covers the entire living roster and every candidate reserved in the same batch. Unchosen candidates may appear on a later day, and a dead Pokémon may be encountered again.
 - Encounter eligibility comes only from the approvals CSV; never infer it from every Showdown species.
 
 ### PC

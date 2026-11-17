@@ -1169,11 +1169,15 @@
 
   function encountersScreen() {
     const remaining = encounters.filter((encounter) => !encounter.claimed).length;
+    const pendingSlot = encounters.findIndex((encounter) => !encounter.claimed && encounter.pokemon?.length);
     const visibleEncounters = encounters.map((encounter, slot) => ({ encounter, slot })).filter(({ encounter, slot }) => !encounter.claimed || encountersRevealedThisVisit.has(slot));
     return `<section class="screen">${header()}<div class="encounter-stage">${remaining ? `<p class="encounter-count">${remaining} encounter${remaining === 1 ? "" : "s"} remaining</p>` : ""}
       <div class="encounter-list">${visibleEncounters.length ? visibleEncounters.map(({ encounter, slot: index }) => {
         if (!encounter.claimed) {
-          return `<button class="encounter-card mystery" type="button" data-encounter="${index}" aria-label="Reveal encounter ${index + 1}"><span class="encounter-mark" aria-hidden="true"><img src="assets/pixel-grass.png" alt=""/></span><span class="encounter-copy"><strong>Unknown encounter</strong><small>Tap to reveal</small></span></button>`;
+          if (encounter.pokemon?.length) {
+            return `<div class="encounter-choice"><p class="encounter-choice-prompt">Choose one</p><div class="encounter-choice-set">${encounter.pokemon.map((mon, candidateIndex) => `<button class="encounter-card revealed" type="button" data-encounter-choice="${index}-${candidateIndex}" aria-label="Choose ${escapeHtml(mon.name)}"><span class="encounter-sprite"><img class="sprite" src="${sprite(mon.id)}" alt="${escapeHtml(mon.name)}"/></span><span class="encounter-copy"><strong>${escapeHtml(mon.name)}</strong><span class="encounter-types">${mon.types.map((type) => `<span class="type-chip ${type.toLowerCase()}">${type}</span>`).join("")}</span></span></button>`).join("")}</div></div>`;
+          }
+          return `<button class="encounter-card mystery" type="button" data-encounter="${index}" aria-label="Reveal encounter ${index + 1}" ${pendingSlot !== -1 ? "disabled" : ""}><span class="encounter-mark" aria-hidden="true"><img src="assets/pixel-grass.png" alt=""/></span><span class="encounter-copy"><strong>Unknown encounter</strong><small>Tap to reveal</small></span></button>`;
         }
         const mon = encounter.pokemon[0];
         return `<article class="encounter-card revealed" data-mon-tip="${mon.id}"><span class="encounter-sprite"><img class="sprite" src="${sprite(mon.id)}" alt="${escapeHtml(mon.name)}"/></span><span class="encounter-copy"><strong>${escapeHtml(mon.name)}</strong><span class="encounter-types">${mon.types.map((type) => `<span class="type-chip ${type.toLowerCase()}">${type}</span>`).join("")}</span></span><span class="encounter-status">Added to PC</span></article>`;
@@ -2396,11 +2400,15 @@
     tooltip.hidden = true;
   }
 
-  async function claimEncounter(slot) {
+  async function updateEncounter(slot, candidateIndex = null) {
     if (gameBusy) return;
     gameBusy = true;
     try {
-      applyGameState(await apiRequest(`/api/game/encounters/${slot}`, { method: "POST", body: "{}" }));
+      const choose = candidateIndex !== null;
+      applyGameState(await apiRequest(`/api/game/encounters/${slot}${choose ? "/choose" : ""}`, {
+        method: "POST",
+        body: JSON.stringify(choose ? { candidateIndex } : {}),
+      }));
       encountersRevealedThisVisit.add(slot);
     } catch (error) {
       purchaseMessage = error.message;
@@ -3139,7 +3147,11 @@
       log.scrollTop = log.scrollHeight;
       render();
     });
-    document.querySelectorAll("[data-encounter]").forEach((button) => button.addEventListener("click", () => void claimEncounter(Number(button.dataset.encounter))));
+    document.querySelectorAll("[data-encounter]").forEach((button) => button.addEventListener("click", () => void updateEncounter(Number(button.dataset.encounter))));
+    document.querySelectorAll("[data-encounter-choice]").forEach((button) => button.addEventListener("click", () => {
+      const [slot, candidateIndex] = button.dataset.encounterChoice.split("-").map(Number);
+      void updateEncounter(slot, candidateIndex);
+    }));
     const bindShopRows = () => {
       document.querySelectorAll("[data-open-purchase]").forEach((button) => button.addEventListener("click", () => {
         martSheetItemId = button.dataset.openPurchase;

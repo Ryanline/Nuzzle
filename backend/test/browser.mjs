@@ -573,8 +573,15 @@ for (let slot = 0; slot < 12; slot++) {
     : null;
   const encounterResponse = page.waitForResponse((response) => response.url().includes(`/api/game/encounters/${slot}`) && response.request().method() === "POST");
   await page.click(`[data-encounter="${slot}"]`);
-  if (!(await encounterResponse).ok()) throw new Error(`Opening encounter ${slot + 1} failed.`);
-  await page.waitForFunction((revealedCount) => document.querySelectorAll(".encounter-card.revealed").length === revealedCount, slot + 1);
+  if (!(await encounterResponse).ok()) throw new Error(`Opening encounter ${slot + 1} did not reveal.`);
+  await page.waitForSelector(`[data-encounter-choice="${slot}-2"]`);
+  if (await page.locator(`[data-encounter-choice^="${slot}-"]`).count() !== 3) throw new Error(`Opening encounter ${slot + 1} did not reveal three choices.`);
+  if (await page.locator("[data-encounter]:not(:disabled)").count()) throw new Error("Other grass remained available while an encounter choice was pending.");
+  await page.waitForFunction((revealedCount) => document.querySelectorAll(".encounter-card.revealed").length === revealedCount, slot + 3);
+  const choiceResponse = page.waitForResponse((response) => response.url().endsWith(`/api/game/encounters/${slot}/choose`) && response.request().method() === "POST");
+  await page.click(`[data-encounter-choice="${slot}-0"]`);
+  if (!(await choiceResponse).ok()) throw new Error(`Opening encounter ${slot + 1} could not be chosen.`);
+  await page.waitForFunction((claimedCount) => document.querySelectorAll(".encounter-status").length === claimedCount, slot + 1);
   if (scrollTopBeforeReveal !== null) {
     const scrollTopAfterReveal = await page.locator(".encounter-list").evaluate((element) => element.scrollTop);
     if (Math.abs(scrollTopAfterReveal - scrollTopBeforeReveal) > 2) throw new Error("Revealing an encounter reset the list scroll position.");
@@ -582,7 +589,7 @@ for (let slot = 0; slot < 12; slot++) {
   if (slot === 0) {
     const firstEncounter = await page.evaluate(() => fetch("/api/game").then((response) => response.json()));
     if (firstEncounter.roster.length !== 1 || firstEncounter.teamIds.length || firstEncounter.battleUnlocked) throw new Error("The first individual encounter did not go exclusively to the PC box.");
-    if (await page.locator(".encounter-card.revealed").count() !== 1) throw new Error("A newly claimed encounter did not remain visible during its reveal visit.");
+    if (await page.locator(".encounter-status").count() !== 1) throw new Error("A newly claimed encounter did not remain visible during its reveal visit.");
     const encounterThemeAppearance = await page.locator(".encounter-card.revealed").evaluate((card) => {
       const root = document.documentElement;
       const previousTheme = root.dataset.theme;
