@@ -2840,7 +2840,11 @@
     alignBattleSprites();
     const encounterList = document.querySelector(".encounter-list");
     if (encounterList) {
-      encounterList.scrollTop = encounterListScrollTop;
+      const restoredScrollTop = encounterListScrollTop;
+      encounterList.scrollTop = restoredScrollTop;
+      requestAnimationFrame(() => {
+        if (encounterList.isConnected) encounterList.scrollTop = restoredScrollTop;
+      });
       encounterList.addEventListener("scroll", () => {
         encounterListScrollTop = encounterList.scrollTop;
       }, { passive: true });
