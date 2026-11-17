@@ -129,7 +129,6 @@
   let pcSummaryAbilityId = null;
   let pcSwapMode = false;
   let pcItemMode = false;
-  let activePcItemGroup = "Held Items";
   let pendingPcItemId = null;
   let pendingPcItemTransfer = null;
   let selectedNature = null;
@@ -1114,7 +1113,7 @@
     const matchCount = moves.filter(matches).length;
     const currentMoveName = trainingDraft.moves[trainingMoveSlot];
     const currentMove = moveCatalogItem(currentMoveName);
-    return `<section class="training-move-picker"><header><div class="training-move-nav"><button type="button" data-close-move-picker aria-label="Back to training">←</button><small>Replace move ${trainingMoveSlot + 1}</small></div><div class="showdown-move-row training-current-move" data-current-training-move>${showdownMoveRow(currentMove)}</div></header><label class="move-search"><span>Search available moves</span><input type="search" value="${escapeHtml(trainingMoveSearch)}" placeholder="Search by name, type, category, or effect" data-training-move-search autofocus><small aria-live="polite" data-training-move-count>${matchCount} matching move${matchCount === 1 ? "" : "s"}</small></label><div class="training-move-list">${moves.map((item) => `<button class="showdown-move-row" type="button" data-select-training-move="${item.id}" data-move-search-text="${escapeHtml(`${item.name} ${item.type} ${item.category} ${item.description || ""}`.toLowerCase())}" ${matches(item) ? "" : "hidden"}>${showdownMoveRow(item, item.price)}</button>`).join("")}<p class="training-empty" ${matchCount ? "hidden" : ""}>No matching moves.</p></div></section>`;
+    return `<section class="training-move-picker"><header><div class="training-move-nav"><button type="button" data-close-move-picker aria-label="Back to summary">←</button><small>Replace move ${trainingMoveSlot + 1}</small></div><div class="showdown-move-row training-current-move" data-current-training-move>${showdownMoveRow(currentMove)}</div></header><label class="move-search"><span>Search available moves</span><input type="search" value="${escapeHtml(trainingMoveSearch)}" placeholder="Search by name, type, category, or effect" data-training-move-search autofocus><small aria-live="polite" data-training-move-count>${matchCount} matching move${matchCount === 1 ? "" : "s"}</small></label><div class="training-move-list">${moves.map((item) => `<button class="showdown-move-row" type="button" data-select-training-move="${item.id}" data-move-search-text="${escapeHtml(`${item.name} ${item.type} ${item.category} ${item.description || ""}`.toLowerCase())}" ${matches(item) ? "" : "hidden"}>${showdownMoveRow(item, item.price)}</button>`).join("")}<p class="training-empty" ${matchCount ? "hidden" : ""}>No matching moves.</p></div></section>`;
   }
 
   function trainingEditor(mon) {
@@ -1124,47 +1123,40 @@
     const stats = previewTrainingStats(mon);
     const quote = localTrainingQuote(mon);
     const invalidMoveSlots = trainingDraft.moves.map((move, slot) => form.legalMoveIds.includes(toId(move)) ? null : slot).filter((slot) => slot !== null);
-    const evTotal = Object.values(trainingDraft.evs).reduce((sum, value) => sum + value, 0);
-    const rows = trainingStats.map(([stat]) => {
-      const changed = trainingDraft.evs[stat] !== mon.evs[stat] || trainingDraft.ivs[stat] !== mon.ivs[stat];
-      return `<div class="training-editor-row${changed ? " changed" : ""}"><strong class="training-stat-name">${trainingStatNames[stat]}</strong><span class="training-base-value">${form.baseStats[stat]}</span><input class="training-ev-input" aria-label="${trainingStatNames[stat]} EV" type="number" min="0" max="252" value="${trainingDraft.evs[stat]}" data-training-ev-input="${stat}" inputmode="numeric"><input class="training-ev-slider" aria-label="${trainingStatNames[stat]} EV slider" type="range" min="0" max="252" step="1" value="${trainingDraft.evs[stat]}" data-training-ev="${stat}"><input class="training-iv-input" aria-label="${trainingStatNames[stat]} IV" type="number" min="0" max="31" value="${trainingDraft.ivs[stat]}" data-training-iv="${stat}" inputmode="numeric"><button class="training-iv-max" type="button" data-max-training-iv="${stat}" aria-label="Max ${trainingStatNames[stat]} IV">Max IV</button><output class="training-final-value" aria-label="Final ${trainingStatNames[stat]} stat">${stats[stat]}</output></div>`;
+    const statCards = trainingStats.map(([stat]) => {
+      const nature = natureOptions.find((option) => option.name === trainingDraft.nature) || {};
+      const labelByStat = { atk: "Atk", def: "Def", spa: "SpA", spd: "SpD", spe: "Spe" };
+      const raised = nature.up === labelByStat[stat];
+      const lowered = nature.down === labelByStat[stat];
+      const marker = raised ? " ↑" : lowered ? " ↓" : "";
+      return `<div class="training-stat-card${raised ? " raised" : lowered ? " lowered" : ""}"><span>${trainingStatNames[stat]}${marker}</span><strong>${stats[stat]}</strong><small>Base ${form.baseStats[stat]}</small></div>`;
     }).join("");
+    const nature = natureOptions.find((option) => option.name === trainingDraft.nature) || {};
+    const natureEffect = nature.up ? `+${nature.up}, −${nature.down}` : "Neutral";
     const abilities = [...form.ordinaryAbilities, form.hiddenAbility].filter(Boolean);
     const forms = availableTrainingForms(mon);
-    return `<section class="training-editor" role="tabpanel"><div class="training-scroll"><div class="training-column-head" aria-hidden="true"><span>Stat</span><span>Base</span><span>EV</span><span></span><span>IV</span><span></span><span>Total</span></div>${rows}<div class="training-remaining"><span>${510 - evTotal} EVs remaining</span><button type="button" data-reset-evs>Clear EVs</button></div><div class="training-selects"><label>Nature<select data-training-nature>${natureOptions.map((nature) => `<option value="${nature.name}" ${nature.name === trainingDraft.nature ? "selected" : ""}>${nature.name}${nature.up ? ` (+${nature.up}, −${nature.down})` : " (neutral)"}</option>`).join("")}</select></label><label>Ability<select data-training-ability>${abilities.map((ability) => `<option ${ability === trainingDraft.ability ? "selected" : ""}>${escapeHtml(ability)}</option>`).join("")}</select></label>${forms.length > 1 ? `<label>Form<select data-training-form>${forms.map((candidate) => `<option value="${candidate.id}" ${candidate.id === trainingDraft.speciesId ? "selected" : ""}>${escapeHtml(candidate.name)}</option>`).join("")}</select></label>` : ""}</div><div class="training-moves"><h3>Moves</h3>${trainingDraft.moves.map((move, slot) => `<button class="${invalidMoveSlots.includes(slot) ? "invalid" : ""}" type="button" data-edit-training-move="${slot}"><span><small>Move ${slot + 1}${invalidMoveSlots.includes(slot) ? " · replacement required" : ""}</small><strong>${escapeHtml(move)}</strong></span><b>Select</b></button>`).join("")}</div></div><footer class="training-footer">${trainingMessage ? `<p role="alert">${escapeHtml(trainingMessage)}</p>` : ""}${invalidMoveSlots.length ? '<p role="alert">Replace moves that are illegal for the selected form.</p>' : ""}<div class="training-footer-line"><span>${quote.lines.length} pending change${quote.lines.length === 1 ? "" : "s"}<button type="button" data-reset-training ${quote.changed ? "" : "disabled"}>Reset</button></span><span>Total ₽${quote.total.toLocaleString()}</span></div><div class="training-after">Balance after ₽${Math.max(0, balance - quote.total).toLocaleString()}</div><div class="training-footer-actions"><button class="gloss-button blue" type="button" data-apply-training ${quote.changed && quote.total <= balance && !invalidMoveSlots.length ? "" : "disabled"}>Apply changes</button><button class="gloss-button neutral" type="button" data-close-pc-sheet>Close</button></div></footer></section>`;
+    return `<section class="training-editor" role="tabpanel"><div class="training-scroll"><section class="training-stat-summary" aria-labelledby="training-stats-heading"><h3 id="training-stats-heading">Stats</h3><div class="training-stat-grid">${statCards}</div></section><div class="training-profile"><div class="training-nature"><span>Nature</span><div><strong>${escapeHtml(trainingDraft.nature)}</strong><small>${escapeHtml(natureEffect)} · innate</small></div></div><label>Ability<select data-training-ability>${abilities.map((ability) => `<option ${ability === trainingDraft.ability ? "selected" : ""}>${escapeHtml(ability)}</option>`).join("")}</select></label>${forms.length > 1 ? `<label>Form<select data-training-form>${forms.map((candidate) => `<option value="${candidate.id}" ${candidate.id === trainingDraft.speciesId ? "selected" : ""}>${escapeHtml(candidate.name)}</option>`).join("")}</select></label>` : ""}</div><div class="training-moves"><h3>Moves</h3>${trainingDraft.moves.map((move, slot) => `<button class="${invalidMoveSlots.includes(slot) ? "invalid" : ""}" type="button" data-edit-training-move="${slot}"><span><small>Move ${slot + 1}${invalidMoveSlots.includes(slot) ? " · replacement required" : ""}</small><strong>${escapeHtml(move)}</strong></span><b>Change</b></button>`).join("")}</div></div><footer class="training-footer">${trainingMessage ? `<p role="alert">${escapeHtml(trainingMessage)}</p>` : ""}${invalidMoveSlots.length ? '<p role="alert">Replace moves that are illegal for the selected form.</p>' : ""}<div class="training-footer-line"><span>${quote.lines.length} pending change${quote.lines.length === 1 ? "" : "s"}<button type="button" data-reset-training ${quote.changed ? "" : "disabled"}>Reset</button></span><span>Total ₽${quote.total.toLocaleString()}</span></div><div class="training-after">Balance after ₽${Math.max(0, balance - quote.total).toLocaleString()}</div><div class="training-footer-actions"><button class="gloss-button blue" type="button" data-apply-training ${quote.changed && quote.total <= balance && !invalidMoveSlots.length ? "" : "disabled"}>Apply changes</button><button class="gloss-button neutral" type="button" data-close-pc-sheet>Close</button></div></footer></section>`;
   }
 
   function pcPokemonSheet(id) {
     const mon = mons[id];
+    if (!trainingDraft) beginTraining(mon);
     const onTeam = team.has(id);
-    const maxHp = mon.hp.match(/\/(\d+)\)/)?.[1] || "—";
-    const statValues = [`HP ${maxHp}`, ...mon.stats.split(" / ")];
-    const stats = statValues.map((stat) => {
-      const split = stat.lastIndexOf(" ");
-      const label = stat.slice(0, split);
-      const value = stat.slice(split + 1);
-      const change = label === mon.natureUp ? " raised" : label === mon.natureDown ? " lowered" : "";
-      const marker = change === " raised" ? " ↑" : change === " lowered" ? " ↓" : "";
-      return `<span class="stat-card${change}"><small>${label}${marker}</small><strong>${value}</strong></span>`;
-    }).join("");
+    const form = trainingForm(mon);
+    const stats = trainingStats.map(([stat]) => `<span class="stat-card"><small>${trainingStatNames[stat]}</small><strong>${form.baseStats[stat]}</strong></span>`).join("");
     const swapChooser = pcSwapMode && !onTeam ? `<section class="swap-chooser" aria-labelledby="swap-heading"><h3 id="swap-heading">Who should ${mon.name} replace?</h3><p>The new Pokémon will take the same team position.</p><div class="swap-grid">${[...team].map((teamId) => `<button type="button" data-team-replace="${teamId}"><img class="sprite" src="${sprite(teamId)}" alt=""/><span>${mons[teamId].name}</span></button>`).join("")}</div></section>` : "";
     const itemChooser = pcItemMode ? pcItemPanel(mon) : "";
-    const tabs = `<div class="pc-detail-tabs" role="tablist" aria-label="Pokémon details"><button type="button" role="tab" aria-selected="${pcDetailView === "summary"}" class="${pcDetailView === "summary" ? "selected" : ""}" data-pc-detail-view="summary">Summary</button><button type="button" role="tab" aria-selected="${pcDetailView === "training"}" class="${pcDetailView === "training" ? "selected" : ""}" data-pc-detail-view="training">Training</button></div>`;
-    const moveDetails = mon.moveDetails || mon.moves.map((name) => ({ name, type: "Normal", category: "Status", power: null }));
-    const summaryMoves = moveDetails.map((move) => {
-      const type = move.type || "Normal";
-      const category = move.category || "Status";
-      return `<button class="sheet-move type-${toId(type)}" type="button" data-summary-move="${toId(move.name)}" title="View ${escapeHtml(move.name)} details"><strong>${escapeHtml(move.name)}</strong><span class="sheet-move-category"><img src="assets/showdown/categories/${encodeURIComponent(category)}.png" alt="${escapeHtml(category)} move"></span></button>`;
-    }).join("");
-    const summary = `<div class="pokemon-facts"><p><span>Ability</span><button class="summary-ability-button" type="button" data-summary-ability="${toId(mon.ability)}" title="View ${escapeHtml(mon.ability)} details"><strong>${escapeHtml(mon.ability)}</strong><span aria-hidden="true">›</span></button></p><p><span>Nature</span><strong>${escapeHtml(mon.nature)}</strong></p><p><span>Held item</span><strong>${escapeHtml(mon.item)}</strong></p></div><section class="sheet-section" role="tabpanel"><div class="stat-grid">${stats}</div><h3>Moves</h3><div class="sheet-moves">${summaryMoves}</div></section>`;
-    const normalContent = `${tabs}<div class="pc-detail-panel">${pcDetailView === "training" ? trainingEditor(mon) : summary}</div>${pcDetailView === "summary" ? `<div class="sheet-actions"><button class="gloss-button ${onTeam ? "red" : "green"}" type="button" data-team-toggle="${id}">${onTeam ? "Remove from team" : "Add to team"}</button><button class="gloss-button blue" type="button" data-open-pc-items>Held item</button><button class="gloss-button slate" type="button" data-close-pc-sheet>Close</button></div>` : ""}`;
+    const summaryMoves = trainingDraft.moves.map((move, slot) => `<button class="showdown-move-row summary-move-choice" type="button" data-edit-training-move="${slot}" aria-label="Change ${escapeHtml(move)}">${showdownMoveRow(moveCatalogItem(move))}</button>`).join("");
+    const quote = localTrainingQuote(mon);
+    const invalidMoveSlots = trainingDraft.moves.map((move, slot) => form.legalMoveIds.includes(toId(move)) ? null : slot).filter((slot) => slot !== null);
+    const pending = quote.changed ? `<div class="summary-pending"><div><span>${quote.lines.length} pending change${quote.lines.length === 1 ? "" : "s"}<button type="button" data-reset-training>Reset</button></span><strong>Total ₽${quote.total.toLocaleString()}</strong></div><button class="gloss-button blue" type="button" data-apply-training ${quote.total <= balance && !invalidMoveSlots.length ? "" : "disabled"}>Apply changes</button></div>` : "";
+    const summary = `<div class="pokemon-facts summary-facts"><p><span>Ability</span><button class="summary-ability-button" type="button" data-summary-ability="${toId(trainingDraft.ability)}" title="View and change ${escapeHtml(trainingDraft.ability)}"><strong>${escapeHtml(trainingDraft.ability)}</strong><span aria-hidden="true">›</span></button></p><p><span>Held item</span><strong>${escapeHtml(mon.item)}</strong></p></div><section class="sheet-section summary-sheet-section"><div class="stat-grid">${stats}</div><h3>Moves</h3><div class="summary-moves">${summaryMoves}</div></section>`;
+    const normalContent = `<div class="pc-detail-panel">${trainingMoveSlot !== null ? trainingMovePicker(mon) : summary}</div>${trainingMoveSlot === null ? `${trainingMessage ? `<p class="summary-training-message" role="alert">${escapeHtml(trainingMessage)}</p>` : ""}${pending}<div class="sheet-actions"><button class="gloss-button ${onTeam ? "red" : "green"}" type="button" data-team-toggle="${id}">${onTeam ? "Remove from team" : "Add to team"}</button><button class="gloss-button blue" type="button" data-open-pc-items>Held item</button><button class="gloss-button slate" type="button" data-close-pc-sheet>Close</button></div>` : ""}`;
     const sheetContent = swapChooser || itemChooser || normalContent;
     const alternateMode = swapChooser || itemChooser;
-    const selectedMove = pcSummaryMoveId ? moveCatalogItem(mon.moves.find((move) => toId(move) === pcSummaryMoveId) || pcSummaryMoveId) : null;
-    const moveCard = selectedMove ? `<div class="summary-move-backdrop" data-close-summary-move><section class="summary-move-card" role="dialog" aria-labelledby="summary-move-title"><header><small>Move details</small><button type="button" data-close-summary-move aria-label="Close move details">×</button></header><div class="showdown-move-row" data-summary-move-detail id="summary-move-title">${showdownMoveRow(selectedMove)}</div></section></div>` : "";
-    const selectedAbility = pcSummaryAbilityId ? abilityContent.get(pcSummaryAbilityId) : null;
-    const abilityCard = selectedAbility ? `<div class="summary-move-backdrop" data-close-summary-ability><section class="summary-move-card summary-ability-card" role="dialog" aria-labelledby="summary-ability-title"><header><small>Ability details</small><button type="button" data-close-summary-ability aria-label="Close ability details">×</button></header><div class="summary-ability-content" data-summary-ability-detail><strong id="summary-ability-title">${escapeHtml(selectedAbility.name)}</strong><p>${escapeHtml(selectedAbility.description)}</p></div></section></div>` : "";
-    return `<div class="sheet-backdrop" data-close-pc-sheet><section class="pokemon-sheet${pcDetailView === "training" && !alternateMode ? " training-sheet" : ""}" role="dialog" aria-modal="true" aria-labelledby="pokemon-sheet-title"><button class="sheet-close" type="button" data-close-pc-sheet aria-label="Close Pokémon details">×</button><div class="pokemon-summary"><img class="sprite" src="${sprite(id)}" alt="${mon.name}"/><div><p class="sheet-kicker">Pokémon details</p><h2 id="pokemon-sheet-title">${mon.name}</h2><div class="sheet-types">${mon.types.map((type) => `<span class="type-chip ${type.toLowerCase()}">${type}</span>`).join("")}</div></div></div><div class="sheet-mode-content">${sheetContent}</div>${alternateMode ? `<button class="gloss-button neutral sheet-secondary-action" type="button" ${swapChooser ? "data-cancel-pc-swap" : "data-cancel-pc-items"}>Cancel</button>` : ""}${moveCard}${abilityCard}</section></div>`;
+    const abilityNames = [...form.ordinaryAbilities, form.hiddenAbility].filter(Boolean);
+    const abilityCard = pcSummaryAbilityId ? `<div class="summary-move-backdrop" data-close-summary-ability><section class="summary-move-card summary-ability-card ability-picker-card" role="dialog" aria-labelledby="summary-ability-title"><header><small id="summary-ability-title">Choose ability</small><button type="button" data-close-summary-ability aria-label="Close ability details">×</button></header><div class="ability-picker-options">${abilityNames.map((ability) => { const details = abilityContent.get(toId(ability)) || { name: ability, description: "Ability details unavailable." }; const selected = ability === trainingDraft.ability; const original = ability === mon.ability; const effect = ability === form.hiddenAbility ? "ability-patch" : "ability-capsule"; const price = original ? 0 : shopItems.find((item) => item.effect === effect)?.price || 0; return `<button type="button" class="ability-picker-option${selected ? " selected" : ""}" data-select-summary-ability="${escapeHtml(ability)}" aria-pressed="${selected}"><span><strong>${escapeHtml(details.name)}</strong><small>${escapeHtml(details.description)}</small></span><b>${selected ? "Selected" : original ? "Current" : `₽${price.toLocaleString()}`}</b></button>`; }).join("")}</div></section></div>` : "";
+    return `<div class="sheet-backdrop" data-close-pc-sheet><section class="pokemon-sheet${trainingMoveSlot !== null && !alternateMode ? " move-picker-sheet" : ""}" role="dialog" aria-modal="true" aria-labelledby="pokemon-sheet-title"><button class="sheet-close" type="button" data-close-pc-sheet aria-label="Close Pokémon details">×</button><div class="pokemon-summary"><img class="sprite" src="${sprite(id)}" alt="${mon.name}"/><div><p class="sheet-kicker">Pokémon details</p><h2 id="pokemon-sheet-title">${mon.name}</h2><div class="sheet-types">${mon.types.map((type) => `<span class="type-chip ${type.toLowerCase()}">${type}</span>`).join("")}</div></div></div><div class="sheet-mode-content">${sheetContent}</div>${alternateMode ? `<button class="gloss-button neutral sheet-secondary-action" type="button" ${swapChooser ? "data-cancel-pc-swap" : "data-cancel-pc-items"}>Cancel</button>` : ""}${abilityCard}</section></div>`;
   }
 
   function encountersScreen() {
@@ -1192,7 +1184,6 @@
 
   let shopItems = [];
   const itemGroupOrder = ["Held Items", "Key Items"];
-  const pcItemGroupOrder = ["Held Items"];
   const itemGroupLabel = (group) => group === "Held Items" ? "Held items" : group === "Key Items" ? "Key items" : group;
   const natureOptions = [
     { name: "Adamant", up: "Atk", down: "SpA" }, { name: "Lonely", up: "Atk", down: "Def" }, { name: "Naughty", up: "Atk", down: "SpD" }, { name: "Brave", up: "Atk", down: "Spe" },
@@ -1258,9 +1249,7 @@
       else if (alreadyKnowsTm) controls = `<p class="sheet-feedback">${escapeHtml(mon.name)} already knows ${escapeHtml(item.name)}.</p>`;
       return `<section class="pc-item-chooser training-config" aria-labelledby="pc-item-heading"><h3 id="pc-item-heading">Use ${escapeHtml(item.name)}</h3><p>${escapeHtml(item.detail)}</p><form data-train-form data-item-id="${item.id}">${controls}<button class="gloss-button blue pc-item-confirm" type="submit" ${unusable ? "disabled" : ""}>Confirm</button></form></section>`;
     }
-    const ownedItems = shopItems.filter((item) => item.group === activePcItemGroup && inventory[item.id] && item.id !== mon.heldItemId);
-    const activeGroupIndex = pcItemGroupOrder.indexOf(activePcItemGroup);
-    const activeTabId = `pc-item-tab-${activePcItemGroup.toLowerCase().replaceAll(" ", "-")}`;
+    const ownedItems = shopItems.filter((item) => item.group === "Held Items" && inventory[item.id] && item.id !== mon.heldItemId);
     const heldItem = mon.heldItemId ? shopItems.find((item) => item.id === mon.heldItemId) : null;
     const heldItemControl = heldItem ? `<div class="pc-held-item"><span><small>Currently holding</small><strong>${escapeHtml(heldItem.name)}</strong></span><button class="item-action take" type="button" data-pc-unequip>Take</button></div>` : "";
     const rows = ownedItems.length ? ownedItems.map((item) => {
@@ -1271,7 +1260,7 @@
       const detail = incompatible ? `Cannot be learned by ${escapeHtml(mon.name)}` : item.group === "Held Items" && available < 1 && holders.length ? `Held by ${holders.map((holder) => escapeHtml(holder.name)).join(", ")}` : escapeHtml(item.detail);
       return `<div class="pc-item-row${incompatible ? " incompatible" : ""}">${itemIcon(item)}<span class="item-copy"><strong>${escapeHtml(item.name)}</strong><small>${detail}</small></span><span class="item-quantity">×${inventory[item.id]}</span><button class="item-action" type="button" data-pc-item="${item.id}" ${incompatible ? "disabled" : ""}>${action}</button></div>`;
     }).join("") : `<div class="pc-item-empty"><strong>No items</strong><span>This category is empty.</span></div>`;
-    return `<section class="pc-item-chooser" aria-labelledby="pc-item-heading"><h3 id="pc-item-heading">Use item on ${mon.name}</h3>${pcItemMessage ? `<p class="pc-item-feedback" role="status">${escapeHtml(pcItemMessage)}</p>` : ""}${heldItemControl}<div class="shop-segments pc-item-segments" data-active-index="${activeGroupIndex}" role="tablist" aria-label="Item categories">${pcItemGroupOrder.map((group) => { const selected = group === activePcItemGroup; return `<button id="pc-item-tab-${group.toLowerCase().replaceAll(" ", "-")}" type="button" role="tab" aria-selected="${selected}" data-pc-item-group="${group}" class="${selected ? "selected" : ""}">${itemGroupLabel(group)}</button>`; }).join("")}</div><div class="pc-item-list" role="tabpanel" aria-labelledby="${activeTabId}">${rows}</div></section>`;
+    return `<section class="pc-item-chooser" aria-labelledby="pc-item-heading"><h3 id="pc-item-heading">Use item on ${mon.name}</h3>${pcItemMessage ? `<p class="pc-item-feedback" role="status">${escapeHtml(pcItemMessage)}</p>` : ""}${heldItemControl}<div class="pc-item-list">${rows}</div></section>`;
   }
 
   function shopRows() {
@@ -2531,7 +2520,7 @@
     trainingMoveSlot = null;
     trainingMoveSearch = "";
     trainingMessage = "";
-    if (pcDetailView === "training") beginTraining(mons[selectedPcId]);
+    beginTraining(mons[selectedPcId]);
     render();
     return true;
   }
@@ -2557,7 +2546,7 @@
   function pcSheetPreview(id) {
     const trainingState = { trainingDraft, trainingMoveSlot, trainingMoveSearch, trainingMessage, trainingTransactionKey };
     try {
-      if (pcDetailView === "training") beginTraining(mons[id]);
+      beginTraining(mons[id]);
       const template = document.createElement("template");
       template.innerHTML = pcPokemonSheet(id);
       const preview = template.content.querySelector(".pokemon-sheet");
@@ -3265,12 +3254,7 @@
       selectedTrainerPokemon = null;
       render();
     }));
-    document.querySelectorAll("[data-pc-detail]").forEach((button) => button.addEventListener("click", () => { selectedPcId = button.dataset.pcDetail; pcDetailView = "summary"; pcSummaryMoveId = null; pcSummaryAbilityId = null; pcSwapMode = false; pcItemMode = false; pendingPcItemId = null; pendingPcItemTransfer = null; selectedNature = null; pcItemMessage = ""; trainingDraft = null; trainingMoveSlot = null; trainingMessage = ""; render(); }));
-    document.querySelectorAll("[data-pc-detail-view]").forEach((button) => button.addEventListener("click", () => {
-      pcDetailView = button.dataset.pcDetailView;
-      if (pcDetailView === "training" && !trainingDraft) beginTraining(mons[selectedPcId]);
-      render();
-    }));
+    document.querySelectorAll("[data-pc-detail]").forEach((button) => button.addEventListener("click", () => { selectedPcId = button.dataset.pcDetail; pcDetailView = "summary"; pcSummaryMoveId = null; pcSummaryAbilityId = null; pcSwapMode = false; pcItemMode = false; pendingPcItemId = null; pendingPcItemTransfer = null; selectedNature = null; pcItemMessage = ""; trainingDraft = null; trainingMoveSlot = null; trainingMessage = ""; beginTraining(mons[selectedPcId]); render(); }));
     bindPcDetailSwipe();
     document.querySelectorAll("[data-close-pc-sheet]").forEach((element) => element.addEventListener("click", (event) => {
       if (element.classList.contains("sheet-backdrop") && event.target !== element) return;
@@ -3283,6 +3267,11 @@
       render();
     }));
     document.querySelectorAll("[data-summary-ability]").forEach((button) => button.addEventListener("click", () => { pcSummaryAbilityId = button.dataset.summaryAbility; render(); }));
+    document.querySelectorAll("[data-select-summary-ability]").forEach((button) => button.addEventListener("click", () => {
+      trainingDraft.ability = button.dataset.selectSummaryAbility;
+      pcSummaryAbilityId = null;
+      render();
+    }));
     document.querySelectorAll("[data-close-summary-ability]").forEach((element) => element.addEventListener("click", (event) => {
       if (element.classList.contains("summary-move-backdrop") && event.target !== element) return;
       pcSummaryAbilityId = null;
@@ -3297,11 +3286,6 @@
       pcItemMessage = "";
       render();
     });
-    document.querySelectorAll("[data-pc-item-group]").forEach((button) => button.addEventListener("click", () => {
-      if (button.dataset.pcItemGroup === activePcItemGroup) return;
-      activePcItemGroup = button.dataset.pcItemGroup;
-      render();
-    }));
     document.querySelectorAll("[data-pc-item]").forEach((button) => button.addEventListener("click", () => {
       const item = shopItems.find((candidate) => candidate.id === button.dataset.pcItem);
       if (!item || !inventory[item.id]) return;
@@ -3336,46 +3320,6 @@
       if (options.slot !== undefined) options.slot = Number(options.slot);
       if (item) void trainPokemon(item, options);
     });
-    const updateTrainingEv = (stat, rawValue) => {
-        const otherTotal = Object.entries(trainingDraft.evs).reduce((sum, [key, value]) => sum + (key === stat ? 0 : value), 0);
-        trainingDraft.evs[stat] = Math.max(0, Math.min(252, 510 - otherTotal, Math.round(Number(rawValue) || 0)));
-        const slider = document.querySelector(`[data-training-ev="${stat}"]`);
-        const numeric = document.querySelector(`[data-training-ev-input="${stat}"]`);
-        if (slider) slider.value = trainingDraft.evs[stat];
-        if (numeric) numeric.value = trainingDraft.evs[stat];
-        const result = slider?.closest(".training-editor-row")?.querySelector(".training-final-value");
-        if (result) result.textContent = previewTrainingStats(mons[selectedPcId])[stat];
-        const remaining = document.querySelector(".training-remaining span");
-        if (remaining) remaining.textContent = `${510 - Object.values(trainingDraft.evs).reduce((sum, value) => sum + value, 0)} EVs remaining`;
-    };
-    document.querySelectorAll("[data-training-ev]").forEach((input) => {
-      input.addEventListener("input", () => updateTrainingEv(input.dataset.trainingEv, input.value));
-      input.addEventListener("change", () => { updateTrainingEv(input.dataset.trainingEv, input.value); render(); });
-    });
-    document.querySelectorAll("[data-training-ev-input]").forEach((input) => {
-      input.addEventListener("input", () => updateTrainingEv(input.dataset.trainingEvInput, input.value));
-      input.addEventListener("change", () => { updateTrainingEv(input.dataset.trainingEvInput, input.value); setTimeout(render, 0); });
-    });
-    document.querySelectorAll("[data-training-iv]").forEach((input) => {
-      const update = () => {
-        const stat = input.dataset.trainingIv;
-        trainingDraft.ivs[stat] = Math.max(0, Math.min(31, Math.round(Number(input.value) || 0)));
-        input.value = trainingDraft.ivs[stat];
-        const result = input.closest(".training-editor-row")?.querySelector(".training-final-value");
-        if (result) result.textContent = previewTrainingStats(mons[selectedPcId])[stat];
-      };
-      input.addEventListener("input", update);
-      input.addEventListener("change", () => { update(); setTimeout(render, 0); });
-    });
-    document.querySelectorAll("[data-max-training-iv]").forEach((button) => button.addEventListener("click", () => {
-      trainingDraft.ivs[button.dataset.maxTrainingIv] = 31;
-      render();
-    }));
-    document.querySelector("[data-reset-evs]")?.addEventListener("click", () => {
-      for (const stat of Object.keys(trainingDraft.evs)) trainingDraft.evs[stat] = 0;
-      render();
-    });
-    document.querySelector("[data-training-nature]")?.addEventListener("change", (event) => { trainingDraft.nature = event.currentTarget.value; render(); });
     document.querySelector("[data-training-ability]")?.addEventListener("change", (event) => { trainingDraft.ability = event.currentTarget.value; render(); });
     document.querySelector("[data-training-form]")?.addEventListener("change", (event) => {
       trainingDraft.speciesId = event.currentTarget.value;

@@ -797,7 +797,7 @@ const nextDetailId = pcDetailOrder[outgoingDetailIndex + 1];
 if (!nextDetailId) throw new Error("The swipe test could not find a next PC Pokémon.");
 const nextDetailName = (await page.locator(`[data-pc-detail="${nextDetailId}"], [data-pc-mon="${nextDetailId}"]`).first().textContent()).trim();
 await swipePcSheet("next");
-if ((await page.locator("#pokemon-sheet-title").textContent())?.trim() !== nextDetailName || await page.locator('[data-pc-detail-view="summary"][aria-selected="true"]').count() !== 1) throw new Error("Swiping left did not open the next Pokémon while preserving Summary.");
+if ((await page.locator("#pokemon-sheet-title").textContent())?.trim() !== nextDetailName) throw new Error("Swiping left did not open the next Pokémon.");
 await swipePcSheet("previous");
 if ((await page.locator("#pokemon-sheet-title").textContent())?.trim() !== outgoingPokemon.name) throw new Error("Swiping right did not return to the previous Pokémon.");
 const closeDragProgress = await dragPcSheetClosed();
@@ -821,12 +821,17 @@ const summaryAppearance = await page.locator(".pokemon-sheet").evaluate((sheet) 
     factsTopBorder: getComputedStyle(sheet.querySelector(".pokemon-facts")).borderTopWidth,
     spriteWidth: sheet.querySelector(".pokemon-summary > img").getBoundingClientRect().width,
     summaryHeight: sheet.querySelector(".pokemon-summary").getBoundingClientRect().height,
-    moves: [...sheet.querySelectorAll(".sheet-move")].map((move) => ({
-      name: move.querySelector(":scope > strong")?.textContent.trim(),
-      className: move.className,
-      categoryPath: new URL(move.querySelector(".sheet-move-category img").src).pathname,
-      hasTypeOrPower: Boolean(move.querySelector("img[src*='/types/'], .sheet-move-power")),
-      background: getComputedStyle(move).backgroundImage,
+    hasTabs: Boolean(sheet.querySelector(".pc-detail-tabs")),
+    hasNature: [...sheet.querySelectorAll(".pokemon-facts > p > span")].some((label) => label.textContent.trim() === "Nature"),
+    heldItemBorder: getComputedStyle(sheet.querySelector(".summary-facts p:last-child")).borderBottomWidth,
+    factsToStatsGap: sheet.querySelector(".stat-grid").getBoundingClientRect().top - sheet.querySelector(".summary-facts").getBoundingClientRect().bottom,
+    stats: [...sheet.querySelectorAll(".stat-card")].map((stat) => ({ label: stat.querySelector("small")?.textContent.trim(), value: Number(stat.querySelector("strong")?.textContent) })),
+    moves: [...sheet.querySelectorAll(".summary-move-choice")].map((move) => ({
+      name: move.querySelector(".showdown-move-copy > strong")?.textContent.trim(),
+      description: move.querySelector(".showdown-move-copy > small")?.textContent.trim(),
+      imagePaths: [...move.querySelectorAll(".showdown-move-sprite img")].map((image) => new URL(image.src).pathname),
+      statLabels: [...move.querySelectorAll("[data-move-stat] small")].map((label) => label.textContent.trim()),
+      price: move.querySelector("[data-move-price] b")?.textContent.trim(),
     })),
   };
 });
@@ -835,30 +840,26 @@ if (!summaryAppearance.classes[0].includes("red") || !summaryAppearance.classes[
 if (summaryAppearance.lightBackgrounds.some((value, index) => value === summaryAppearance.darkBackgrounds[index])) throw new Error("The PC Summary action colors did not adapt to dark mode.");
 if (summaryAppearance.factsTopBorder !== "0px") throw new Error("PC Summary retained the redundant divider above Ability.");
 if (summaryAppearance.spriteWidth < 70 || summaryAppearance.summaryHeight < 70) throw new Error("The PC drawer did not give the Pokémon sprite a larger shared header.");
+if (summaryAppearance.hasTabs || summaryAppearance.hasNature) throw new Error("The PC drawer retained its tabs or Nature row.");
+if (summaryAppearance.heldItemBorder !== "0px" || summaryAppearance.factsToStatsGap < 8) throw new Error("The Held item row did not flow cleanly into the spaced base-stat section.");
+const expectedBaseStats = Object.entries(outgoingPokemon.baseStats).map(([stat, value]) => ({ label: ({ hp: "HP", atk: "Atk", def: "Def", spa: "Sp. Atk", spd: "Sp. Def", spe: "Spe" })[stat], value }));
+if (JSON.stringify(summaryAppearance.stats) !== JSON.stringify(expectedBaseStats)) throw new Error(`PC Summary did not show only base stats: ${JSON.stringify(summaryAppearance.stats)}`);
 if (summaryAppearance.moves.length !== 4 || summaryAppearance.moves.map((move) => move.name).join(",") !== outgoingPokemon.moves.join(",")) throw new Error(`PC Summary did not show all four move names: ${JSON.stringify(summaryAppearance.moves)}`);
-if (summaryAppearance.moves.some((move) => !/type-\w+/.test(move.className) || !move.categoryPath.includes("/assets/showdown/categories/") || move.hasTypeOrPower)) throw new Error(`PC Summary move buttons did not use only type color, name, and category: ${JSON.stringify(summaryAppearance.moves)}`);
-if (new Set(summaryAppearance.moves.map((move) => move.background)).size < 2 && new Set(summaryAppearance.moves.map((move) => move.className)).size > 1) throw new Error("PC Summary move colors did not reflect their types.");
+if (summaryAppearance.moves.some((move) => !move.description || !move.imagePaths[0]?.includes("/assets/showdown/types/") || !move.imagePaths[1]?.includes("/assets/showdown/categories/") || move.statLabels.join(",") !== "Power,Accuracy" || move.price)) throw new Error(`PC Summary moves did not use the compact Showdown treatment: ${JSON.stringify(summaryAppearance.moves)}`);
 const abilityButton = page.locator("[data-summary-ability]");
 if ((await abilityButton.textContent())?.trim().replace(/›$/, "").trim() !== outgoingPokemon.ability) throw new Error("The PC Summary ability was not presented as an interactive detail control.");
 await abilityButton.click();
-const summaryAbilityDetail = await page.locator("[data-summary-ability-detail]").evaluate((card) => ({
-  name: card.querySelector("strong")?.textContent.trim(),
-  description: card.querySelector("p")?.textContent.trim(),
-}));
 const expectedAbility = content.abilities.find((ability) => ability.id === outgoingPokemon.ability.toLowerCase().replace(/[^a-z0-9]+/g, ""));
-if (!expectedAbility || summaryAbilityDetail.name !== outgoingPokemon.ability || summaryAbilityDetail.description !== expectedAbility.description) throw new Error(`The Summary ability detail was incomplete: ${JSON.stringify(summaryAbilityDetail)}`);
-await page.click(".summary-ability-card [data-close-summary-ability]");
-if (await page.locator("[data-summary-ability-detail]").count()) throw new Error("Closing ability details also failed to dismiss its overlay.");
-await page.locator("[data-summary-move]").first().click();
-const summaryMoveDetail = await page.locator("[data-summary-move-detail]").evaluate((row) => ({
-  name: row.querySelector(".showdown-move-copy > strong")?.textContent.trim(),
-  description: row.querySelector(".showdown-move-copy > small")?.textContent.trim(),
-  imagePaths: [...row.querySelectorAll(".showdown-move-sprite img")].map((image) => new URL(image.src).pathname),
-  statLabels: [...row.querySelectorAll("[data-move-stat] small")].map((label) => label.textContent.trim()),
-  price: row.querySelector("[data-move-price] b")?.textContent.trim(),
-}));
-if (summaryMoveDetail.name !== outgoingPokemon.moves[0] || !summaryMoveDetail.description || !summaryMoveDetail.imagePaths[0]?.includes("/assets/showdown/types/") || !summaryMoveDetail.imagePaths[1]?.includes("/assets/showdown/categories/") || summaryMoveDetail.statLabels.join(",") !== "Power,Accuracy" || summaryMoveDetail.price) throw new Error(`The Summary move detail did not match the Training selection row: ${JSON.stringify(summaryMoveDetail)}`);
-await page.click(".summary-move-card [data-close-summary-move]");
+const summaryAbilityOptions = await page.locator("[data-select-summary-ability]").evaluateAll((buttons) => buttons.map((button) => ({ name: button.querySelector("strong")?.textContent.trim(), description: button.querySelector("small")?.textContent.trim(), selected: button.getAttribute("aria-pressed") === "true" })));
+if (!expectedAbility || !summaryAbilityOptions.some((ability) => ability.name === outgoingPokemon.ability && ability.description === expectedAbility.description && ability.selected)) throw new Error(`The Summary ability picker did not explain and select the current ability: ${JSON.stringify(summaryAbilityOptions)}`);
+const alternateAbility = page.locator('[data-select-summary-ability][aria-pressed="false"]').first();
+if (await alternateAbility.count()) {
+  await alternateAbility.click();
+  if (!await page.locator(".summary-pending").count()) throw new Error("Selecting another ability did not stage a Summary change.");
+  await page.click("[data-reset-training]");
+} else {
+  await page.click(".summary-ability-card [data-close-summary-ability]");
+}
 const pcActionSpacing = await page.locator(".pokemon-sheet").evaluate((sheet) => {
   const teamButton = sheet.querySelector("[data-team-toggle]").getBoundingClientRect();
   const itemButton = sheet.querySelector("[data-open-pc-items]").getBoundingClientRect();
@@ -874,88 +875,6 @@ const pcActionSpacing = await page.locator(".pokemon-sheet").evaluate((sheet) =>
 if (pcActionSpacing.firstGap < 6 || Math.abs(pcActionSpacing.firstGap - pcActionSpacing.secondGap) > 1) throw new Error("The PC drawer actions do not have consistent spacing.");
 if (pcActionSpacing.closeBottom > pcActionSpacing.sheetBottom + 1) throw new Error("The PC drawer actions overflow the drawer.");
 await page.setViewportSize({ width: 390, height: 568 });
-await page.click('[data-pc-detail-view="training"]');
-await swipePcSheet("next");
-if ((await page.locator("#pokemon-sheet-title").textContent())?.trim() !== nextDetailName || await page.locator('[data-pc-detail-view="training"][aria-selected="true"]').count() !== 1 || await page.locator(".training-editor").count() !== 1) throw new Error("Swiping left did not open the next Pokémon while preserving Training.");
-await swipePcSheet("previous");
-if ((await page.locator("#pokemon-sheet-title").textContent())?.trim() !== outgoingPokemon.name || await page.locator('[data-pc-detail-view="training"][aria-selected="true"]').count() !== 1) throw new Error("Swiping right did not return to the previous Pokémon while preserving Training.");
-const trainingCloseProgress = await dragPcSheetClosed(".training-stat-name");
-if (!trainingCloseProgress.removedTransform || await page.locator(".pokemon-sheet").count()) throw new Error(`Dragging noninteractive Training content did not close the PC drawer: ${JSON.stringify(trainingCloseProgress)}`);
-await page.click(`[data-pc-detail="${outgoingId}"]`);
-await page.click('[data-pc-detail-view="training"]');
-await assertMobileLayout("PC training drawer");
-await assertDesktopLayout("PC training drawer");
-if (await page.locator(".pokemon-summary > img").evaluate((image) => image.getBoundingClientRect().width) < 63) throw new Error("The compact Training drawer shrank the Pokémon sprite back to its old size.");
-const expectedNatureOrder = ["Adamant", "Lonely", "Naughty", "Brave", "Bold", "Impish", "Relaxed", "Lax", "Jolly", "Timid", "Hasty", "Naive", "Modest", "Mild", "Rash", "Quiet", "Calm", "Careful", "Sassy", "Gentle", "Bashful", "Docile", "Hardy", "Quirky", "Serious"];
-if (JSON.stringify(await page.locator("[data-training-nature] option").evaluateAll((options) => options.map((option) => option.value))) !== JSON.stringify(expectedNatureOrder)) throw new Error("The Training nature menu did not use the requested order.");
-if (await page.locator(".pc-detail-panel > .pokemon-facts").count()) throw new Error("Training still includes the general Pokémon facts.");
-if (await page.locator(".training-editor-row").count() !== 6) throw new Error("Training did not show all six battle stats.");
-if ((await page.locator(".training-stat-name").allTextContents()).join(",") !== "HP,Atk,Def,Sp. Atk,Sp. Def,Spe") throw new Error("Training did not use the requested Showdown stat labels.");
-if ((await page.locator(".training-column-head").textContent())?.includes("FINAL") || (await page.locator(".training-editor").textContent())?.includes("Values update before you spend")) throw new Error("Training retained the removed explanatory headings.");
-if (!(await page.locator(".training-remaining").textContent())?.includes("EVs remaining")) throw new Error("Training did not show the remaining EV budget.");
-const trainingLayout = await page.locator(".training-sheet").evaluate((sheet) => {
-  const sheetBounds = sheet.getBoundingClientRect();
-  const footerBounds = sheet.querySelector(".training-footer").getBoundingClientRect();
-  const trainingContent = sheet.querySelector(".training-scroll");
-  const movesBounds = sheet.querySelector(".training-moves").getBoundingClientRect();
-  const summaryBounds = sheet.querySelector(".pokemon-summary").getBoundingClientRect();
-  const spriteBounds = sheet.querySelector(".pokemon-summary > img").getBoundingClientRect();
-  const nameStyle = getComputedStyle(sheet.querySelector(".pokemon-summary h2"));
-  const maxButton = sheet.querySelector(".training-iv-max");
-  const footerButtons = [...sheet.querySelectorAll(".training-footer-actions .gloss-button")];
-  const slider = sheet.querySelector("[data-training-ev]");
-  return {
-    sheetHeight: sheetBounds.height,
-    horizontalOverflow: sheet.scrollWidth - sheet.clientWidth,
-    footerOverflow: footerBounds.bottom - sheetBounds.bottom,
-    trainingScrollOverflow: trainingContent.scrollHeight - trainingContent.clientHeight,
-    unusedGap: footerBounds.top - movesBounds.bottom,
-    summaryHeight: summaryBounds.height,
-    summaryTop: summaryBounds.top,
-    summaryLeft: summaryBounds.left,
-    spriteWidth: spriteBounds.width,
-    spriteTop: spriteBounds.top,
-    nameFontSize: nameStyle.fontSize,
-    nameTop: sheet.querySelector(".pokemon-summary h2").getBoundingClientRect().top,
-    maxButtonText: maxButton.textContent,
-    maxButtonWidth: maxButton.getBoundingClientRect().width,
-    footerButtonLabels: footerButtons.map((button) => button.textContent.trim()),
-    footerButtonHeights: footerButtons.map((button) => button.getBoundingClientRect().height),
-    sliderHeight: slider.getBoundingClientRect().height,
-    sliderBackgroundSize: getComputedStyle(slider).backgroundSize,
-  };
-});
-if (trainingLayout.horizontalOverflow > 1 || trainingLayout.footerOverflow > 1 || trainingLayout.trainingScrollOverflow > 1) throw new Error(`The compact Training editor overflowed or required scrolling in its mobile drawer: ${JSON.stringify(trainingLayout)}`);
-if (trainingLayout.unusedGap > 10) throw new Error("The Training drawer retained dead space between its moves and footer.");
-if (trainingLayout.maxButtonText !== "Max IV" || trainingLayout.maxButtonWidth > 30) throw new Error("The compact IV shortcut did not read Max IV at its original width.");
-if (trainingLayout.footerButtonLabels.join(",") !== "Apply changes,Close" || new Set(trainingLayout.footerButtonHeights).size !== 1) throw new Error("The Training footer did not expose normalized Apply and Close actions.");
-if (trainingLayout.sliderHeight > 20) throw new Error("The Training EV slider remained too thick for the compact layout.");
-if (!trainingLayout.sliderBackgroundSize.includes("16px")) throw new Error("The Training EV slider track did not stop beneath its thumb.");
-if ((await page.locator("[data-edit-training-move] > b").allTextContents()).some((label) => label.trim() !== "Select")) throw new Error("Training move actions did not use the Select label.");
-const compactTrainingViewport = page.viewportSize();
-await page.setViewportSize({ width: 658, height: 525 });
-const shortWideTrainingLayout = await page.locator(".training-sheet").evaluate(async (sheet) => {
-  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-  const content = sheet.querySelector(".training-scroll").getBoundingClientRect();
-  const footer = sheet.querySelector(".training-footer").getBoundingClientRect();
-  const sheetBounds = sheet.getBoundingClientRect();
-  const moves = [...sheet.querySelectorAll("[data-edit-training-move]")].map((button) => button.getBoundingClientRect());
-  return {
-    count: moves.length,
-    rowCount: new Set(moves.map((move) => Math.round(move.top))).size,
-    clippedMoves: moves.filter((move) => move.top < content.top - 1 || move.bottom > content.bottom + 1).length,
-    footerOverflow: footer.bottom - sheetBounds.bottom,
-    contentTop: content.top,
-    contentBottom: content.bottom,
-    moveTop: moves[0]?.top,
-    moveBottom: moves[0]?.bottom,
-  };
-});
-if (shortWideTrainingLayout.count !== 4 || shortWideTrainingLayout.rowCount !== 1 || shortWideTrainingLayout.clippedMoves || shortWideTrainingLayout.footerOverflow > 1) throw new Error(`The short desktop Training drawer clipped its bottom moves: ${JSON.stringify(shortWideTrainingLayout)}`);
-if (compactTrainingViewport) await page.setViewportSize(compactTrainingViewport);
-await page.fill('[data-training-ev-input="hp"]', "7");
-if (await page.locator('[data-training-ev="hp"]').inputValue() !== "7") throw new Error("Typing an EV did not synchronize its slider.");
-await page.locator('[data-training-ev="hp"]').evaluate((input) => { input.value = "5"; input.dispatchEvent(new Event("input", { bubbles: true })); input.dispatchEvent(new Event("change", { bubbles: true })); });
 await page.click('[data-edit-training-move="0"]');
 await assertMobileLayout("move picker", [".training-move-list"]);
 await assertDesktopLayout("move picker", [".training-move-list"]);
@@ -983,32 +902,16 @@ if (await page.locator("[data-select-training-move]:visible").count() || !await 
 await page.fill("[data-training-move-search]", teachableTm.move);
 if (!await page.locator(`[data-select-training-move="${teachableTm.id}"]:visible`).count()) throw new Error("Move search did not find a compatible move by name.");
 await page.click(`[data-select-training-move="${teachableTm.id}"]`);
-if (!(await page.locator(".training-footer-line").textContent())?.includes(`Total ₽${(50 + teachableTm.price).toLocaleString()}`)) throw new Error("Training did not show the staged build total in its compact footer.");
+if (!(await page.locator(".summary-pending").textContent())?.includes(`Total ₽${teachableTm.price.toLocaleString()}`)) throw new Error("Summary did not show the staged move total.");
 const trainingResponse = page.waitForResponse((response) => response.url().includes(`/api/game/pokemon/${outgoingId}/training/apply`) && response.request().method() === "POST");
 await page.click("[data-apply-training]");
 if (!(await trainingResponse).ok()) throw new Error("Applying a staged training build failed.");
 const tmTrainedGame = await page.evaluate(() => fetch("/api/game").then((response) => response.json()));
-if (tmTrainedGame.roster.find((pokemon) => pokemon.id === outgoingId).evs.hp !== 5) throw new Error("The staged EV change was not applied.");
+if (JSON.stringify(tmTrainedGame.roster.find((pokemon) => pokemon.id === outgoingId).evs) !== JSON.stringify(outgoingPokemon.evs) || JSON.stringify(tmTrainedGame.roster.find((pokemon) => pokemon.id === outgoingId).ivs) !== JSON.stringify(outgoingPokemon.ivs)) throw new Error("Move training unexpectedly changed hidden EVs or IVs.");
 if (tmTrainedGame.roster.find((pokemon) => pokemon.id === outgoingId).moves[0] !== teachableTm.move) throw new Error("The selected move slot was not replaced.");
-await page.click('[data-pc-detail-view="summary"]');
-const summaryHeader = await page.locator(".pokemon-sheet").evaluate((sheet) => ({
-  sheetHeight: sheet.getBoundingClientRect().height,
-  summaryHeight: sheet.querySelector(".pokemon-summary").getBoundingClientRect().height,
-  summaryTop: sheet.querySelector(".pokemon-summary").getBoundingClientRect().top,
-  summaryLeft: sheet.querySelector(".pokemon-summary").getBoundingClientRect().left,
-  spriteWidth: sheet.querySelector(".pokemon-summary > img").getBoundingClientRect().width,
-  spriteTop: sheet.querySelector(".pokemon-summary > img").getBoundingClientRect().top,
-  nameFontSize: getComputedStyle(sheet.querySelector(".pokemon-summary h2")).fontSize,
-  nameTop: sheet.querySelector(".pokemon-summary h2").getBoundingClientRect().top,
-  actionButtonHeight: sheet.querySelector(".sheet-actions .gloss-button").getBoundingClientRect().height,
-}));
-if (summaryHeader.sheetHeight !== trainingLayout.sheetHeight) throw new Error("Summary and Training drawers did not share the same height.");
-if (summaryHeader.summaryHeight !== trainingLayout.summaryHeight || summaryHeader.spriteWidth !== trainingLayout.spriteWidth || summaryHeader.nameFontSize !== trainingLayout.nameFontSize) throw new Error("Summary and Training did not share the same Pokémon header sizing.");
-if (summaryHeader.summaryTop !== trainingLayout.summaryTop || summaryHeader.summaryLeft !== trainingLayout.summaryLeft || summaryHeader.spriteTop !== trainingLayout.spriteTop || summaryHeader.nameTop !== trainingLayout.nameTop) throw new Error("Summary and Training did not keep the Pokémon header in the same position.");
-if (summaryHeader.actionButtonHeight !== trainingLayout.footerButtonHeights[0]) throw new Error("Summary and Training actions did not share the same button height.");
 await page.setViewportSize({ width: 390, height: 844 });
 await page.click("[data-open-pc-items]");
-await page.click('[data-pc-item-group="Held Items"]');
+if (await page.locator(".pc-item-segments, [data-pc-item-group]").count()) throw new Error("The single-category PC item view retained its old tab control.");
 const heldItemQuantity = await page.evaluate(() => fetch("/api/game").then((response) => response.json()).then((game) => game.inventory.leftovers));
 if (!Number.isInteger(heldItemQuantity) || heldItemQuantity < 1) throw new Error("The purchased held item was missing from inventory.");
 const equipResponse = page.waitForResponse((response) => response.url().includes(`/api/game/pokemon/${outgoingId}/equip`) && response.request().method() === "POST");
