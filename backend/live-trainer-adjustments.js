@@ -9,8 +9,9 @@ Quiet Nature
 
 export async function applyLiveTrainerAdjustments(trainers) {
   const today = await trainers.current();
-  if (today.date !== "2026-11-15") return false;
-  return trainers.replaceDailyPokemon(today.date, "Arboliva", vanilluxeTeamText);
+  if (today.date === "2026-11-15") return trainers.replaceDailyPokemon(today.date, "Arboliva", vanilluxeTeamText);
+  if (today.date === "2026-11-17") return trainers.simplifyDailyStats(today.date);
+  return false;
 }
 
 export { vanilluxeTeamText };

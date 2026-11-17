@@ -169,6 +169,8 @@ Every player encounter, including the guaranteed starter, uses:
 
 Trainer Pokémon instead use the explicit values in their trainer sets.
 
+The published November 17, 2026 trainer is a one-time exception: its IVs, EVs, and natures are removed for new battles without altering battles that were already created.
+
 ### Duplicate and form identity
 
 - Stable canonical Showdown IDs are persistence, API, and sprite keys; CSV display names are not identifiers.

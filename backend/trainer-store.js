@@ -234,6 +234,24 @@ export class TrainerStore {
     });
   }
 
+  async simplifyDailyStats(date) {
+    return this.mutate(() => {
+      const challenge = this.data.daily[date];
+      if (!challenge) trainerError(`No trainer has been published for ${date}.`, 404);
+
+      let changed = false;
+      for (const set of challenge.trainer.team) {
+        for (const field of ["ivs", "evs", "nature"]) {
+          if (!(field in set)) continue;
+          delete set[field];
+          changed = true;
+        }
+      }
+      if (changed) challenge.trainer.teamText = Teams.export(challenge.trainer.team);
+      return changed;
+    });
+  }
+
   async reorder(ids) {
     return this.mutate(() => {
       if (!Array.isArray(ids) || ids.length !== this.data.queue.length || new Set(ids).size !== ids.length) trainerError("The trainer order is invalid.");

@@ -180,3 +180,37 @@ Ability: Sturdy
   assert.deepEqual(vanilluxe.moves, ["Blizzard", "Freeze-Dry", "Ice Shard", "Aurora Veil"]);
   assert.equal(await applyLiveTrainerAdjustments(store), false, "the adjustment must be safe to run again after a restart");
 });
+
+test("the November 17 live adjustment removes trainer investments without changing existing battle snapshots", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "nuzzle-live-stats-"));
+  let now = new Date("2026-11-16T15:00:00Z");
+  const store = new TrainerStore(path.join(directory, "trainers.json"), { now: () => now });
+  await store.initialize();
+  await store.current();
+  await store.add({
+    name: "Invested Trainer",
+    spriteId: "brock",
+    teamText: `Starmie @ Leftovers
+Ability: Natural Cure
+EVs: 4 HP / 252 SpA / 252 Spe
+IVs: 0 Atk
+Timid Nature
+- Surf
+- Psychic
+- Ice Beam
+- Recover`,
+  });
+
+  now = new Date("2026-11-17T15:00:00Z");
+  const beforeAdjustment = await store.current();
+  const existingBattleTeam = structuredClone(beforeAdjustment.opponentTeam);
+  assert.equal("evs" in existingBattleTeam[0], true);
+  assert.equal("ivs" in existingBattleTeam[0], true);
+  assert.equal(existingBattleTeam[0].nature, "Timid");
+
+  assert.equal(await applyLiveTrainerAdjustments(store), true);
+  const afterAdjustment = await store.current();
+  assert.equal(["evs", "ivs", "nature"].some((field) => field in afterAdjustment.opponentTeam[0]), false);
+  assert.equal(existingBattleTeam[0].nature, "Timid", "an already-created battle keeps its original trainer snapshot");
+  assert.equal(await applyLiveTrainerAdjustments(store), false, "the adjustment must be safe to run again after a restart");
+});
