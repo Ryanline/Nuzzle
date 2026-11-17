@@ -583,6 +583,10 @@ for (let slot = 0; slot < 12; slot++) {
   if (await page.locator("[data-encounter]:not(:disabled)").count()) throw new Error("Other grass remained available while an encounter choice was pending.");
   await page.waitForFunction((revealedCount) => document.querySelectorAll(".encounter-card.revealed").length === revealedCount, slot + 3);
   if (scrollTopBeforeReveal !== null) {
+    await page.waitForFunction((expectedScrollTop) => {
+      const list = document.querySelector(".encounter-list");
+      return list && Math.abs(list.scrollTop - expectedScrollTop) <= 2;
+    }, scrollTopBeforeReveal);
     const scrollTopAfterReveal = await page.locator(".encounter-list").evaluate((element) => element.scrollTop);
     if (Math.abs(scrollTopAfterReveal - scrollTopBeforeReveal) > 2) throw new Error(`Revealing an encounter reset the list scroll position (${scrollTopBeforeReveal} -> ${scrollTopAfterReveal}).`);
   }
