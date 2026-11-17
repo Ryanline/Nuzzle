@@ -1570,10 +1570,11 @@
     }
   }
 
-  function render() {
+  function render(options) {
     if (route === "encounters") {
       const encounterList = document.querySelector(".encounter-list");
-      if (encounterList) encounterListScrollTop = encounterList.scrollTop;
+      if (Number.isFinite(options?.encounterScrollTop)) encounterListScrollTop = options.encounterScrollTop;
+      else if (encounterList) encounterListScrollTop = encounterList.scrollTop;
     }
     if (route === "mart") {
       const shopList = document.querySelector(".shop-list");
@@ -2402,6 +2403,7 @@
 
   async function updateEncounter(slot, candidateIndex = null) {
     if (gameBusy) return;
+    const preservedScrollTop = document.querySelector(".encounter-list")?.scrollTop ?? encounterListScrollTop;
     gameBusy = true;
     try {
       const choose = candidateIndex !== null;
@@ -2414,7 +2416,7 @@
       purchaseMessage = error.message;
     } finally {
       gameBusy = false;
-      render();
+      render({ encounterScrollTop: preservedScrollTop });
     }
   }
 
