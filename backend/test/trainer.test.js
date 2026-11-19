@@ -214,3 +214,39 @@ Timid Nature
   assert.equal(existingBattleTeam[0].nature, "Timid", "an already-created battle keeps its original trainer snapshot");
   assert.equal(await applyLiveTrainerAdjustments(store), false, "the adjustment must be safe to run again after a restart");
 });
+
+test("the November 19 live adjustment publishes Elite 4 Siebold for new battles", async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), "nuzzle-live-siebold-"));
+  const now = new Date("2026-11-19T15:00:00Z");
+  const store = new TrainerStore(path.join(directory, "trainers.json"), { now: () => now });
+  await store.initialize();
+
+  const beforeAdjustment = await store.current();
+  const existingBattleTeam = structuredClone(beforeAdjustment.opponentTeam);
+  assert.equal(beforeAdjustment.trainer.name, "Brock");
+
+  assert.equal(await applyLiveTrainerAdjustments(store), true);
+  const afterAdjustment = await store.current();
+  assert.equal(afterAdjustment.trainer.name, "Elite 4 Siebold");
+  assert.equal(afterAdjustment.trainer.spriteId, "siebold");
+  assert.deepEqual(afterAdjustment.opponentTeam.map((set) => set.species), [
+    "Starmie", "Clawitzer", "Barbaracle", "Gyarados", "Blastoise", "Octillery",
+  ]);
+  assert.deepEqual(afterAdjustment.opponentTeam.map((set) => set.ability), [
+    "Illuminate", "Mega Launcher", "Tough Claws", "Intimidate", "Torrent", "Suction Cups",
+  ]);
+  assert.deepEqual(afterAdjustment.opponentTeam.map((set) => set.moves), [
+    ["Psycho Cut", "Waterfall", "Rapid Spin"],
+    ["Water Pulse", "Crabhammer", "Aqua Jet", "Flip Turn"],
+    ["Rock Slide", "Liquidation", "Cross Chop"],
+    ["Surf", "Flamethrower", "Ice Beam", "Thunderbolt"],
+    ["Hydro Pump", "Rapid Spin", "Body Slam"],
+    ["Octazooka", "Haze", "Signal Beam", "Acid Spray"],
+  ]);
+  assert.equal(afterAdjustment.opponentTeam[3].ivs.atk, 0);
+  assert.equal(afterAdjustment.opponentTeam[5].ivs.atk, 0);
+  assert.deepEqual(existingBattleTeam.map((set) => set.species), [
+    "Steelix", "Golem", "Rhyperior", "Aerodactyl", "Sudowoodo", "Magcargo",
+  ], "an already-created battle keeps its original trainer snapshot");
+  assert.equal(await applyLiveTrainerAdjustments(store), false, "the adjustment must be safe to run again after a restart");
+});

@@ -289,6 +289,7 @@ page.on("pageerror", (error) => errors.push(error.message));
 
 await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
 await page.waitForSelector(".home-screen .screen-title");
+const todayState = await page.evaluate(() => fetch("/api/today").then((response) => response.json()));
 if (await page.evaluate(() => typeof window.BattleMoveAnims?.aquastep?.anim !== "function" || typeof window.BattleOtherAnims !== "object" || typeof window.BattleEffects !== "object")) throw new Error("The official Pokémon Showdown animation tables did not load.");
 const localSpriteResponse = await fetch(`${baseUrl}/assets/showdown/gen5/charizard.png`);
 if (!localSpriteResponse.ok || localSpriteResponse.headers.get("content-type") !== "image/png" || !localSpriteResponse.headers.get("cache-control")?.includes("immutable")) {
@@ -740,7 +741,7 @@ await assertMobileLayout("Bag", [".bag-list"]);
 await assertDesktopLayout("Bag", [".bag-list"]);
 await page.click(".page-back");
 await page.click('[data-route="pc"]');
-if ((await page.locator(".trainer-reference-section .pc-section-head h2").textContent())?.trim() !== "Brock") throw new Error("The PC did not identify today's trainer team.");
+if ((await page.locator(".trainer-reference-section .pc-section-head h2").textContent())?.trim() !== todayState.trainer.name) throw new Error("The PC did not identify today's trainer team.");
 if (await page.locator(".trainer-reference-section .trainer-party-slot").count() !== 6) throw new Error("The PC did not show today's full trainer team.");
 if (await page.locator(".trainer-reference-section button.trainer-party-slot").count() !== 6) throw new Error("The trainer Pokémon were not exposed as tappable controls.");
 if (await page.locator(".party-section [data-pc-detail]").count() !== generatedGame.teamIds.length) throw new Error("The PC Team section did not show only the active team.");
@@ -758,8 +759,9 @@ const trainerScout = await page.locator(".trainer-scout-card").evaluate((card) =
   speedNote: card.querySelector(".trainer-scout-facts p:nth-child(2) small")?.textContent.trim(),
   text: card.textContent,
 }));
-if (trainerScout.name !== "Steelix" || trainerScout.types.join(",") !== "Steel,Ground" || !trainerScout.abilities?.includes("Sturdy") || trainerScout.speed !== "58–174" || trainerScout.speedNote !== "before items, abilities, or modifiers") throw new Error(`The trainer scouting card did not show the requested public species details: ${JSON.stringify(trainerScout)}`);
-if (/Earthquake|Heavy Slam|Adamant|Rock Slide/.test(trainerScout.text)) throw new Error("The trainer scouting card leaked private set details.");
+const scoutedPokemon = todayState.trainer.pokemon[0];
+if (trainerScout.name !== scoutedPokemon.name || trainerScout.types.join(",") !== scoutedPokemon.types.join(",") || !scoutedPokemon.possibleAbilities.every((ability) => trainerScout.abilities?.includes(ability)) || trainerScout.speed !== `${scoutedPokemon.speedRange.min}–${scoutedPokemon.speedRange.max}` || trainerScout.speedNote !== "before items, abilities, or modifiers") throw new Error(`The trainer scouting card did not show the requested public species details: ${JSON.stringify(trainerScout)}`);
+if (/Earthquake|Heavy Slam|Adamant|Rock Slide|Psycho Cut|Waterfall|Rapid Spin/.test(trainerScout.text)) throw new Error("The trainer scouting card leaked private set details.");
 await assertMobileLayout("trainer Pokémon scouting card");
 await assertDesktopLayout("trainer Pokémon scouting card");
 await page.click(".trainer-scout-close");
@@ -1052,7 +1054,7 @@ const battlePanelFallback = await page.locator(".battle-panel").evaluate((panel)
 if (battlePanelFallback.overflowY !== "auto" || battlePanelFallback.overflow <= 1 || battlePanelFallback.scrollTop <= 1 || !battlePanelFallback.giveUpVisible) throw new Error(`The compact battle controls could not scroll to the final action: ${JSON.stringify(battlePanelFallback)}`);
 
 if (await page.locator(".battler-slot.player").getAttribute("data-pokemon") !== replacementId) throw new Error("The selected PC Pokémon was not used as the lead.");
-if (!(await page.locator(".battle-hud.enemy").textContent())?.includes("Lv. 100")) throw new Error("Brock's Pokémon is not level 100.");
+if (!(await page.locator(".battle-hud.enemy").textContent())?.includes("Lv. 100")) throw new Error("The trainer's Pokémon is not level 100.");
 const battleHealth = await page.locator(".battle-hud").evaluateAll((huds) => huds.map((hud) => {
   const bar = hud.querySelector(".hp-bar").getBoundingClientRect();
   const detail = hud.querySelector(".battle-hud-detail").getBoundingClientRect();
@@ -1187,7 +1189,7 @@ await page.waitForSelector(".battle-screen");
 if (!(await page.locator(".prompt").textContent())?.includes("Turn 2")) throw new Error("The active battle was not resumed after refresh.");
 
 await page.click("[data-forfeit-battle]");
-await page.waitForFunction(() => document.querySelector(".prompt")?.textContent.includes("Brock won"));
+await page.waitForFunction((trainerName) => document.querySelector(".prompt")?.textContent.includes(`${trainerName} won`), todayState.trainer.name);
 if (await page.locator("[data-forfeit-battle]").count()) throw new Error("Forfeit remained available after the battle ended.");
 await page.waitForSelector(".result-modal");
 if (!(await page.locator(".result-modal").textContent())?.includes("Defeat")) throw new Error("The result overlay did not report the loss.");
@@ -1244,7 +1246,7 @@ if (!loadedPublicResultResponse.ok()) throw new Error("The leaderboard battle re
 const publicResult = await loadedPublicResultResponse.json();
 if (!Array.isArray(publicResult.knockouts) || publicResult.opponent?.team?.length !== 6 || "log" in publicResult || "moves" in publicResult || "playerTeam" in publicResult) throw new Error(`The leaderboard result was not sanitized correctly: ${JSON.stringify(publicResult)}`);
 await page.waitForSelector(".result-modal:not(.result-loading)");
-if (!(await page.locator(".result-modal").textContent())?.includes(`${username} vs. Brock`) || !(await page.locator(".result-modal").textContent())?.includes("Defeat")) throw new Error("The leaderboard result overlay did not reuse the player battle result presentation.");
+if (!(await page.locator(".result-modal").textContent())?.includes(`${username} vs. ${todayState.trainer.name}`) || !(await page.locator(".result-modal").textContent())?.includes("Defeat")) throw new Error("The leaderboard result overlay did not reuse the player battle result presentation.");
 if (await page.locator(".result-mon-card").count() !== 6) throw new Error("The leaderboard result overlay did not show the opposing team.");
 const leaderboardDuringOverlay = await page.locator(".leaderboard-content").evaluate((element) => ({ scrollTop: element.scrollTop, scrollHeight: element.scrollHeight, clientHeight: element.clientHeight }));
 await page.click("[data-close-leaderboard-result].result-close");

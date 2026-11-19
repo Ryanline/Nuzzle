@@ -234,6 +234,28 @@ export class TrainerStore {
     });
   }
 
+  async replaceDailyTrainer(date, { id, name, spriteId, teamText }) {
+    return this.mutate(() => {
+      const challenge = this.data.daily[date];
+      if (!challenge) trainerError(`No trainer has been published for ${date}.`, 404);
+      if (challenge.trainer.id === id) return false;
+
+      const trainerName = String(name || "").trim();
+      if (trainerName.length < 1 || trainerName.length > 40) trainerError("Trainer name must be between 1 and 40 characters.");
+      if (!spriteIds.has(spriteId)) trainerError("Choose a valid trainer sprite.");
+      const parsed = validateTeam(teamText);
+      challenge.trainer = {
+        id,
+        name: trainerName,
+        spriteId,
+        teamText: parsed.text,
+        team: parsed.team,
+        createdAt: new Date().toISOString(),
+      };
+      return true;
+    });
+  }
+
   async simplifyDailyStats(date) {
     return this.mutate(() => {
       const challenge = this.data.daily[date];
