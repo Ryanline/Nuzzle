@@ -99,12 +99,13 @@ Timid Nature
 
 test("the trainer editor exposes the full Showdown sprite catalog and custom sprites", () => {
   assert.ok(trainerSprites.length >= 1_400);
-  for (const id of ["brock", "misty", "cynthia", "red", "youngster-gen9", "ramsay", "diya", "tai"]) {
+  for (const id of ["brock", "misty", "cynthia", "red", "youngster-gen9", "ramsay", "diya", "tai", "wes"]) {
     assert.ok(trainerSprites.some((sprite) => sprite.id === id), `missing trainer sprite ${id}`);
   }
   assert.equal(trainerSprites.find((sprite) => sprite.id === "ramsay")?.name, "Ramsay");
   assert.equal(trainerSprites.find((sprite) => sprite.id === "diya")?.name, "Diya");
   assert.equal(trainerSprites.find((sprite) => sprite.id === "tai")?.name, "Tai");
+  assert.equal(trainerSprites.find((sprite) => sprite.id === "wes")?.name, "Wes");
 });
 
 test("queued trainers can be reordered and publish one immutable snapshot per day", async () => {

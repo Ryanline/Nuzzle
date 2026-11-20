@@ -24,6 +24,7 @@
   const trainerSprite = (id = "brock") => {
     if (id === "brock") return "assets/trainers/brock.png";
     if (id === "tai") return "assets/sprites/digimon/tai.svg";
+    if (id === "wes") return "assets/sprites/wes.webp";
     if (id === "ramsay" || id === "diya") return `assets/trainers/${id}.svg`;
     return `assets/showdown/trainers/${encodeURIComponent(id)}.png`;
   };

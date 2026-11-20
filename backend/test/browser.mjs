@@ -416,6 +416,9 @@ if (!(await page.locator('[data-avatar-sprite="diya"] img').getAttribute("src"))
 await page.fill("[data-avatar-search]", "tai");
 if (await page.locator('[data-avatar-sprite="tai"]').count() !== 1) throw new Error("Tai was not searchable in the player avatar picker.");
 if (!(await page.locator('[data-avatar-sprite="tai"] img').getAttribute("src"))?.includes("assets/sprites/digimon/tai.svg")) throw new Error("The player avatar picker did not use the custom Tai asset.");
+await page.fill("[data-avatar-search]", "wes");
+if (await page.locator('[data-avatar-sprite="wes"]').count() !== 1) throw new Error("Wes was not searchable in the player avatar picker.");
+if (!(await page.locator('[data-avatar-sprite="wes"] img').getAttribute("src"))?.includes("assets/sprites/wes.webp")) throw new Error("The player avatar picker did not use the custom Wes asset.");
 await page.fill("[data-avatar-search]", "misty");
 if (await page.locator('[data-avatar-sprite="misty"]').count() !== 1) throw new Error("Searching account avatars did not find Misty.");
 const avatarUpdateResponse = page.waitForResponse((response) => response.url().endsWith("/api/account/avatar") && response.request().method() === "PUT");
@@ -496,6 +499,9 @@ if (!(await page.locator('[data-trainer-sprite-option="diya"] img').getAttribute
 await page.fill("[data-trainer-sprite-search]", "tai");
 if (await page.locator('.trainer-sprite-choice[data-trainer-sprite-option="tai"]').count() !== 1) throw new Error("Tai was not searchable in the scheduler picker.");
 if (!(await page.locator('[data-trainer-sprite-option="tai"] img').getAttribute("src"))?.includes("assets/sprites/digimon/tai.svg")) throw new Error("The scheduler picker did not use the custom Tai asset.");
+await page.fill("[data-trainer-sprite-search]", "wes");
+if (await page.locator('.trainer-sprite-choice[data-trainer-sprite-option="wes"]').count() !== 1) throw new Error("Wes was not searchable in the scheduler picker.");
+if (!(await page.locator('[data-trainer-sprite-option="wes"] img').getAttribute("src"))?.includes("assets/sprites/wes.webp")) throw new Error("The scheduler picker did not use the custom Wes asset.");
 await page.fill("[data-trainer-sprite-search]", "misty-mast");
 const narrowedSpriteCount = await page.locator(".trainer-sprite-choice").count();
 if (narrowedSpriteCount < 1 || narrowedSpriteCount >= 1000) throw new Error("Typing did not narrow the trainer sprite grid.");
