@@ -363,10 +363,13 @@ await assertContainedLandscape("landing page", ".landing");
 await page.setViewportSize({ width: 390, height: 844 });
 if (await page.locator(".menu-toggle").count()) throw new Error("The obsolete hamburger menu is still rendered.");
 await page.waitForFunction(() => document.querySelector(".account-button")?.getAttribute("aria-label")?.includes("Guest "));
+if (!await page.locator('[data-route="leaderboard"]:disabled').count()) throw new Error("The leaderboard was not visibly locked before the guest completed a battle.");
 await page.click('[data-route="pc"]');
 await page.waitForSelector(".pc-stage");
 if (await page.locator(".auth-card").count()) throw new Error("A guest was blocked from using the PC.");
 const guestGame = await page.evaluate(() => fetch("/api/game").then((response) => response.json()));
+const lockedLeaderboardStatus = (await page.request.get(`${baseUrl}/api/leaderboard`)).status();
+if (lockedLeaderboardStatus !== 403) throw new Error(`The leaderboard API was available before battle completion (${lockedLeaderboardStatus}).`);
 await page.click("[data-open-account]");
 if (!/^Guest \d+$/.test((await page.locator(".guest-account-card h2").textContent())?.trim() || "")) throw new Error("The anonymous player did not receive a numbered guest identity.");
 await assertMobileLayout("guest account dialog", [".auth-card"]);
@@ -392,16 +395,7 @@ await page.click("[data-dismiss-welcome]");
 if (!(await welcomeResponse).ok()) throw new Error("Acknowledging the welcome message failed.");
 if (await page.locator(".welcome-card").count()) throw new Error("The acknowledged welcome message remained open.");
 if (!(await page.locator(".account-button").getAttribute("aria-label"))?.includes(username)) throw new Error("The account control did not show the authenticated user.");
-if (!(await page.locator(".pc-stage .run-status").textContent())?.includes("Run Day 1 of 7") || (await page.locator(".pc-stage .run-status").textContent())?.includes("Streak continues") || (await page.locator(".pc-stage .run-status").textContent())?.includes("resets in")) throw new Error("The PC did not receive the compact seven-day run indicator.");
-await page.click("[data-open-run-info]");
-if ((await page.locator(".run-info-card strong").textContent())?.trim() !== "Your streak will be unaffected." || !(await page.locator(".run-info-card").textContent())?.includes("missed daily win wipes the box") || !(await page.locator(".run-info-card em").textContent())?.includes("fresh encounters")) throw new Error("The run details did not explain streak persistence, missed wins, and fresh-box balance.");
-await page.click('[data-preview-run-day="6"]');
-if (!(await page.locator(".run-status").textContent())?.includes("Run Day 6 of 7") || !await page.locator(".run-status.soon").count()) throw new Error("The local Day 6 warning preview was unavailable.");
-await page.click("[data-open-run-info]");
-await page.click('[data-preview-run-day="7"]');
-if (!(await page.locator(".run-status.final").textContent())?.includes("Final day with this box")) throw new Error("The local final-day warning preview was unavailable.");
-await page.click("[data-open-run-info]");
-await page.click('[data-preview-run-day="live"]');
+if (await page.locator(".pc-stage .run-status, [data-open-run-info]").count()) throw new Error("The retired seven-day run UI remained visible in the PC.");
 if (await page.locator(".account-online").count()) throw new Error("The obsolete account status dot is still rendered.");
 await page.click("[data-open-account]");
 if (!(await page.locator(".account-profile .account-avatar img").getAttribute("src"))?.includes("/trainers/unknownf.png")) throw new Error("A new account did not default to Showdown's unknown trainer avatar.");
@@ -450,14 +444,14 @@ await assertDesktopLayout("More screen", [], [
   { first: ".more-actions button:nth-child(1)", second: ".more-actions button:nth-child(2)", direction: "above" },
 ]);
 const moreButtons = await page.locator(".more-stage button").evaluateAll((buttons) => buttons.map((button) => ({ label: button.textContent.trim(), classes: button.className })));
-if (moreButtons.map(({ label }) => label).join(",") !== "How to play,What a Nuzlocke is,Schedule,Affiliation,Discord,Scheduler,Battle reset,Wipe me,Back") throw new Error("The More actions were not rendered in the requested order.");
+if (moreButtons.map(({ label }) => label).join(",") !== "How to play,What a Nuzlocke is,Schedule,Affiliation,Discord,Scheduler,Battle reset,Reset day,Back") throw new Error("The More actions were not rendered in the requested order.");
 for (const [index, color] of ["red", "yellow", "green", "blue", "discord", "gold", "slate", "crystal", "purple"].entries()) {
   if (!moreButtons[index].classes.includes(color)) throw new Error(`${moreButtons[index].label} did not use the requested ${color} palette.`);
 }
 await page.setViewportSize({ width: 320, height: 568 });
 const moreCardChecks = [
   ["how-to-play", "How to play", "Challenge the daily trainer", null],
-  ["nuzlocke", "What a Nuzlocke is", "wipes your entire box and ends your win streak", "bulbapedia.bulbagarden.net/wiki/Nuzlocke_Challenge"],
+  ["nuzlocke", "What a Nuzlocke is", "same limited encounters", "bulbapedia.bulbagarden.net/wiki/Nuzlocke_Challenge"],
   ["schedule", "Battle schedule", "12:00 AM Eastern Time", null],
   ["affiliation", "Affiliation", "not affiliated with or endorsed", "github.com/smogon/pokemon-showdown"],
   ["discord", "Discord", "Share your runs, report bugs, follow game updates", "discord.gg/nwWpFZHv7c"],
@@ -470,10 +464,10 @@ for (const [cardId, title, copy, link] of moreCardChecks) {
   const cardFit = await card.evaluate((element) => ({ top: element.getBoundingClientRect().top, bottom: element.getBoundingClientRect().bottom, scrollHeight: element.scrollHeight, clientHeight: element.clientHeight }));
   if (cardFit.top < 0 || cardFit.bottom > 568 || cardFit.scrollHeight > cardFit.clientHeight) throw new Error(`${title} did not fit a 320x568 mobile page without scrolling.`);
   if (link && !await card.locator(`a[href*="${link}"]`).count()) throw new Error(`${title} did not include its required source link.`);
-  if (cardId === "how-to-play" && (!(await card.textContent())?.includes("Complete a seven-day run") || !(await card.textContent())?.includes("missed daily win counts as a forfeit") || !(await card.textContent())?.includes("Scheduled seven-day resets preserve the streak"))) throw new Error("How to play did not explain the personal run lifecycle.");
+  if (cardId === "how-to-play" && (!(await card.textContent())?.includes("same twelve daily trios") || !(await card.textContent())?.includes("leaderboard unlocks") || !(await card.textContent())?.includes("reset at midnight Eastern"))) throw new Error("How to play did not explain the shared daily puzzle.");
   if (cardId === "schedule" && (await card.locator(".battle-schedule dd").allTextContents()).join(",") !== "Theme teams,Gym leaders,Regular trainers,Rival battles,Ace trainers,Elite 4,Champions") throw new Error("The battle schedule did not use the requested labels and capitalization.");
   if (cardId === "schedule" && !(await card.locator(".schedule-note").textContent())?.includes("holiday-themed trainer")) throw new Error("The battle schedule did not explain the holiday exception.");
-  if (cardId === "schedule" && (!(await card.locator(".schedule-reset").textContent())?.includes("Missing a daily win counts as a forfeit") || !(await card.locator(".schedule-reset").textContent())?.includes("without breaking its streak"))) throw new Error("The battle schedule did not reinforce the personal run lifecycle.");
+  if (cardId === "schedule" && (!(await card.locator(".schedule-reset").textContent())?.includes("boxes, encounters, items, and preparation budgets reset daily"))) throw new Error("The battle schedule did not explain the daily reset.");
   if (cardId === "affiliation" && (await card.locator(".more-card-content > p").count() !== 4 || !(await card.locator(".more-card-content > p").last().textContent())?.includes("sprites are © Nintendo"))) throw new Error("The affiliation and ownership notices were not combined into one paragraph.");
   await card.locator(".more-card-back").click();
   if (await page.locator(".more-card").count()) throw new Error(`${title} remained open after using Back.`);
@@ -571,6 +565,14 @@ await assertDesktopLayout("opening encounters", [".encounter-list"], [
 ]);
 const encounterScroll = await page.locator(".encounter-list").evaluate((element) => ({ clientHeight: element.clientHeight, scrollHeight: element.scrollHeight }));
 if (encounterScroll.scrollHeight <= encounterScroll.clientHeight) throw new Error("The 12 opening encounters did not receive a contained scroll area.");
+const cardWheelScrollTop = await page.locator(".encounter-card").first().evaluate((card) => {
+  const list = card.closest(".encounter-list");
+  list.scrollTop = 0;
+  card.dispatchEvent(new WheelEvent("wheel", { bubbles: true, cancelable: true, deltaY: 180 }));
+  return list.scrollTop;
+});
+if (cardWheelScrollTop <= 0) throw new Error("The encounter list did not scroll when the mouse wheel was used over a card.");
+await page.locator(".encounter-list").evaluate((element) => { element.scrollTop = 0; });
 for (let slot = 0; slot < 12; slot++) {
   const scrollTopBeforeReveal = slot === 5
     ? await page.locator(".encounter-list").evaluate((element) => {
@@ -1305,13 +1307,8 @@ await page.click("[data-reset-daily-battle]");
 if (!(await resetResponse).ok()) throw new Error("Resetting the admin's daily battle failed.");
 if (!(await page.locator(".more-developer").textContent())?.includes("ready to play again")) throw new Error("The daily battle reset did not report success.");
 await page.click('.more-stage [data-route="home"]');
-const freshBattleButton = page.locator('.home-actions .red[data-route="encounters"]');
-if ((await freshBattleButton.textContent())?.trim() !== "Battle") throw new Error("A forfeit did not route the empty fresh run through encounters.");
-await freshBattleButton.click();
-if (await page.locator("[data-encounter]").count()) throw new Error("A forfeit granted fresh-run encounters before the next day.");
-if (!(await page.locator(".encounter-empty").textContent())?.includes("New encounters in")) throw new Error("The post-wipe encounter screen did not show the next-day countdown.");
-
-await page.click(".page-back");
+const freshBattleButton = page.locator('.home-actions .red[data-route="lead"]');
+if ((await freshBattleButton.textContent())?.trim() !== "Battle") throw new Error("Resetting the battle did not preserve the prepared daily team.");
 await page.click('[data-route="settings"]');
 const wipeButton = page.locator("[data-wipe-me]");
 if (await wipeButton.count() !== 1 || !(await wipeButton.getAttribute("class"))?.includes("crystal")) throw new Error("The admin settings did not expose the Crystal-colored Wipe me action.");
@@ -1319,9 +1316,9 @@ page.once("dialog", (dialog) => dialog.accept());
 const wipeResponse = page.waitForResponse((response) => response.url().endsWith("/api/admin/wipe-me") && response.request().method() === "POST");
 await wipeButton.click();
 if (!(await wipeResponse).ok()) throw new Error("Wiping the admin test run failed.");
-if (!(await page.locator(".more-developer").textContent())?.includes("12 fresh encounters are ready")) throw new Error("The developer wipe did not report success.");
+if (!(await page.locator(".more-developer").textContent())?.includes("same 12 shared encounters are ready")) throw new Error("The developer reset did not report success.");
 const wipedGame = await page.evaluate(() => fetch("/api/game").then((response) => response.json()));
-if (wipedGame.roster.length || wipedGame.teamIds.length || wipedGame.encounters.length !== 12 || wipedGame.encounters.some((encounter) => encounter.claimed || encounter.kind !== "opening") || wipedGame.dailyBattleAttempted) throw new Error(`The developer wipe did not create the expected clean testing run: ${JSON.stringify(wipedGame)}`);
+if (wipedGame.roster.length || wipedGame.teamIds.length || wipedGame.encounters.length !== 12 || wipedGame.encounters.some((encounter) => encounter.claimed) || wipedGame.encounters[0].kind !== "starter" || wipedGame.encounters.slice(1).some((encounter) => encounter.kind !== "daily") || wipedGame.dailyBattleAttempted) throw new Error(`The developer wipe did not create the expected clean testing run: ${JSON.stringify(wipedGame)}`);
 await page.click('.more-stage [data-route="home"]');
 await page.click('.home-actions [data-route="encounters"]');
 if (await page.locator("[data-encounter]").count() !== 12) throw new Error("The developer wipe did not expose all 12 fresh encounters immediately.");
@@ -1330,19 +1327,7 @@ await page.waitForFunction(() => [...document.querySelectorAll("[data-encounter]
 await page.click(".page-back");
 if (await page.locator(".home-screen .run-status").count()) throw new Error("The landing page still displayed the run indicator.");
 await page.click('[data-route="pc"]');
-await page.click("[data-open-run-info]");
-const expireButton = page.locator("[data-expire-run]");
-if (await expireButton.count() !== 1) throw new Error("Local run testing did not expose the scheduled-reset preview control.");
-page.once("dialog", (dialog) => dialog.accept());
-const expireResponse = page.waitForResponse((response) => response.url().endsWith("/api/admin/run/expire") && response.request().method() === "POST");
-await expireButton.click();
-if (!(await expireResponse).ok()) throw new Error("The local run-expiry preview failed.");
-await page.waitForSelector(".run-reset-card");
-const resetCopy = await page.locator(".run-reset-card").textContent();
-if (!resetCopy?.includes("Your fresh box is ready") || !resetCopy.includes("win streak continues") || !resetCopy.includes("archived for support recovery")) throw new Error("The scheduled reset receipt did not explain the fresh box, streak, and archive.");
-const acknowledgeResponse = page.waitForResponse((response) => response.url().endsWith("/api/game/run-reset/acknowledge") && response.request().method() === "PUT");
-await page.click("[data-acknowledge-run-reset]");
-if (!(await acknowledgeResponse).ok() || await page.locator(".run-reset-card").count()) throw new Error("The scheduled reset receipt could not be acknowledged.");
+if (await page.locator("[data-open-run-info], [data-expire-run], .run-reset-card").count()) throw new Error("Retired run-expiry controls remained available.");
 
 const imageFailures = await page.locator("img").evaluateAll((images) => images.filter((image) => !image.complete || image.naturalWidth === 0).map((image) => image.src));
 await browser.close();

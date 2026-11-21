@@ -160,10 +160,6 @@
   let battleResetMessage = "";
   let wipeMeBusy = false;
   let wipeMeMessage = "";
-  let runInfoOpen = false;
-  let runResetBusy = false;
-  let runExpireBusy = false;
-  let runDayPreview = null;
   let moreCardOpen = null;
   let leaderboardData = null;
   let leaderboardLoading = false;
@@ -689,6 +685,7 @@
     const currentClass = (name) => current === name ? " is-current" : "";
     const currentPage = (name) => current === name ? ' aria-current="page"' : "";
     const dailyBattleUsed = Boolean(currentUser && gameState?.dailyBattleAttempted && gameState?.dailyBattleId);
+    const leaderboardUnlocked = Boolean(!gameState?.sharedDailyBoxesActive || currentUser?.isAdmin || gameState?.dailyBattleEnded);
     const unclaimedEncounters = encounters.filter((item) => !item.claimed).length;
     const battleRoute = dailyBattleUsed ? "battle" : currentUser && gameState && !gameState.battleUnlocked ? (unclaimedEncounters || !gameState.roster?.length ? "encounters" : "pc") : "lead";
     return `<nav class="${className}" aria-label="Game sections">
@@ -697,14 +694,14 @@
       <button class="gloss-button gold${currentClass("bag")}"${currentPage("bag")} data-route="bag">Bag</button>
       <button class="gloss-button green${currentClass("encounters")}"${currentPage("encounters")} data-route="encounters">Encounter (${unclaimedEncounters})</button>
       <button class="gloss-button blue${currentClass("mart")}"${currentPage("mart")} data-route="mart">Mart</button>
-      <button class="gloss-button purple${currentClass("leaderboard")}"${currentPage("leaderboard")} data-route="leaderboard">Leaderboard</button>
+      <button class="gloss-button purple${currentClass("leaderboard")}"${currentPage("leaderboard")} data-route="leaderboard" ${leaderboardUnlocked ? "" : 'disabled title="Complete today’s battle to unlock the leaderboard"'}>Leaderboard</button>
       <button class="gloss-button slate${currentClass("settings")}"${currentPage("settings")} data-route="settings">More</button>
     </nav>`;
   }
 
   function authCard() {
     if (currentUser && avatarPickerOpen) return `<div class="auth-backdrop" data-close-auth><section class="auth-card account-card avatar-picker-card" role="dialog" aria-modal="true" aria-labelledby="account-title"><button class="auth-close" type="button" aria-label="Close account" data-close-auth>×</button><div class="avatar-picker-head"><h2 id="account-title">Choose an avatar</h2><button type="button" data-cancel-avatar>Cancel</button></div><label class="avatar-search"><span>Find a trainer</span><input type="search" value="${escapeHtml(avatarQuery)}" placeholder="Type to narrow the list" autocomplete="off" data-avatar-search></label>${avatarError ? `<p class="auth-error" role="alert">${escapeHtml(avatarError)}</p>` : ""}<div class="avatar-grid" data-avatar-grid>${avatarLoading ? '<p class="avatar-empty">Loading avatars…</p>' : avatarChoices()}</div></section></div>`;
-    if (currentUser?.isGuest && authMode === "guest") return `<div class="auth-backdrop" data-close-auth><section class="auth-card account-card guest-account-card" role="dialog" aria-modal="true" aria-labelledby="account-title"><button class="auth-close" type="button" aria-label="Close guest account" data-close-auth>×</button><h2 id="account-title">${escapeHtml(currentUser.username)}</h2><p>Playing as a guest gives you a fresh run each day.</p><p>Create an account to keep today’s run and continue your progress tomorrow.</p><button class="auth-primary" type="button" data-guest-register>Create account</button><button class="auth-mode-link" type="button" data-guest-login>Log in to an existing account</button></section></div>`;
+    if (currentUser?.isGuest && authMode === "guest") return `<div class="auth-backdrop" data-close-auth><section class="auth-card account-card guest-account-card" role="dialog" aria-modal="true" aria-labelledby="account-title"><button class="auth-close" type="button" aria-label="Close guest account" data-close-auth>×</button><h2 id="account-title">${escapeHtml(currentUser.username)}</h2><p>Playing as a guest gives you the same daily encounters and preparation budget as every other player.</p><p>Create an account to keep your identity, avatar, and win streak across daily puzzles.</p><button class="auth-primary" type="button" data-guest-register>Create account</button><button class="auth-mode-link" type="button" data-guest-login>Log in to an existing account</button></section></div>`;
     if (currentUser && !currentUser.isGuest) return `<div class="auth-backdrop" data-close-auth><section class="auth-card account-card" role="dialog" aria-modal="true" aria-labelledby="account-title"><button class="auth-close" type="button" aria-label="Close account" data-close-auth>×</button><h2 id="account-title">Account</h2><div class="account-profile"><span class="account-avatar">${avatarContent(currentUser)}</span><strong class="account-name">${escapeHtml(currentUser.username)}</strong><button class="profile-link" type="button" data-edit-avatar>Choose avatar</button></div>${avatarError ? `<p class="auth-error" role="alert">${escapeHtml(avatarError)}</p>` : ""}<button class="auth-primary logout-button" type="button" data-logout ${authLoading ? "disabled" : ""}>${authLoading ? "Logging out…" : "Log out"}</button></section></div>`;
     const registering = authMode === "register";
     return `<div class="auth-backdrop" data-close-auth><section class="auth-card" role="dialog" aria-modal="true" aria-labelledby="auth-title"><button class="auth-close" type="button" aria-label="Close login" data-close-auth>×</button><h2 id="auth-title">${registering ? "Create account" : "Log in"}</h2><form data-auth-form><label for="auth-username">Username</label><input id="auth-username" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" minlength="3" maxlength="20" pattern="[A-Za-z0-9_]+" required><label for="auth-password">Password</label><input id="auth-password" name="password" type="password" autocomplete="${registering ? "new-password" : "current-password"}" minlength="7" maxlength="128" required>${registering ? '<label for="auth-password-confirmation">Confirm password</label><input id="auth-password-confirmation" name="passwordConfirmation" type="password" autocomplete="new-password" minlength="7" maxlength="128" required><small class="password-help">Use at least 7 characters.</small>' : ""}${authError ? `<p class="auth-error" role="alert">${escapeHtml(authError)}</p>` : ""}<button class="auth-primary" type="submit" ${authLoading ? "disabled" : ""}>${authLoading ? "Please wait…" : registering ? "Register" : "Log in"}</button></form><button class="auth-mode-link" type="button" data-auth-mode="${registering ? "login" : "register"}">${registering ? "Already have an account? Log in" : "Don't have an account? Register"}</button></section></div>`;
@@ -712,7 +709,7 @@
 
   function welcomeCard() {
     if (!welcomeOpen || !currentUser) return "";
-    return `<div class="auth-backdrop welcome-backdrop"><section class="auth-card welcome-card" role="dialog" aria-modal="true" aria-labelledby="welcome-title"><h2 id="welcome-title">Welcome to Nuzzle!</h2><p>Nuzzle is a daily puzzle game built around simulated Nuzlocke battles. Start a fresh run, claim encounters, build your team, and challenge the daily Trainer.</p><p>Your personal box lasts seven game dates. A loss, forfeit, or missed daily win wipes the box and ends the streak; a scheduled reset preserves the streak.</p>${welcomeError ? `<p class="auth-error" role="alert">${escapeHtml(welcomeError)}</p>` : ""}<button class="auth-primary" type="button" data-dismiss-welcome ${welcomeLoading ? "disabled" : ""}>${welcomeLoading ? "Please wait…" : "Let’s go"}</button></section></div>`;
+    return `<div class="auth-backdrop welcome-backdrop"><section class="auth-card welcome-card" role="dialog" aria-modal="true" aria-labelledby="welcome-title"><h2 id="welcome-title">Welcome to Nuzzle!</h2><p>Nuzzle is a daily puzzle game built around simulated Nuzlocke battles. Everyone receives the same twelve encounters, chooses one Pokémon from each trio, and prepares a team for the daily Trainer.</p><p>Your box and ₽50,000 preparation budget reset at midnight Eastern. Complete your battle to unlock the leaderboard and compare solutions.</p>${welcomeError ? `<p class="auth-error" role="alert">${escapeHtml(welcomeError)}</p>` : ""}<button class="auth-primary" type="button" data-dismiss-welcome ${welcomeLoading ? "disabled" : ""}>${welcomeLoading ? "Please wait…" : "Let’s go"}</button></section></div>`;
   }
 
   async function dismissWelcome() {
@@ -741,66 +738,10 @@
     </div></section>`;
   }
 
-  function formattedGameDate(date) {
-    const [year, month, day] = String(date || "").split("-").map(Number);
-    if (!year || !month || !day) return "";
-    return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date(Date.UTC(year, month - 1, day, 12)));
-  }
-
-  function visibleRunLifecycle() {
-    const lifecycle = gameState?.runLifecycle;
-    if (!lifecycle || !gameState?.canExpireRunForTesting || !runDayPreview) return lifecycle;
-    return { ...lifecycle, runDay: runDayPreview, daysRemaining: lifecycle.lifespanDays - runDayPreview + 1 };
-  }
-
-  function runStatusCard() {
-    const lifecycle = visibleRunLifecycle();
-    if (!currentUser || currentUser.isGuest || !lifecycle) return "";
-    const activeDay = Math.max(1, lifecycle.runDay || 1);
-    const finalDay = activeDay === lifecycle.lifespanDays;
-    const soon = !finalDay && lifecycle.daysRemaining <= 2;
-    const dots = Array.from({ length: lifecycle.lifespanDays }, (_, index) => `<i class="${index < activeDay ? "complete" : ""}" aria-hidden="true"></i>`).join("");
-    const headline = finalDay ? "Final day with this box" : `Run Day ${activeDay} of ${lifecycle.lifespanDays}`;
-    return `<button class="run-status${finalDay ? " final" : soon ? " soon" : ""}" type="button" data-open-run-info aria-label="${escapeHtml(headline)}">
-      <span><strong>${escapeHtml(headline)}</strong></span>
-      <span class="run-progress" aria-label="${activeDay} of ${lifecycle.lifespanDays} run days complete">${dots}</span>
-      <b>Details</b>
-    </button>`;
-  }
-
-  function runInfoCard() {
-    if (!runInfoOpen || !gameState?.runLifecycle) return "";
-    const lifecycle = visibleRunLifecycle();
-    const previewControls = gameState?.canExpireRunForTesting ? `<div class="run-preview-days" aria-label="Local run UI previews"><span>Local preview</span><button type="button" data-preview-run-day="6">Day 6</button><button type="button" data-preview-run-day="7">Day 7</button><button type="button" data-preview-run-day="live">Live</button></div>` : "";
-    const previewButton = gameState?.canExpireRunForTesting ? `<button class="run-preview-reset" type="button" data-expire-run ${runExpireBusy ? "disabled" : ""}>${runExpireBusy ? "Expiring…" : "Preview scheduled reset"}</button>` : "";
-    return `<div class="auth-backdrop run-info-backdrop"><section class="auth-card run-info-card" role="dialog" aria-modal="true" aria-labelledby="run-info-title"><button class="auth-close" type="button" aria-label="Close run details" data-close-run-info>×</button><span class="run-kicker">personal seven-day run</span><h2 id="run-info-title">Run Day ${Math.max(1, lifecycle.runDay)} of ${lifecycle.lifespanDays}</h2><p>Unless you wipe, this run will last until ${formattedGameDate(lifecycle.expiresOn)}. Then, your Pokémon, money, and items will all reset. <strong>Your streak will be unaffected.</strong> A loss, forfeit, or missed daily win wipes the box sooner.</p><p><em>This is to prevent exceptionally strong encounter rolls from snowballing into endless streaks. While still helpful, they can’t last forever. In order to maintain a long streak, you must be able to continue winning piloting boxes with fresh encounters!</em></p><small>All run dates use Eastern Time.</small>${previewControls}${previewButton}<button class="gloss-button purple" type="button" data-close-run-info>Got it</button></section></div>`;
-  }
-
-  function runResetCard() {
-    const notice = gameState?.runLifecycle?.resetNotice;
-    if (!notice || currentUser?.isGuest) return "";
-    if (notice.reason === "missed") return `<div class="auth-backdrop run-reset-backdrop"><section class="auth-card run-reset-card" role="dialog" aria-modal="true" aria-labelledby="run-reset-title"><span class="run-kicker">daily win missed</span><h2 id="run-reset-title">Your run was forfeited</h2><p>No win was recorded on <strong>${formattedGameDate(notice.missedDate)}</strong>, so your previous box of ${notice.pokemonCount} Pokémon was cleared and your streak ended.</p><p class="archive-note">The previous run is archived for support recovery through ${formattedGameDate(notice.archiveUntil)}.</p><button class="auth-primary" type="button" data-acknowledge-run-reset ${runResetBusy ? "disabled" : ""}>${runResetBusy ? "Starting…" : "Start my fresh run"}</button></section></div>`;
-    return `<div class="auth-backdrop run-reset-backdrop"><section class="auth-card run-reset-card" role="dialog" aria-modal="true" aria-labelledby="run-reset-title"><span class="run-kicker">seven-day run complete</span><h2 id="run-reset-title">Your fresh box is ready!</h2><p>Your previous box of <strong>${notice.pokemonCount} Pokémon</strong> completed its seven-day run and has been cleared.</p><div class="streak-preserved"><strong>Your win streak continues.</strong><span>Scheduled box resets never break a streak.</span></div><p class="archive-note">The previous run is archived for support recovery through ${formattedGameDate(notice.archiveUntil)}.</p><button class="auth-primary" type="button" data-acknowledge-run-reset ${runResetBusy ? "disabled" : ""}>${runResetBusy ? "Starting…" : "Start my new run"}</button></section></div>`;
-  }
-
-  async function acknowledgeRunReset() {
-    if (runResetBusy) return;
-    runResetBusy = true;
-    render();
-    try {
-      applyGameState(await apiRequest("/api/game/run-reset/acknowledge", { method: "PUT", body: "{}" }));
-    } finally {
-      runResetBusy = false;
-      render();
-    }
-  }
-
   function lead() {
     const chosen = [...team].slice(0, 6);
     const trainer = todayState.trainer;
-    const visibleLifecycle = visibleRunLifecycle();
-    const finalRunDay = !currentUser?.isGuest && visibleLifecycle?.runDay === visibleLifecycle?.lifespanDays;
-    return `<section class="screen lead-screen">${header()}${finalRunDay ? '<div class="final-run-reminder"><strong>Final battle day for this box</strong><span>Your streak continues after the scheduled reset.</span></div>' : ""}<div class="arena battle-arena lead-arena"><div class="battle-platform enemy" aria-hidden="true"></div><div class="battle-platform player" aria-hidden="true"></div><img class="sprite trainer trainer-${escapeHtml(trainer.spriteId)}" src="${trainerSprite(trainer.spriteId)}" alt="${escapeHtml(trainer.name)}" /></div>
+    return `<section class="screen lead-screen">${header()}<div class="arena battle-arena lead-arena"><div class="battle-platform enemy" aria-hidden="true"></div><div class="battle-platform player" aria-hidden="true"></div><img class="sprite trainer trainer-${escapeHtml(trainer.spriteId)}" src="${trainerSprite(trainer.spriteId)}" alt="${escapeHtml(trainer.name)}" /></div>
       <div class="lead-prompt"><p class="prompt">How will you start the battle?</p><h2 class="section-label">Choose Lead</h2>
       <div class="lead-grid">${chosen.map(monButton).join("")}</div><div class="lead-details-slot" data-lead-details aria-live="polite">${leadDetails(selectedLeadId)}</div></div>
       ${battleError ? `<p class="battle-error" role="alert">${escapeHtml(battleError)}</p>` : ""}
@@ -972,7 +913,7 @@
       const heldItem = mon.heldItemId ? shopItems.find((item) => item.id === mon.heldItemId) : null;
       return `<div class="pc-mon-card"><button class="pc-mon" type="button" draggable="false" data-pc-mon="${id}" aria-label="View ${mon.name}${heldItem ? `, holding ${escapeHtml(heldItem.name)}` : ""}"><img class="sprite" src="${sprite(id)}" alt=""/><span class="pc-mon-name">${mon.name}</span></button>${pcHeldItemBadge(heldItem)}<button class="pc-quick-action add" type="button" data-quick-team-add="${id}" aria-label="Add ${mon.name} to team">+</button></div>`;
     }).join("");
-    return `<section class="screen">${header()}<div class="pc-stage">${runStatusCard()}
+    return `<section class="screen">${header()}<div class="pc-stage">
       <section class="pc-section trainer-reference-section" aria-labelledby="trainer-team-heading"><div class="pc-section-head"><h2 id="trainer-team-heading">${escapeHtml(trainer.name)}</h2><span>${trainer.pokemon.length} Pokémon</span></div><div class="party-strip">${trainerSlots}</div></section>
       <section class="pc-section party-section" aria-labelledby="party-heading"><div class="pc-section-head"><h2 id="party-heading">team</h2><span>${party.length}/6</span></div><div class="party-strip">${partySlots}</div></section>
       <section class="pc-section box-section" aria-labelledby="box-heading"><div class="pc-section-head"><h2 id="box-heading">box</h2><span>${boxIds.length} Pokémon</span></div><div class="pc-box">${boxMons}</div></section>
@@ -1288,7 +1229,7 @@
 
   function settingsScreen() {
     const adminActions = currentUser?.isAdmin
-      ? `<section class="more-developer" aria-labelledby="developer-actions-title"><h3 id="developer-actions-title">Developer</h3><div class="more-actions"><button class="gloss-button gold" type="button" data-route="config">Scheduler</button><button class="gloss-button slate" type="button" data-reset-daily-battle ${battleResetBusy || wipeMeBusy || !gameState?.dailyBattleAttempted ? "disabled" : ""}>${battleResetBusy ? "Resetting…" : "Battle reset"}</button><button class="gloss-button crystal" type="button" data-wipe-me ${wipeMeBusy || battleResetBusy ? "disabled" : ""}>${wipeMeBusy ? "Wiping…" : "Wipe me"}</button></div><small class="more-status" role="status" aria-live="polite">${escapeHtml(wipeMeMessage || battleResetMessage)}</small></section>`
+      ? `<section class="more-developer" aria-labelledby="developer-actions-title"><h3 id="developer-actions-title">Developer</h3><div class="more-actions"><button class="gloss-button gold" type="button" data-route="config">Scheduler</button><button class="gloss-button slate" type="button" data-reset-daily-battle ${battleResetBusy || wipeMeBusy || !gameState?.dailyBattleAttempted ? "disabled" : ""}>${battleResetBusy ? "Resetting…" : "Battle reset"}</button><button class="gloss-button crystal" type="button" data-wipe-me ${wipeMeBusy || battleResetBusy ? "disabled" : ""}>${wipeMeBusy ? "Resetting…" : "Reset day"}</button></div><small class="more-status" role="status" aria-live="polite">${escapeHtml(wipeMeMessage || battleResetMessage)}</small></section>`
       : "";
     return `<section class="screen">${header()}<div class="simple-stage more-stage${currentUser?.isAdmin ? " has-developer-actions" : ""}"><h2>More</h2><div class="more-actions"><button class="gloss-button red" type="button" data-open-more-card="how-to-play">How to play</button><button class="gloss-button yellow" type="button" data-open-more-card="nuzlocke">What a Nuzlocke is</button><button class="gloss-button green" type="button" data-open-more-card="schedule">Schedule</button><button class="gloss-button blue" type="button" data-open-more-card="affiliation">Affiliation</button><button class="gloss-button discord" type="button" data-open-more-card="discord">Discord</button></div>${adminActions}${backButton()}</div>${moreCard()}</section>`;
   }
@@ -1298,15 +1239,15 @@
     const cards = {
       "how-to-play": {
         title: "How to play",
-        content: `<ol class="more-card-steps"><li><strong>Claim encounters.</strong> Each one joins your PC.</li><li><strong>Build a team.</strong> Choose up to six Pokémon, then adjust their training, moves, and held items.</li><li><strong>Challenge the daily trainer.</strong> Pick your lead and play out the simulated battle.</li><li><strong>Complete a seven-day run.</strong> Your personal box faces each day of the weekly schedule once, then resets before Day 8. The Run Day indicator warns you as the reset approaches.</li><li><strong>Win every day.</strong> A missed daily win counts as a forfeit: it ends your streak and wipes your box, just like a loss. Scheduled seven-day resets preserve the streak.</li></ol>`,
+        content: `<ol class="more-card-steps"><li><strong>Claim encounters.</strong> Everyone receives the same twelve daily trios; choose one Pokémon from each.</li><li><strong>Build a team.</strong> Choose up to six Pokémon, then adjust their moves, abilities, and held items with the daily ₽50,000 budget.</li><li><strong>Challenge the daily trainer.</strong> Pick your lead and play out the simulated battle.</li><li><strong>Compare solutions.</strong> The leaderboard unlocks after your battle is complete, so nobody can scout another player’s answer first.</li><li><strong>Return tomorrow.</strong> Boxes, items, and money reset at midnight Eastern for a new shared puzzle.</li></ol>`,
       },
       nuzlocke: {
         title: "What a Nuzlocke is",
-        content: `<p>A <a href="https://bulbapedia.bulbagarden.net/wiki/Nuzlocke_Challenge" target="_blank" rel="noopener noreferrer">Nuzlocke</a> is a fan-created way to make Pokémon more challenging. Encounters are limited, fainted Pokémon are lost forever, and losing a battle ends the run completely.</p><p>Nuzzle adapts those stakes into a daily puzzle game form: limited encounters are given, fainted Pokémon are automatically removed, and a loss, forfeit, or missed daily win wipes your entire box and ends your win streak.</p>`,
+        content: `<p>A <a href="https://bulbapedia.bulbagarden.net/wiki/Nuzlocke_Challenge" target="_blank" rel="noopener noreferrer">Nuzlocke</a> is a fan-created way to make Pokémon more challenging through limited encounters and meaningful fainting.</p><p>Nuzzle adapts those ideas into a shared daily puzzle: every player makes choices from the same limited encounters, gets one battle attempt, and tries to win with as few casualties as possible.</p>`,
       },
       schedule: {
         title: "Battle schedule",
-        content: `<dl class="battle-schedule"><div><dt>Sunday</dt><dd>Theme teams</dd></div><div><dt>Monday</dt><dd>Gym leaders</dd></div><div><dt>Tuesday</dt><dd>Regular trainers</dd></div><div><dt>Wednesday</dt><dd>Rival battles</dd></div><div><dt>Thursday</dt><dd>Ace trainers</dd></div><div><dt>Friday</dt><dd>Elite 4</dd></div><div><dt>Saturday</dt><dd>Champions</dd></div></dl><p class="schedule-note">On holidays, a special holiday-themed trainer may appear instead of the regularly scheduled opponent.</p><p class="schedule-reset">Battles reset daily at 12:00 AM Eastern Time. Missing a daily win counts as a forfeit and wipes the box. A box that survives seven game dates resets without breaking its streak.</p>`,
+        content: `<dl class="battle-schedule"><div><dt>Sunday</dt><dd>Theme teams</dd></div><div><dt>Monday</dt><dd>Gym leaders</dd></div><div><dt>Tuesday</dt><dd>Regular trainers</dd></div><div><dt>Wednesday</dt><dd>Rival battles</dd></div><div><dt>Thursday</dt><dd>Ace trainers</dd></div><div><dt>Friday</dt><dd>Elite 4</dd></div><div><dt>Saturday</dt><dd>Champions</dd></div></dl><p class="schedule-note">On holidays, a special holiday-themed trainer may appear instead of the regularly scheduled opponent.</p><p class="schedule-reset">Battles, boxes, encounters, items, and preparation budgets reset daily at 12:00 AM Eastern Time.</p>`,
       },
       affiliation: {
         title: "Affiliation",
@@ -1347,7 +1288,7 @@
 
   async function wipeMe() {
     if (!currentUser?.isAdmin || wipeMeBusy || battleResetBusy) return;
-    if (!confirm("Wipe your run, remove today's battle and streak, and generate 12 fresh encounters?")) return;
+    if (!confirm("Reset today's personal choices and battle while keeping the same shared encounters?")) return;
     wipeMeBusy = true;
     wipeMeMessage = "";
     battleResetMessage = "";
@@ -1360,29 +1301,11 @@
       encountersRevealedThisVisit = new Set();
       encounterListScrollTop = 0;
       localStorage.removeItem("nuzzleBattleId");
-      wipeMeMessage = "Run wiped. Your 12 fresh encounters are ready.";
+      wipeMeMessage = "Today reset. The same 12 shared encounters are ready.";
     } catch (error) {
       wipeMeMessage = error.message;
     } finally {
       wipeMeBusy = false;
-      render();
-    }
-  }
-
-  async function expireRunForTesting() {
-    if (!gameState?.canExpireRunForTesting || runExpireBusy) return;
-    if (!confirm("Archive and expire your current run now to preview the scheduled reset experience?")) return;
-    runExpireBusy = true;
-    render();
-    try {
-      applyGameState(await apiRequest("/api/admin/run/expire", { method: "POST", body: "{}" }));
-      runDayPreview = null;
-      battleState = null;
-      resultOverlayOpen = false;
-      localStorage.removeItem("nuzzleBattleId");
-      route = "home";
-    } finally {
-      runExpireBusy = false;
       render();
     }
   }
@@ -1513,7 +1436,7 @@
     }
     hideTooltip();
     const screens = { home, lead, battle, pc, bag, encounters: encountersScreen, mart, leaderboard: leaderboardScreen, settings: settingsScreen, config: configScreen };
-    app.innerHTML = `${screens[route] ? screens[route]() : simpleScreen(route)}${welcomeCard()}${runInfoCard()}${runResetCard()}`;
+    app.innerHTML = `${screens[route] ? screens[route]() : simpleScreen(route)}${welcomeCard()}`;
     bind();
     if (pendingBattleAnimation && route === "battle") requestAnimationFrame(playPendingBattleAnimation);
     leaderboardScrollCaptureLocked = false;
@@ -2771,6 +2694,12 @@
       encounterList.addEventListener("scroll", () => {
         encounterListScrollTop = encounterList.scrollTop;
       }, { passive: true });
+      encounterList.addEventListener("wheel", (event) => {
+        if (!event.deltaY) return;
+        const previousScrollTop = encounterList.scrollTop;
+        encounterList.scrollTop += event.deltaY;
+        if (encounterList.scrollTop !== previousScrollTop) event.preventDefault();
+      }, { passive: false });
     }
     const shopList = document.querySelector(".shop-list");
     if (shopList) {
@@ -2842,23 +2771,6 @@
     });
     document.querySelector("[data-logout]")?.addEventListener("click", () => void logout());
     document.querySelector("[data-dismiss-welcome]")?.addEventListener("click", () => void dismissWelcome());
-    document.querySelectorAll("[data-open-run-info]").forEach((element) => element.addEventListener("click", () => {
-      runInfoOpen = true;
-      render();
-      requestAnimationFrame(() => document.querySelector(".run-info-card .auth-close")?.focus({ preventScroll: true }));
-    }));
-    document.querySelectorAll("[data-close-run-info]").forEach((element) => element.addEventListener("click", () => {
-      runInfoOpen = false;
-      render();
-      requestAnimationFrame(() => document.querySelector("[data-open-run-info]")?.focus({ preventScroll: true }));
-    }));
-    document.querySelectorAll("[data-preview-run-day]").forEach((element) => element.addEventListener("click", () => {
-      runDayPreview = element.dataset.previewRunDay === "live" ? null : Number(element.dataset.previewRunDay);
-      runInfoOpen = false;
-      render();
-      requestAnimationFrame(() => document.querySelector("[data-open-run-info]")?.focus({ preventScroll: true }));
-    }));
-    document.querySelector("[data-acknowledge-run-reset]")?.addEventListener("click", () => void acknowledgeRunReset());
     document.querySelector("[data-edit-avatar]")?.addEventListener("click", () => {
       avatarPickerOpen = true;
       avatarQuery = "";
@@ -3038,7 +2950,6 @@
     }));
     document.querySelector("[data-reset-daily-battle]")?.addEventListener("click", resetDailyBattle);
     document.querySelector("[data-wipe-me]")?.addEventListener("click", wipeMe);
-    document.querySelector("[data-expire-run]")?.addEventListener("click", expireRunForTesting);
     document.querySelector("[data-toggle-battle-log]")?.addEventListener("click", () => {
       battleLogExpanded = !battleLogExpanded;
       render();

@@ -25,19 +25,28 @@ const startingMoney = 50000;
 const victoryReward = 15000;
 const directTrainingVersion = 1;
 const simplifiedPlayerStatsVersion = 1;
+const sharedDailyBoxVersion = 1;
 const implicitPlayerIvs = Object.freeze(Object.fromEntries(stats.map((stat) => [stat, 31])));
 const implicitPlayerEvs = Object.freeze(Object.fromEntries(stats.map((stat) => [stat, 0])));
 const implicitPlayerNature = "Serious";
 const retiredPlayerStatEffects = new Set(["ev", "iv", "nature"]);
-const runLifespanDays = 7;
 const runArchiveRetentionDays = 30;
 const gzipAsync = promisify(gzip);
 const gunzipAsync = promisify(gunzip);
-const oneTimeEncounterGift = Object.freeze({
-  key: "yomama-shiny-legends",
-  username: "yomama",
-  speciesIds: Object.freeze(["arceus", "giratina", "rayquaza"]),
-});
+const dailyEncounterCount = 12;
+const sharedDailyBoxStartDate = process.env.NUZZLE_SHARED_DAILY_BOX_START_DATE || "2026-11-22";
+const starterRotationStartDate = sharedDailyBoxStartDate;
+const starterTrios = Object.freeze([
+  Object.freeze(["venusaur", "charizard", "blastoise"]),
+  Object.freeze(["meganium", "typhlosion", "feraligatr"]),
+  Object.freeze(["sceptile", "blaziken", "swampert"]),
+  Object.freeze(["torterra", "infernape", "empoleon"]),
+  Object.freeze(["chesnaught", "delphox", "greninja"]),
+  Object.freeze(["decidueye", "incineroar", "primarina"]),
+  Object.freeze(["rillaboom", "cinderace", "inteleon"]),
+  Object.freeze(["decidueyehisui", "typhlosionhisui", "samurotthisui"]),
+  Object.freeze(["meowscarada", "skeledirge", "quaquaval"]),
+]);
 
 function shiftGameDate(date, days) {
   let shifted = date;
@@ -115,11 +124,31 @@ function generateBatch(count, pool, reservedFamilies) {
   return generated;
 }
 
+function generateSharedDailyEncounters(date) {
+  const rotationOffset = dateDistance(starterRotationStartDate, date);
+  const starterIds = starterTrios[((rotationOffset % starterTrios.length) + starterTrios.length) % starterTrios.length];
+  const starterPokemon = starterIds.map((speciesId) => createPokemon(pokemonById.get(speciesId)));
+  const reservedFamilies = new Set(starterPokemon.map((pokemon) => pokemon.encounterFamilyId));
+  const encounters = [{
+    kind: "starter",
+    choiceVersion: 1,
+    pokemon: starterPokemon,
+  }];
+  while (encounters.length < dailyEncounterCount) {
+    encounters.push({
+      kind: "daily",
+      choiceVersion: 1,
+      pokemon: generateBatch(3, encounterPokemon, reservedFamilies),
+    });
+  }
+  return { date, createdAt: new Date().toISOString(), encounters };
+}
+
 function encounterCount(date) {
   return new Date(`${date}T12:00:00Z`).getUTCDay() === 0 ? 4 : 3;
 }
 
-function ensureDaily(run, date) {
+function ensureLegacyDaily(run, date) {
   if (run.daily?.date === date) return;
   if (run.daily?.encounters.some((encounter) => encounter.kind === "opening" && !encounter.claimed)) return;
   const reserved = new Set(run.roster.map((pokemon) => pokemon.encounterFamilyId));
@@ -141,21 +170,26 @@ function ensureDaily(run, date) {
   if (opening) run.starterGuarantee = false;
 }
 
-function assignOneTimeEncounterGift(run, data, username) {
-  data.oneTimeEncounterGifts ||= {};
-  if (toID(username) !== oneTimeEncounterGift.username || data.oneTimeEncounterGifts[oneTimeEncounterGift.key]) return;
-  const available = run.daily.encounters.filter((encounter) => !encounter.claimed);
-  if (available.length < oneTimeEncounterGift.speciesIds.length) return;
-  for (const [index, speciesId] of oneTimeEncounterGift.speciesIds.entries()) {
-    const pokemon = createPokemon(pokemonById.get(speciesId));
-    pokemon.shiny = true;
-    available[index].pokemon[0] = pokemon;
+function ensureSharedDailyEncounters(data, date) {
+  data.sharedDailyEncounters ||= {};
+  data.sharedDailyEncounters[date] ||= generateSharedDailyEncounters(date);
+  const oldestRetainedDate = shiftGameDate(date, -runArchiveRetentionDays);
+  for (const retainedDate of Object.keys(data.sharedDailyEncounters)) {
+    if (retainedDate < oldestRetainedDate) delete data.sharedDailyEncounters[retainedDate];
   }
-  data.oneTimeEncounterGifts[oneTimeEncounterGift.key] = {
-    userId: run.userId,
-    runId: run.id,
-    date: run.daily.date,
-    assignedAt: new Date().toISOString(),
+  return data.sharedDailyEncounters[date];
+}
+
+function dailyEncounterState(data, date) {
+  const shared = ensureSharedDailyEncounters(data, date);
+  return {
+    date,
+    encounters: shared.encounters.map((encounter) => ({
+      ...structuredClone(encounter),
+      revealed: false,
+      claimed: false,
+      selectedIndex: null,
+    })),
   };
 }
 
@@ -338,6 +372,7 @@ function newRun(userId, startDate, resetNotice = null) {
     daily: null,
     directTrainingVersion,
     simplifiedPlayerStatsVersion,
+    sharedDailyBoxVersion,
     trainingTransactions: [],
     resetNotice,
   };
@@ -365,7 +400,7 @@ export class GameStore {
     this.usernameForUserId = usernameForUserId;
     this.dailyOutcome = dailyOutcome;
     this.missedDayWipeStartDate = missedDayWipeStartDate;
-    this.data = { version: 2, runs: {} };
+    this.data = { version: 3, runs: {}, sharedDailyEncounters: {} };
     this.guestIds = new Set();
     this.pending = Promise.resolve();
     this.writeSequence = 0;
@@ -379,6 +414,9 @@ export class GameStore {
       if (error.code !== "ENOENT") throw error;
       await this.save();
     }
+    this.data.version = 3;
+    this.data.runs ||= {};
+    this.data.sharedDailyEncounters ||= {};
     let changed = false;
     for (const run of Object.values(this.data.runs || {})) {
       changed = migrateDirectTraining(run) || changed;
@@ -451,31 +489,6 @@ export class GameStore {
     };
   }
 
-  firstMissedDate(run, userId, date) {
-    if (!this.dailyOutcome || !run.startDate) return null;
-    const finalRequiredDate = shiftGameDate(date, -1);
-    let requiredDate = run.startDate > this.missedDayWipeStartDate ? run.startDate : this.missedDayWipeStartDate;
-    while (requiredDate <= finalRequiredDate) {
-      if (this.dailyOutcome(userId, requiredDate) !== "win") return requiredDate;
-      requiredDate = nextGameDate(requiredDate);
-    }
-    return null;
-  }
-
-  lifecycle(run, date) {
-    const startDate = run.startDate || date;
-    const expiresOn = shiftGameDate(startDate, runLifespanDays);
-    const runDay = Math.max(0, Math.min(runLifespanDays, dateDistance(startDate, date) + 1));
-    return {
-      startDate,
-      expiresOn,
-      runDay,
-      lifespanDays: runLifespanDays,
-      daysRemaining: Math.max(0, dateDistance(date, expiresOn)),
-      resetNotice: run.resetNotice || null,
-    };
-  }
-
   async mutate(userId, operation) {
     let result;
     this.pending = this.pending.catch(() => {}).then(async () => {
@@ -483,25 +496,25 @@ export class GameStore {
       await this.supportStore?.snapshot(date, { game: this.data });
       const guest = this.guestIds.has(userId);
       let run = this.data.runs[userId];
-      if (!run || (guest && run.guestDate !== date)) {
-        run = this.data.runs[userId] = newRun(userId, date);
-        if (guest) run.guestDate = date;
-      }
-      migrateOpeningEncounters(run);
-      if (!run.startDate) run.startDate = date;
-      run.month = run.startDate.slice(0, 7);
-      const missedDate = guest ? null : this.firstMissedDate(run, userId, date);
-      if (missedDate) {
-        const resetNotice = await this.archiveRun(run, "missed", date, { missedDate });
-        run = this.data.runs[userId] = newRun(userId, date, resetNotice);
-      } else if (!guest && date >= this.lifecycle(run, date).expiresOn) {
-        const resetNotice = await this.archiveRun(run, "scheduled", date);
-        run = this.data.runs[userId] = newRun(userId, date, resetNotice);
+      const sharedDailyBoxesActive = date >= sharedDailyBoxStartDate;
+      if (sharedDailyBoxesActive) {
+        if (!run || run.startDate !== date || run.sharedDailyBoxVersion !== sharedDailyBoxVersion) {
+          run = this.data.runs[userId] = newRun(userId, date);
+          if (guest) run.guestDate = date;
+        }
+      } else {
+        if (!run || (guest && run.guestDate !== date)) {
+          run = this.data.runs[userId] = newRun(userId, date);
+          if (guest) run.guestDate = date;
+        }
+        migrateOpeningEncounters(run);
+        if (!run.startDate) run.startDate = date;
+        run.month = run.startDate.slice(0, 7);
       }
       migrateDirectTraining(run);
       migrateSimplifiedPlayerStats(run);
-      ensureDaily(run, date);
-      assignOneTimeEncounterGift(run, this.data, this.usernameForUserId(userId));
+      if (sharedDailyBoxesActive) run.daily ||= dailyEncounterState(this.data, date);
+      else ensureLegacyDaily(run, date);
       result = await operation(run, date);
       await this.save();
     });
@@ -534,7 +547,8 @@ export class GameStore {
       purchasedUnique: [...run.purchasedUnique],
       encounters,
       battleUnlocked: run.teamIds.length > 0,
-      runLifecycle: this.lifecycle(run, gameDate(this.now(), this.timeZone)),
+      sharedDailyBoxesActive: run.daily.date >= sharedDailyBoxStartDate,
+      runLifecycle: null,
     };
   }
 
@@ -661,7 +675,7 @@ export class GameStore {
   }
 
   async settleBattle(userId, battleId, { acquisitions = [], faintedPokemonIds = [], won = false } = {}) {
-    return this.mutate(userId, (run) => {
+    return this.mutate(userId, (run, date) => {
       run.settledBattleIds ||= [];
       if (run.settledBattleIds.includes(battleId)) return this.publicState(run);
       for (const acquisition of acquisitions) {
@@ -671,10 +685,12 @@ export class GameStore {
         run.inventory[item.id] = (run.inventory[item.id] || 0) + 1;
         pokemon.heldItemId = item.id;
       }
-      const fainted = new Set(faintedPokemonIds);
-      run.roster = run.roster.filter((pokemon) => !fainted.has(pokemon.id));
-      run.teamIds = run.teamIds.filter((id) => !fainted.has(id));
-      if (won) run.money += victoryReward;
+      if (date < sharedDailyBoxStartDate) {
+        const fainted = new Set(faintedPokemonIds);
+        run.roster = run.roster.filter((pokemon) => !fainted.has(pokemon.id));
+        run.teamIds = run.teamIds.filter((id) => !fainted.has(id));
+        if (won) run.money += victoryReward;
+      }
       run.settledBattleIds.push(battleId);
       return this.publicState(run);
     });
@@ -683,13 +699,17 @@ export class GameStore {
   async resetAfterWipe(userId, battleId) {
     return this.mutate(userId, async (run, date) => {
       if (run.resetFromBattleId === battleId) return this.publicState(run);
-      await this.archiveRun(run, "loss", date);
-      const replacement = newRun(userId, nextGameDate(date));
-      if (run.guestDate) replacement.guestDate = run.guestDate;
-      replacement.resetFromBattleId = battleId;
-      replacement.daily = { date: run.daily.date, encounters: [] };
-      this.data.runs[userId] = replacement;
-      return this.publicState(replacement);
+      if (date < sharedDailyBoxStartDate) {
+        await this.archiveRun(run, "loss", date);
+        const replacement = newRun(userId, nextGameDate(date));
+        if (run.guestDate) replacement.guestDate = run.guestDate;
+        replacement.resetFromBattleId = battleId;
+        replacement.daily = { date: run.daily.date, encounters: [] };
+        this.data.runs[userId] = replacement;
+        return this.publicState(replacement);
+      }
+      run.resetFromBattleId = battleId;
+      return this.publicState(run);
     });
   }
 
@@ -731,19 +751,21 @@ export class GameStore {
 
   async resetForTesting(userId) {
     return this.mutate(userId, async (run, date) => {
-      await this.archiveRun(run, "developer", date);
+      if (date < sharedDailyBoxStartDate) await this.archiveRun(run, "developer", date);
       const replacement = newRun(userId, date);
-      ensureDaily(replacement, run.daily.date);
+      if (date >= sharedDailyBoxStartDate) replacement.daily = dailyEncounterState(this.data, date);
+      else ensureLegacyDaily(replacement, date);
+      if (run.guestDate) replacement.guestDate = date;
       this.data.runs[userId] = replacement;
       return this.publicState(replacement);
     });
   }
 
   async expireForTesting(userId) {
-    return this.mutate(userId, async (run, date) => {
-      const resetNotice = await this.archiveRun(run, "scheduled", date);
-      const replacement = newRun(userId, date, resetNotice);
-      ensureDaily(replacement, date);
+    return this.mutate(userId, (run, date) => {
+      const replacement = newRun(userId, date);
+      if (date >= sharedDailyBoxStartDate) replacement.daily = dailyEncounterState(this.data, date);
+      else ensureLegacyDaily(replacement, date);
       this.data.runs[userId] = replacement;
       return this.publicState(replacement);
     });

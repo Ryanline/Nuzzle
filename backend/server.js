@@ -88,6 +88,7 @@ await applyInfinightHypeRollback({ auth, game, service });
 await discordRecaps.initialize();
 
 const loginAttempts = new Map();
+const sharedDailyBoxStartDate = process.env.NUZZLE_SHARED_DAILY_BOX_START_DATE || "2026-11-22";
 const sessionCookie = "nuzzle_session";
 const guestCookie = "nuzzle_guest";
 const showdownOrigin = "https://play.pokemonshowdown.com/sprites";
@@ -355,8 +356,11 @@ async function api(request, response, pathname) {
     return true;
   }
   if (request.method === "GET" && pathname === "/api/leaderboard/daily") {
-    requirePlayer(request);
+    const player = requirePlayer(request);
     const today = await trainers.current();
+    if (today.date >= sharedDailyBoxStartDate && !player.isAdmin && !["win", "loss"].includes(service.dailyOutcome(player.id, today.date))) {
+      throw Object.assign(new Error("Complete today's battle before viewing the leaderboard."), { statusCode: 403 });
+    }
     json(response, 200, {
       date: today.date,
       entries: service.dailyLeaderboard(today.date, (userId) => auth.identityById(userId)),
@@ -364,8 +368,11 @@ async function api(request, response, pathname) {
     return true;
   }
   if (request.method === "GET" && pathname === "/api/leaderboard/streak") {
-    requirePlayer(request);
+    const player = requirePlayer(request);
     const today = await trainers.current();
+    if (today.date >= sharedDailyBoxStartDate && !player.isAdmin && !["win", "loss"].includes(service.dailyOutcome(player.id, today.date))) {
+      throw Object.assign(new Error("Complete today's battle before viewing the leaderboard."), { statusCode: 403 });
+    }
     json(response, 200, {
       date: today.date,
       entries: service.streakLeaderboard(today.date, (userId) => auth.identityById(userId)),
@@ -375,6 +382,9 @@ async function api(request, response, pathname) {
   if (request.method === "GET" && pathname === "/api/leaderboard") {
     const player = requirePlayer(request);
     const today = await trainers.current();
+    if (today.date >= sharedDailyBoxStartDate && !player.isAdmin && !["win", "loss"].includes(service.dailyOutcome(player.id, today.date))) {
+      throw Object.assign(new Error("Complete today's battle before viewing the leaderboard."), { statusCode: 403 });
+    }
     const entries = service.combinedLeaderboard(today.date, (playerId) => auth.identityById(playerId), player.id);
     json(response, 200, {
       date: today.date,
@@ -385,8 +395,11 @@ async function api(request, response, pathname) {
   }
   const leaderboardResultMatch = pathname.match(/^\/api\/leaderboard\/results\/([0-9a-f-]+)$/i);
   if (request.method === "GET" && leaderboardResultMatch) {
-    requirePlayer(request);
+    const player = requirePlayer(request);
     const today = await trainers.current();
+    if (today.date >= sharedDailyBoxStartDate && !player.isAdmin && !["win", "loss"].includes(service.dailyOutcome(player.id, today.date))) {
+      throw Object.assign(new Error("Complete today's battle before viewing the leaderboard."), { statusCode: 403 });
+    }
     const result = service.leaderboardResult(leaderboardResultMatch[1], today.date, (playerId) => auth.identityById(playerId));
     if (!result) throw Object.assign(new Error("Leaderboard result not found."), { statusCode: 404 });
     json(response, 200, result);

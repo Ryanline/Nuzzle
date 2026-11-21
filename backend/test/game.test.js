@@ -1,10 +1,9 @@
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
-import { mkdtemp, readFile, readdir } from "node:fs/promises";
+import { mkdtemp } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { gunzipSync } from "node:zlib";
 import { abilityCatalog, contentSummary, encounterPokemon, itemCatalog, pokemonById, pokemonCatalog } from "../content.js";
 import { GameStore, publicContent } from "../game-store.js";
 import { encounterSignatureMoves, generateEncounterMoves } from "../movesets.js";
@@ -12,7 +11,7 @@ import { encounterSignatureMoves, generateEncounterMoves } from "../movesets.js"
 const require = createRequire(import.meta.url);
 const { Dex } = require("pokemon-showdown");
 
-async function fixture(now = new Date("2026-10-20T16:00:00Z")) {
+async function fixture(now = new Date("2026-11-22T16:00:00Z")) {
   const directory = await mkdtemp(path.join(os.tmpdir(), "nuzzle-game-"));
   const filename = path.join(directory, "game.json");
   const store = new GameStore(filename, { timeZone: "America/New_York", now: typeof now === "function" ? now : () => now });
@@ -113,14 +112,14 @@ test("encounter movesets guarantee damaging STAB and approved signature moves", 
   assert.deepEqual(encounterSignatureMoves.veluza, ["filletaway"]);
 });
 
-test("a new run offers twelve persisted choose-one-of-three encounters", async () => {
+test("every player receives the same twelve persisted daily trios with an approved starter trio first", async () => {
   const { filename, store } = await fixture();
   const before = await store.get("user-one");
   assert.equal(before.roster.length, 0);
   assert.equal(before.teamIds.length, 0);
   assert.equal(before.battleUnlocked, false);
   assert.equal(before.encounters.length, 12);
-  assert.equal(before.encounters[0].kind, "opening");
+  assert.equal(before.encounters[0].kind, "starter");
   assert.equal(before.encounters[0].count, 3);
   assert.equal(before.encounters[0].pokemon, null);
 
@@ -128,10 +127,19 @@ test("a new run offers twelve persisted choose-one-of-three encounters", async (
   assert.equal(revealed.roster.length, 0);
   assert.equal(revealed.encounters[0].revealed, true);
   assert.equal(revealed.encounters[0].pokemon.length, 3);
-  assert.equal(revealed.encounters[0].pokemon.every((pokemon) => pokemonCatalog.find((entry) => entry.id === pokemon.speciesId)?.starterEligible), true);
+  const approvedStarterTrios = new Set([
+    "venusaur,charizard,blastoise", "meganium,typhlosion,feraligatr", "sceptile,blaziken,swampert",
+    "torterra,infernape,empoleon", "chesnaught,delphox,greninja", "decidueye,incineroar,primarina",
+    "rillaboom,cinderace,inteleon", "decidueyehisui,typhlosionhisui,samurotthisui", "meowscarada,skeledirge,quaquaval",
+  ]);
+  assert.equal(approvedStarterTrios.has(revealed.encounters[0].pokemon.map((pokemon) => pokemon.speciesId).join(",")), true);
   const revealedSpecies = revealed.encounters[0].pokemon.map((pokemon) => pokemon.speciesId);
 
-  const restored = new GameStore(filename, { timeZone: "America/New_York", now: () => new Date("2026-10-20T16:00:00Z") });
+  const otherPlayer = await store.revealEncounter("user-two", 0);
+  assert.deepEqual(otherPlayer.encounters[0].pokemon, revealed.encounters[0].pokemon);
+  assert.equal(otherPlayer.roster.length, 0);
+
+  const restored = new GameStore(filename, { timeZone: "America/New_York", now: () => new Date("2026-11-22T16:00:00Z") });
   await restored.initialize();
   const restoredState = await restored.get("user-one");
   assert.equal(restoredState.encounters[0].revealed, true);
@@ -142,7 +150,7 @@ test("a new run offers twelve persisted choose-one-of-three encounters", async (
   assert.equal(first.roster.length, 1);
   assert.equal(first.teamIds.length, 0);
   assert.equal(first.battleUnlocked, false);
-  assert.equal(pokemonCatalog.find((entry) => entry.id === first.roster[0].speciesId)?.starterEligible, true);
+  assert.equal(revealedSpecies.includes(first.roster[0].speciesId), true);
   assert.equal(first.encounters[0].pokemon.length, 1);
   assert.equal(first.encounters[0].pokemon[0].id, first.roster[0].id);
 
@@ -165,256 +173,85 @@ test("a new run offers twelve persisted choose-one-of-three encounters", async (
   assert.equal(selected.battleUnlocked, true);
 });
 
-test("a wipe defers twelve fresh-run encounters until the next day without adding daily encounters", async () => {
-  let now = new Date("2026-10-20T16:00:00Z");
+test("the November 22 rollout preserves existing November 21 preparation until midnight", async () => {
+  let now = new Date("2026-11-21T16:00:00Z");
   const { store } = await fixture(() => now);
-  let state = await store.get("wipe-user");
-  for (let slot = 0; slot < 12; slot++) state = await store.claimEncounter("wipe-user", slot);
-  state = await store.buy("wipe-user", "leftovers", 1);
-  const previousRunId = state.runId;
+  let state = await store.claimEncounter("rollout-user", 0);
+  state = await store.buy("rollout-user", "leftovers", 1);
+  const existingRunId = state.runId;
+  const existingPokemonId = state.roster[0].id;
+  const existingMoney = state.money;
+  assert.equal(state.sharedDailyBoxesActive, false);
 
-  const reset = await store.resetAfterWipe("wipe-user", "lost-battle");
-  assert.notEqual(reset.runId, previousRunId);
-  assert.equal(reset.date, "2026-10-20");
-  assert.equal(reset.money, 50000);
-  assert.equal(reset.roster.length, 0);
-  assert.equal(reset.teamIds.length, 0);
-  assert.deepEqual(reset.inventory, {});
-  assert.deepEqual(reset.purchasedUnique, []);
-  assert.equal(reset.battleUnlocked, false);
-  assert.equal(reset.encounters.length, 0);
+  state = await store.get("rollout-user");
+  assert.equal(state.runId, existingRunId);
+  assert.equal(state.roster[0].id, existingPokemonId);
+  assert.equal(state.money, existingMoney);
 
-  const repeated = await store.resetAfterWipe("wipe-user", "lost-battle");
-  assert.equal(repeated.runId, reset.runId);
-  assert.deepEqual(repeated.encounters, reset.encounters);
-
-  const sameDay = await store.get("wipe-user");
-  assert.equal(sameDay.encounters.length, 0);
-  now = new Date("2026-10-21T16:00:00Z");
-  let nextDay = await store.get("wipe-user");
-  assert.equal(nextDay.encounters.length, 12);
-  assert.equal(nextDay.encounters.every((encounter) => encounter.kind === "opening" && !encounter.claimed), true);
-  for (let slot = 0; slot < 12; slot++) nextDay = await store.claimEncounter("wipe-user", slot);
-  assert.equal(nextDay.encounters.length, 12);
-  assert.equal(nextDay.encounters.every((encounter) => encounter.claimed), true);
-  const selectedTeam = nextDay.roster.slice(0, 2).map((pokemon) => pokemon.id);
-  nextDay = await store.setTeam("wipe-user", selectedTeam);
-
-  now = new Date("2026-10-22T16:00:00Z");
-  const followingDay = await store.get("wipe-user");
-  assert.equal(followingDay.encounters.length, 3);
-  assert.equal(followingDay.encounters.every((encounter) => encounter.kind === "single" && !encounter.claimed), true);
-  const dailyClaim = await store.claimEncounter("wipe-user", 0);
-  assert.deepEqual(dailyClaim.teamIds, selectedTeam);
-  assert.equal(dailyClaim.teamIds.includes(dailyClaim.encounters[0].pokemon[0].id), false);
-});
-
-test("a one-time rollback restores the exact run archived by a loss", async () => {
-  const { store } = await fixture(new Date("2026-11-14T16:00:00Z"));
-  let original = await store.get("rollback-user");
-  for (let slot = 0; slot < 12; slot++) original = await store.claimEncounter("rollback-user", slot);
-  original = await store.setTeam("rollback-user", original.roster.slice(0, 4).map((pokemon) => pokemon.id));
-  original = await store.buy("rollback-user", "leftovers", 1);
-  await store.resetAfterWipe("rollback-user", "forfeited-battle");
-
-  const restored = await store.restoreArchivedLoss("rollback-user", "2026-11-14", "rollback-gift");
-  assert.equal(restored.applied, true);
-  assert.equal(restored.state.runId, original.runId);
-  assert.equal(restored.state.money, original.money);
-  assert.deepEqual(restored.state.roster, original.roster);
-  assert.deepEqual(restored.state.teamIds, original.teamIds);
-  assert.deepEqual(restored.state.inventory, original.inventory);
-
-  const repeated = await store.restoreArchivedLoss("rollback-user", "2026-11-14", "rollback-gift");
-  assert.equal(repeated.applied, false);
-  assert.equal(repeated.state.runId, original.runId);
-});
-
-test("the developer wipe immediately creates a clean run with twelve encounters", async () => {
-  const { store: wipeStore } = await fixture();
-  let wipeState = await wipeStore.get("developer-wipe-user");
-  for (let slot = 0; slot < 12; slot++) wipeState = await wipeStore.claimEncounter("developer-wipe-user", slot);
-  wipeState = await wipeStore.buy("developer-wipe-user", "leftovers", 1);
-  const previousRunId = wipeState.runId;
-  const wiped = await wipeStore.resetForTesting("developer-wipe-user");
-  assert.notEqual(wiped.runId, previousRunId);
-  assert.equal(wiped.roster.length, 0);
-  assert.equal(wiped.teamIds.length, 0);
-  assert.equal(wiped.money, 50000);
-  assert.deepEqual(wiped.inventory, {});
-  assert.deepEqual(wiped.purchasedUnique, []);
-  assert.equal(wiped.encounters.length, 12);
-  assert.equal(wiped.encounters.every((encounter) => encounter.kind === "opening" && !encounter.claimed), true);
-});
-
-test("guest runs reset to a fresh opening batch each day", async () => {
-  let now = new Date("2026-10-20T16:00:00Z");
-  const { store } = await fixture(() => now);
-  store.identifyGuest("guest-player");
-  let state = await store.get("guest-player");
-  const firstRunId = state.runId;
-  state = await store.claimEncounter("guest-player", 0);
-  assert.equal(state.roster.length, 1);
-
-  now = new Date("2026-10-21T16:00:00Z");
-  state = await store.get("guest-player");
-  assert.notEqual(state.runId, firstRunId);
+  now = new Date("2026-11-22T16:00:00Z");
+  state = await store.revealEncounter("rollout-user", 0);
+  assert.equal(state.sharedDailyBoxesActive, true);
+  assert.notEqual(state.runId, existingRunId);
   assert.equal(state.roster.length, 0);
-  assert.equal(state.teamIds.length, 0);
-  assert.equal(state.encounters.length, 12);
-  assert.equal(state.encounters.every((encounter) => encounter.kind === "opening" && !encounter.claimed), true);
+  assert.equal(state.money, 50000);
+  assert.deepEqual(state.encounters[0].pokemon.map((pokemon) => pokemon.speciesId), ["venusaur", "charizard", "blastoise"]);
 });
 
-test("promoting a guest preserves the current run across later days", async () => {
-  let now = new Date("2026-10-20T16:00:00Z");
+test("daily rollover clears every box and budget while advancing the starter rotation", async () => {
+  let now = new Date("2026-11-22T16:00:00Z");
   const { store } = await fixture(() => now);
-  store.identifyGuest("converted-player");
-  let state = await store.get("converted-player");
-  state = await store.claimEncounter("converted-player", 0);
-  const guestRunId = state.runId;
-  state = await store.promoteGuest("converted-player");
-  assert.equal(state.runId, guestRunId);
-  assert.equal(state.roster.length, 1);
+  let state = await store.revealEncounter("daily-user", 0);
+  assert.deepEqual(state.encounters[0].pokemon.map((pokemon) => pokemon.speciesId), ["venusaur", "charizard", "blastoise"]);
+  state = await store.claimEncounter("daily-user", 0, 1);
+  state = await store.setTeam("daily-user", [state.roster[0].id]);
+  state = await store.buy("daily-user", "leftovers", 1);
+  assert.equal(state.money < 50000, true);
+  const firstRunId = state.runId;
 
-  now = new Date("2026-10-21T16:00:00Z");
-  state = await store.get("converted-player");
-  assert.equal(state.runId, guestRunId);
-  assert.equal(state.roster.length, 1);
+  now = new Date("2026-11-23T16:00:00Z");
+  state = await store.revealEncounter("daily-user", 0);
+  assert.notEqual(state.runId, firstRunId);
+  assert.equal(state.money, 50000);
+  assert.equal(state.roster.length, 0);
+  assert.deepEqual(state.teamIds, []);
+  assert.deepEqual(state.inventory, {});
+  assert.deepEqual(state.encounters[0].pokemon.map((pokemon) => pokemon.speciesId), ["meganium", "typhlosion", "feraligatr"]);
+
+  now = new Date("2026-11-30T16:00:00Z");
+  state = await store.revealEncounter("daily-user", 0);
+  assert.deepEqual(state.encounters[0].pokemon.map((pokemon) => pokemon.speciesId), ["meowscarada", "skeledirge", "quaquaval"]);
+  now = new Date("2026-12-01T16:00:00Z");
+  state = await store.revealEncounter("daily-user", 0);
+  assert.deepEqual(state.encounters[0].pokemon.map((pokemon) => pokemon.speciesId), ["venusaur", "charizard", "blastoise"]);
 });
 
-test("Sunday provides four persisted encounters and restoring the store does not reroll them", async () => {
-  let now = new Date("2026-10-24T16:00:00Z");
-  const directory = await mkdtemp(path.join(os.tmpdir(), "nuzzle-sunday-"));
-  const filename = path.join(directory, "game.json");
-  const store = new GameStore(filename, { timeZone: "America/New_York", now: () => now });
-  await store.initialize();
-  await store.get("sunday-user");
-  for (let slot = 0; slot < 12; slot++) await store.claimEncounter("sunday-user", slot);
-  now = new Date("2026-10-25T16:00:00Z");
-  const initial = await store.get("sunday-user");
-  assert.equal(initial.encounters.length, 4);
-  const claimed = await store.claimEncounter("sunday-user", 1);
-  const species = claimed.encounters[1].pokemon[0].speciesId;
-
-  const restored = new GameStore(filename, { timeZone: "America/New_York", now: () => new Date("2026-10-25T20:00:00Z") });
-  await restored.initialize();
-  const state = await restored.get("sunday-user");
-  assert.equal(state.encounters[1].pokemon[0].speciesId, species);
-});
-
-test("yomama receives the three shiny legendary encounters once and keeps Sunday's fourth roll random", async () => {
-  let now = new Date("2026-10-24T16:00:00Z");
-  let giftEnabled = false;
-  const directory = await mkdtemp(path.join(os.tmpdir(), "nuzzle-one-time-gift-"));
-  const filename = path.join(directory, "game.json");
-  const usernameForUserId = () => giftEnabled ? "YoMama" : "someone-else";
-  const store = new GameStore(filename, { timeZone: "America/New_York", now: () => now, usernameForUserId });
-  await store.initialize();
-  await store.get("gift-user");
-  for (let slot = 0; slot < 12; slot++) await store.claimEncounter("gift-user", slot);
-
-  giftEnabled = true;
-  now = new Date("2026-10-25T16:00:00Z");
-  const sunday = await store.get("gift-user");
-  assert.equal(sunday.encounters.length, 4);
-  const claimed = [];
-  for (let slot = 0; slot < 4; slot++) {
-    const state = await store.claimEncounter("gift-user", slot);
-    claimed.push(state.encounters[slot].pokemon[0]);
-  }
-  assert.deepEqual(claimed.slice(0, 3).map((pokemon) => pokemon.speciesId), ["arceus", "giratina", "rayquaza"]);
-  assert.equal(claimed.slice(0, 3).every((pokemon) => pokemon.shiny), true);
-  assert.equal(["arceus", "giratina", "rayquaza"].includes(claimed[3].speciesId), false);
-
-  now = new Date("2026-10-26T16:00:00Z");
-  const restored = new GameStore(filename, { timeZone: "America/New_York", now: () => now, usernameForUserId });
-  await restored.initialize();
-  const monday = await restored.get("gift-user");
-  assert.equal(monday.encounters.length, 3);
-  const next = await restored.claimEncounter("gift-user", 0);
-  assert.equal(["arceus", "giratina", "rayquaza"].includes(next.encounters[0].pokemon[0].speciesId), false);
-});
-
-test("registered runs last seven personal game dates, cross months, and archive before reset", async () => {
-  let now = new Date("2026-10-31T16:00:00Z");
-  const directory = await mkdtemp(path.join(os.tmpdir(), "nuzzle-month-"));
-  const store = new GameStore(path.join(directory, "game.json"), { timeZone: "America/New_York", now: () => now });
-  await store.initialize();
-  const october = await store.claimEncounter("monthly-user", 0);
-  assert.equal(october.roster.length, 1);
-  assert.equal(october.runLifecycle.runDay, 1);
-  assert.equal(october.runLifecycle.expiresOn, "2026-11-07");
-
-  now = new Date("2026-11-01T16:00:00Z");
-  const november = await store.get("monthly-user");
-  assert.equal(november.runId, october.runId);
-  assert.equal(november.roster.length, 1);
-  assert.equal(november.runLifecycle.runDay, 2);
-
-  now = new Date("2026-11-06T16:00:00Z");
-  const finalDay = await store.get("monthly-user");
-  assert.equal(finalDay.runId, october.runId);
-  assert.equal(finalDay.runLifecycle.runDay, 7);
-  assert.equal(finalDay.runLifecycle.daysRemaining, 1);
-
-  now = new Date("2026-11-07T16:00:00Z");
-  const reset = await store.get("monthly-user");
-  assert.notEqual(reset.runId, october.runId);
+test("developer reset clears personal choices without rerolling the shared daily encounters", async () => {
+  const { store } = await fixture(new Date("2026-11-22T16:00:00Z"));
+  const before = await store.revealEncounter("developer-reset-user", 0);
+  const sharedTrio = before.encounters[0].pokemon;
+  await store.claimEncounter("developer-reset-user", 0, 2);
+  const reset = await store.resetForTesting("developer-reset-user");
   assert.equal(reset.roster.length, 0);
   assert.equal(reset.money, 50000);
   assert.equal(reset.encounters.length, 12);
-  assert.equal(reset.runLifecycle.runDay, 1);
-  assert.equal(reset.runLifecycle.resetNotice.pokemonCount, 1);
-  assert.equal(reset.runLifecycle.resetNotice.archiveUntil, "2026-12-07");
-
-  const archiveNames = await readdir(path.join(directory, "run-archive"));
-  assert.equal(archiveNames.length, 1);
-  const archive = JSON.parse(gunzipSync(await readFile(path.join(directory, "run-archive", archiveNames[0]))));
-  assert.equal(archive.reason, "scheduled");
-  assert.equal(archive.run.id, october.runId);
-  assert.equal(archive.run.roster.length, 1);
-
-  const acknowledged = await store.acknowledgeRunReset("monthly-user");
-  assert.equal(acknowledged.runLifecycle.resetNotice, null);
+  assert.equal(reset.encounters.every((encounter) => !encounter.revealed && !encounter.claimed), true);
+  const revealedAgain = await store.revealEncounter("developer-reset-user", 0);
+  assert.deepEqual(revealedAgain.encounters[0].pokemon, sharedTrio);
 });
 
-test("missed-day wipes begin prospectively and archive the box when the player returns", async () => {
-  let now = new Date("2026-11-08T16:00:00Z");
-  const outcomes = new Map();
-  const directory = await mkdtemp(path.join(os.tmpdir(), "nuzzle-missed-day-"));
-  const store = new GameStore(path.join(directory, "game.json"), {
-    timeZone: "America/New_York",
-    now: () => now,
-    missedDayWipeStartDate: "2026-11-09",
-    dailyOutcome: (_userId, date) => outcomes.get(date) || null,
-  });
-  await store.initialize();
-  const original = await store.claimEncounter("missed-user", 0);
-
-  now = new Date("2026-11-09T16:00:00Z");
-  const cutoffDay = await store.get("missed-user");
-  assert.equal(cutoffDay.runId, original.runId, "a pre-cutoff November 8 gap must not wipe an existing run");
-
-  outcomes.set("2026-11-09", "win");
-  now = new Date("2026-11-10T16:00:00Z");
-  const afterWin = await store.get("missed-user");
-  assert.equal(afterWin.runId, original.runId);
-
-  now = new Date("2026-11-11T16:00:00Z");
-  const wiped = await store.get("missed-user");
-  assert.notEqual(wiped.runId, original.runId);
-  assert.equal(wiped.roster.length, 0);
-  assert.equal(wiped.encounters.length, 12);
-  assert.equal(wiped.runLifecycle.startDate, "2026-11-11");
-  assert.equal(wiped.runLifecycle.resetNotice.reason, "missed");
-  assert.equal(wiped.runLifecycle.resetNotice.missedDate, "2026-11-10");
-  assert.equal(wiped.runLifecycle.resetNotice.archiveUntil, "2026-12-11");
-
-  const archiveNames = await readdir(path.join(directory, "run-archive"));
-  const archive = JSON.parse(gunzipSync(await readFile(path.join(directory, "run-archive", archiveNames[0]))));
-  assert.equal(archive.reason, "missed");
-  assert.equal(archive.missedDate, "2026-11-10");
-  assert.equal(archive.run.id, original.runId);
+test("guest promotion preserves today's choices but all accounts reset on the next date", async () => {
+  let now = new Date("2026-11-22T16:00:00Z");
+  const { store } = await fixture(() => now);
+  store.identifyGuest("converted-player");
+  let state = await store.claimEncounter("converted-player", 0);
+  const runId = state.runId;
+  state = await store.promoteGuest("converted-player");
+  assert.equal(state.runId, runId);
+  assert.equal(state.roster.length, 1);
+  now = new Date("2026-11-23T16:00:00Z");
+  state = await store.get("converted-player");
+  assert.notEqual(state.runId, runId);
+  assert.equal(state.roster.length, 0);
 });
 
 test("held-item purchases, atomic training builds, and battle snapshots are server-authoritative", async () => {
@@ -537,7 +374,7 @@ test("stolen battle items persist once and equip only to an empty-handed owner",
   assert.equal(state.roster.find((candidate) => candidate.id === pokemon.id).heldItemId, "leftovers");
 });
 
-test("battle settlement permanently removes fainted Pokémon but retains their held items", async () => {
+test("battle settlement records completion without changing the daily preparation state", async () => {
   const { store } = await fixture();
   let state = await store.claimEncounter("faint-user", 0);
   state = await store.claimEncounter("faint-user", 1);
@@ -548,12 +385,12 @@ test("battle settlement permanently removes fainted Pokémon but retains their h
 
   const moneyBeforeVictory = state.money;
   state = await store.settleBattle("faint-user", "partial-loss", { faintedPokemonIds: [fainted.id], won: true });
-  assert.deepEqual(state.roster.map((pokemon) => pokemon.id), [survivor.id]);
-  assert.equal(state.teamIds.includes(fainted.id), false);
+  assert.deepEqual(state.roster.map((pokemon) => pokemon.id), [fainted.id, survivor.id]);
+  assert.deepEqual(state.teamIds, [fainted.id, survivor.id]);
   assert.equal(state.inventory.leftovers, 1);
-  assert.equal(state.money, moneyBeforeVictory + 15000);
+  assert.equal(state.money, moneyBeforeVictory);
 
   const repeated = await store.settleBattle("faint-user", "partial-loss", { faintedPokemonIds: [survivor.id], won: true });
-  assert.deepEqual(repeated.roster.map((pokemon) => pokemon.id), [survivor.id]);
-  assert.equal(repeated.money, state.money, "a retried settlement must not grant another victory reward");
+  assert.deepEqual(repeated.roster.map((pokemon) => pokemon.id), [fainted.id, survivor.id]);
+  assert.equal(repeated.money, state.money, "a retried settlement must not change the daily budget");
 });
