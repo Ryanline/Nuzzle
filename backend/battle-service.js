@@ -8,6 +8,7 @@ const require = createRequire(import.meta.url);
 const { BattleStream, Dex, Teams, getPlayerStreams, toID } = require("pokemon-showdown");
 
 const FORMAT = "gen9customgame";
+const emerlLeaderboardSpotlightDate = "2026-11-23";
 const screenConditions = ["reflect", "lightscreen", "auroraveil"];
 const hazardConditions = ["spikes", "toxicspikes", "stealthrock", "stickyweb"];
 const situationalScreenMoves = new Set(["brickbreak", "psychicfangs", "ragingbull", "defog", "courtchange"]);
@@ -1662,11 +1663,14 @@ export class BattleService {
         survivors: team.length - fainted,
         teamSize: team.length,
         streak,
+        streakLabel: challengeDate === emerlLeaderboardSpotlightDate && toID(identity.username) === "emerl" ? "7-year streak" : null,
+        leaderboardSpotlight: challengeDate === emerlLeaderboardSpotlightDate && toID(identity.username) === "emerl",
         team,
       });
     }
 
-    entries.sort((left, right) => Number(right.won) - Number(left.won)
+    entries.sort((left, right) => Number(right.leaderboardSpotlight) - Number(left.leaderboardSpotlight)
+      || Number(right.won) - Number(left.won)
       || left.fainted - right.fainted
       || right.streak - left.streak
       || left.teamSize - right.teamSize
@@ -1674,7 +1678,7 @@ export class BattleService {
     let rank = 0;
     let previousScore = null;
     return entries.map((entry) => {
-      const score = `${Number(entry.won)}:${entry.fainted}:${entry.streak}:${entry.teamSize}:${entry.completedAt}`;
+      const score = `${Number(entry.leaderboardSpotlight)}:${Number(entry.won)}:${entry.fainted}:${entry.streak}:${entry.teamSize}:${entry.completedAt}`;
       if (score !== previousScore) {
         rank++;
         previousScore = score;

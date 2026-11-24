@@ -31,9 +31,9 @@ const implicitPlayerEvs = Object.freeze(Object.fromEntries(stats.map((stat) => [
 const implicitPlayerNature = "Serious";
 const retiredPlayerStatEffects = new Set(["ev", "iv", "nature"]);
 const runArchiveRetentionDays = 30;
+const sharedSingleEncounterStartDate = "2026-11-24";
 const gzipAsync = promisify(gzip);
 const gunzipAsync = promisify(gunzip);
-const dailyEncounterCount = 12;
 const sharedDailyBoxStartDate = process.env.NUZZLE_SHARED_DAILY_BOX_START_DATE || "2026-11-22";
 const starterRotationStartDate = sharedDailyBoxStartDate;
 const starterTrios = Object.freeze([
@@ -127,18 +127,21 @@ function generateBatch(count, pool, reservedFamilies) {
 function generateSharedDailyEncounters(date) {
   const rotationOffset = dateDistance(starterRotationStartDate, date);
   const starterIds = starterTrios[((rotationOffset % starterTrios.length) + starterTrios.length) % starterTrios.length];
-  const starterPokemon = starterIds.map((speciesId) => createPokemon(pokemonById.get(speciesId)));
-  const reservedFamilies = new Set(starterPokemon.map((pokemon) => pokemon.encounterFamilyId));
+  const singleEncounters = date >= sharedSingleEncounterStartDate;
+  const dailyEncounterCount = singleEncounters ? 16 : 12;
+  const dailyStarters = singleEncounters ? [randomChoice(starterIds)] : starterIds;
+  const dailyStarterPokemon = dailyStarters.map((speciesId) => createPokemon(pokemonById.get(speciesId)));
+  const reservedFamilies = new Set(dailyStarterPokemon.map((pokemon) => pokemon.encounterFamilyId));
   const encounters = [{
     kind: "starter",
     choiceVersion: 1,
-    pokemon: starterPokemon,
+    pokemon: dailyStarterPokemon,
   }];
   while (encounters.length < dailyEncounterCount) {
     encounters.push({
       kind: "daily",
       choiceVersion: 1,
-      pokemon: generateBatch(3, encounterPokemon, reservedFamilies),
+      pokemon: generateBatch(singleEncounters ? 1 : 3, encounterPokemon, reservedFamilies),
     });
   }
   return { date, createdAt: new Date().toISOString(), encounters };

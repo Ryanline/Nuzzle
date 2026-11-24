@@ -703,6 +703,28 @@ test("combined leaderboard ranks by outcome, casualties, streak, small teams, an
   });
 });
 
+test("Emerl receives the November 23 leaderboard spotlight only", async () => {
+  const { service } = await serviceFixture();
+  const addBattle = ({ id, userId, winner, completedAt }) => service.battles.set(id, {
+    record: { id, userId, challengeDate: "2026-11-23", completedAt, createdAt: completedAt },
+    state: () => ({
+      ended: true,
+      winner,
+      player: { team: [{ id: `${id}-mon`, name: "Mon", spriteId: "mon", fainted: winner !== "Player" }] },
+    }),
+  });
+  addBattle({ id: "winner", userId: "winner", winner: "Player", completedAt: "2026-11-23T12:00:00.000Z" });
+  addBattle({ id: "emerl", userId: "emerl", winner: "Trainer", completedAt: "2026-11-23T13:00:00.000Z" });
+
+  const entries = service.combinedLeaderboard("2026-11-23", (id) => ({ username: id === "emerl" ? "Emerl" : "Winner" }));
+  assert.deepEqual(entries.map(({ rank, username }) => ({ rank, username })), [
+    { rank: 1, username: "Emerl" },
+    { rank: 2, username: "Winner" },
+  ]);
+  assert.equal(entries[0].streakLabel, "7-year streak");
+  assert.equal(entries[1].streakLabel, null);
+});
+
 test("leaderboard battle results expose KO credits without private battle state", async () => {
   const { service } = await serviceFixture();
   service.battles.set("public-result", {

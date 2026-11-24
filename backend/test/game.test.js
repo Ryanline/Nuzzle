@@ -219,10 +219,39 @@ test("daily rollover clears every box and budget while advancing the starter rot
 
   now = new Date("2026-11-30T16:00:00Z");
   state = await store.revealEncounter("daily-user", 0);
-  assert.deepEqual(state.encounters[0].pokemon.map((pokemon) => pokemon.speciesId), ["meowscarada", "skeledirge", "quaquaval"]);
+  assert.equal(state.encounters[0].pokemon.length, 1);
+  assert.equal(["meowscarada", "skeledirge", "quaquaval"].includes(state.encounters[0].pokemon[0].speciesId), true);
   now = new Date("2026-12-01T16:00:00Z");
   state = await store.revealEncounter("daily-user", 0);
-  assert.deepEqual(state.encounters[0].pokemon.map((pokemon) => pokemon.speciesId), ["venusaur", "charizard", "blastoise"]);
+  assert.equal(state.encounters[0].pokemon.length, 1);
+  assert.equal(["venusaur", "charizard", "blastoise"].includes(state.encounters[0].pokemon[0].speciesId), true);
+});
+
+test("starting November 24 every player receives the same sixteen single encounters", async () => {
+  let now = new Date("2026-11-24T16:00:00Z");
+  const { store } = await fixture(() => now);
+  const alpha = await store.get("shared-alpha");
+  const beta = await store.get("shared-beta");
+  assert.equal(alpha.encounters.length, 16);
+  assert.equal(beta.encounters.length, 16);
+  assert.equal(alpha.encounters.every((encounter) => encounter.count === 1), true);
+
+  const revealedAlpha = await store.revealEncounter("shared-alpha", 0);
+  const revealedBeta = await store.revealEncounter("shared-beta", 0);
+  assert.deepEqual(revealedAlpha.encounters[0].pokemon, revealedBeta.encounters[0].pokemon);
+  assert.equal(store.data.sharedDailyEncounters["2026-11-24"].encounters.length, 16);
+  assert.equal(store.data.sharedDailyEncounters["2026-11-24"].encounters.every((encounter) => encounter.pokemon.length === 1), true);
+
+  let claimed = revealedAlpha;
+  for (let slot = 0; slot < 16; slot++) claimed = await store.claimEncounter("shared-alpha", slot);
+  assert.equal(claimed.roster.length, 16);
+  assert.equal(new Set(claimed.roster.map((pokemon) => pokemon.encounterFamilyId)).size, 16);
+
+  now = new Date("2026-11-25T16:00:00Z");
+  const nextDay = await store.get("shared-alpha");
+  assert.equal(nextDay.encounters.length, 16);
+  assert.equal(nextDay.encounters.every((encounter) => encounter.count === 1), true);
+  assert.equal(nextDay.roster.length, 0);
 });
 
 test("developer reset clears personal choices without rerolling the shared daily encounters", async () => {
