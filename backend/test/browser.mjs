@@ -294,9 +294,9 @@ async function verifyTrainerTooltip(pokemon) {
   const tooltip = page.locator("#tooltip");
   await tooltip.waitFor({ state: "visible" });
   const text = await tooltip.textContent();
-  const statLabels = { atk: "Atk", def: "Def", spa: "SpA", spd: "SpD", spe: "Spe" };
-  const stats = Object.entries(statLabels).map(([key, label]) => `${label} ${pokemon.calculatedStats[key]}`);
-  const expected = [pokemon.name, ...pokemon.types, `/${pokemon.calculatedStats.hp})`, ...stats, `Ability: ${pokemon.ability}`, `Item: ${pokemon.item}`, ...pokemon.moves];
+  const statLabels = { hp: "HP", atk: "Atk", def: "Def", spa: "SpA", spd: "SpD", spe: "Spe" };
+  const stats = Object.entries(statLabels).map(([key, label]) => `${label} ${pokemon.baseStats[key]}`).join(" / ");
+  const expected = [pokemon.name, ...pokemon.types, stats, `Ability: ${pokemon.ability}`, `Item: ${pokemon.item}`, ...pokemon.moves];
   if (expected.some((value) => !text.includes(value))) throw new Error(`Incomplete tooltip for ${pokemon.name}: ${text}`);
   return text;
 }

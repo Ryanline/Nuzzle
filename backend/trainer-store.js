@@ -27,24 +27,13 @@ function trainerError(message, statusCode = 400) {
 
 function pokemonSummary(set) {
   const species = Dex.species.get(set.species || set.name);
-  const level = Math.max(1, Math.min(9999, Math.trunc(set.adjustLevel || set.level || 100)));
-  const nature = Dex.natures.get(set.nature);
-  const calculatedStats = Object.fromEntries(Object.entries(species.baseStats).map(([stat, base]) => {
-    const iv = Math.max(0, Math.min(31, Math.trunc(set.ivs?.[stat] ?? 31)));
-    const ev = Math.max(0, Math.min(255, Math.trunc(set.evs?.[stat] ?? 0)));
-    const core = 2 * base + iv + Math.floor(ev / 4);
-    if (stat === "hp") return [stat, species.maxHP || Math.floor((core + 100) * level / 100) + 10];
-    const value = Math.floor(core * level / 100) + 5;
-    const modifier = nature.plus === stat ? 110 : nature.minus === stat ? 90 : 100;
-    return [stat, modifier === 100 ? value : Math.floor(((value * modifier) & 0xffff) / 100)];
-  }));
   return {
     id: species.id || toID(set.species || set.name),
     name: species.name || set.species || set.name,
     spriteId: species.spriteid || species.id || toID(set.species || set.name),
     shiny: Boolean(set.shiny),
     types: [...species.types],
-    calculatedStats,
+    baseStats: { ...species.baseStats },
     ability: Dex.abilities.get(set.ability || species.abilities[0]).name || "None",
     item: Dex.items.get(set.item).name || "None",
     moves: set.moves.map((move) => Dex.moves.get(move).name),

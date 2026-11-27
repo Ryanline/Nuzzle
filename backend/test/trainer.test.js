@@ -119,7 +119,7 @@ test("queued trainers can be reordered and publish one immutable snapshot per da
   assert.equal(first.number, 1);
   assert.equal(first.trainer.name, "Brock");
   assert.deepEqual(first.trainer.pokemon[0].types, ["Steel", "Ground"]);
-  assert.deepEqual(first.trainer.pokemon[0].calculatedStats, { hp: 296, atk: 232, def: 441, spa: 135, spd: 171, spe: 101 });
+  assert.deepEqual(first.trainer.pokemon[0].baseStats, { hp: 75, atk: 85, def: 200, spa: 55, spd: 65, spe: 30 });
   assert.equal(first.trainer.pokemon[0].ability, "Sturdy");
   assert.equal(first.trainer.pokemon[0].item, "None");
   assert.deepEqual(first.trainer.pokemon[0].moves, ["Earthquake", "Heavy Slam", "Rock Slide", "Stealth Rock"]);

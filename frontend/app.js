@@ -1445,15 +1445,15 @@
   }
 
   function monTip(mon) {
-    if (!mon?.calculatedStats) return "";
-    const maxHp = mon.calculatedStats.hp;
-    const hp = typeof mon.hp === "number" ? mon.hp : maxHp;
-    const percent = maxHp ? (100 * hp / maxHp).toFixed(1) : "0.0";
+    if (!mon?.baseStats) return "";
+    const currentHp = Number.isFinite(mon.hp) && mon.maxHp > 0
+      ? `<div class="tip-row">HP: ${(100 * mon.hp / mon.maxHp).toFixed(1)}% (${mon.hp}/${mon.maxHp})</div>`
+      : "";
     const types = mon.types.map((type) => `<i class="type-chip ${toId(type)}">${escapeHtml(type)}</i>`).join("");
-    const stats = trainingStats.slice(1).map(([key, label]) => `${label} ${mon.calculatedStats[key]}`).join(" / ");
+    const stats = trainingStats.map(([key, label]) => `${label} ${mon.baseStats[key]}`).join(" / ");
     const moveList = mon.moves.map((move) => `• ${escapeHtml(move)}`).join("<br>");
     return `<div class="tip-head">${escapeHtml(mon.name)}<span class="tip-types">${types}</span></div>
-      <div class="tip-row">HP: ${percent}% (${hp}/${maxHp})</div>
+      ${currentHp}
       <div class="tip-row">Ability: ${escapeHtml(mon.ability)} / Item: ${escapeHtml(mon.item)}</div>
       <div class="tip-row">${stats}</div><div class="tip-row">${moveList}</div>`;
   }

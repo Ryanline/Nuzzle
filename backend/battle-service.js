@@ -491,7 +491,7 @@ function pokemonView(pokemon) {
     hp: pokemon.hp,
     maxHp: pokemon.maxhp,
     types: pokemon.getTypes(),
-    calculatedStats: { ...pokemon.storedStats, hp: pokemon.maxhp },
+    baseStats: { ...species.baseStats },
     ability: pokemon.getAbility().name || "None",
     item: pokemon.getItem().name || "None",
     moves: pokemon.moveSlots.map((slot) => slot.move),
