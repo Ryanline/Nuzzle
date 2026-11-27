@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { createRequire } from "node:module";
 import "./custom-battle-species.js";
 import { buildBrockTeam, buildPlayerTeam } from "./teams.js";
+import { pokemonSetView } from "./pokemon-set-view.js";
 import { defaultLaunchDate } from "./game-clock.js";
 
 const require = createRequire(import.meta.url);
@@ -486,6 +487,7 @@ function pokemonView(pokemon) {
     name: species?.name || pokemon.name,
     spriteId: species?.spriteid || species?.id || toID(species?.name || pokemon.name),
     shiny: Boolean(pokemon.set?.shiny || pokemon.details?.toLowerCase().includes(", shiny")),
+    startingSpeciesId: Dex.species.get(pokemon.set?.species || pokemon.baseSpecies?.name).id,
     startingBst: speciesBst(pokemon.set?.species || pokemon.baseSpecies?.name),
     level: pokemon.level,
     hp: pokemon.hp,
@@ -1659,14 +1661,19 @@ export class BattleService {
       const identity = identityById(playerId);
       if (!identity) continue;
       const won = today.state.winner === "Player";
-      const team = today.state.player.team.map((pokemon) => ({
-        id: pokemon.id,
-        name: pokemon.name,
-        spriteId: pokemon.spriteId,
-        shiny: pokemon.shiny,
-        bst: pokemon.startingBst,
-        fainted: !won || Boolean(today.record.forfeited) || pokemon.fainted,
-      }));
+      const startingSets = new Map(today.record.playerTeam?.map((set) => [Dex.species.get(set.species).id, set]));
+      const team = today.state.player.team.map((pokemon) => {
+        const set = startingSets.get(pokemon.startingSpeciesId);
+        return {
+          id: pokemon.id,
+          name: pokemon.name,
+          spriteId: pokemon.spriteId,
+          shiny: pokemon.shiny,
+          ...(set && pokemonSetView(set)),
+          bst: pokemon.startingBst,
+          fainted: !won || Boolean(today.record.forfeited) || pokemon.fainted,
+        };
+      });
       let streak = 0;
       if (!identity.isGuest) {
         let date = won ? challengeDate : previousDate(challengeDate);

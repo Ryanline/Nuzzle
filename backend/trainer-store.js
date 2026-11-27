@@ -4,6 +4,7 @@ import path from "node:path";
 import { createRequire } from "node:module";
 import "./custom-battle-species.js";
 import { buildBrockTeam } from "./teams.js";
+import { pokemonSetView } from "./pokemon-set-view.js";
 import { datesAfter, gameDate, gameNumber, nextGameDate, nextRolloverAt } from "./game-clock.js";
 import { avatarSpriteIds, trainerSpriteIds } from "./trainer-sprite-ids.js";
 
@@ -23,21 +24,6 @@ const spriteIds = new Set(trainerSprites.map((sprite) => sprite.id));
 
 function trainerError(message, statusCode = 400) {
   throw Object.assign(new Error(message), { statusCode });
-}
-
-function pokemonSummary(set) {
-  const species = Dex.species.get(set.species || set.name);
-  return {
-    id: species.id || toID(set.species || set.name),
-    name: species.name || set.species || set.name,
-    spriteId: species.spriteid || species.id || toID(set.species || set.name),
-    shiny: Boolean(set.shiny),
-    types: [...species.types],
-    baseStats: { ...species.baseStats },
-    ability: Dex.abilities.get(set.ability || species.abilities[0]).name || "None",
-    item: Dex.items.get(set.item).name || "None",
-    moves: set.moves.map((move) => Dex.moves.get(move).name),
-  };
 }
 
 function validateTeam(teamText) {
@@ -90,7 +76,7 @@ function publicTrainer(trainer, includeTeamText = false) {
     id: trainer.id,
     name: trainer.name,
     spriteId: trainer.spriteId,
-    pokemon: trainer.team.map(pokemonSummary),
+    pokemon: trainer.team.map(pokemonSetView),
     ...(includeTeamText ? { teamText: trainer.teamText } : {}),
   };
 }

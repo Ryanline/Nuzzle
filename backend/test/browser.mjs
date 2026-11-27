@@ -1244,7 +1244,8 @@ const leaderboardResponse = page.waitForResponse((response) => response.url().en
 await page.click('[data-route="leaderboard"]');
 const loadedLeaderboardResponse = await leaderboardResponse;
 if (!loadedLeaderboardResponse.ok()) throw new Error("Loading the leaderboard failed.");
-if ((await loadedLeaderboardResponse.json()).standing !== null) throw new Error("A losing player received a victory standing.");
+const loadedLeaderboard = await loadedLeaderboardResponse.json();
+if (loadedLeaderboard.standing !== null) throw new Error("A losing player received a victory standing.");
 await page.waitForSelector(".leaderboard-row");
 await assertMobileLayout("leaderboard", [".leaderboard-content"]);
 await assertDesktopLayout("leaderboard", [".leaderboard-content"]);
@@ -1259,6 +1260,11 @@ if (!(await page.locator(".leaderboard-row.leaderboard-loss .leaderboard-avatar 
 if (!(await page.locator('.leaderboard-rank[aria-label="Rank 1"] .leaderboard-trophy').getAttribute("src"))?.endsWith("assets/leaderboard/trophy-gold.png")) throw new Error("First place did not use the CC0 gold trophy.");
 const leaderboardResultId = await page.locator(".leaderboard-row.leaderboard-current").getAttribute("data-leaderboard-result");
 if (!leaderboardResultId) throw new Error("The leaderboard row did not expose its battle result reference.");
+const leaderboardEntry = loadedLeaderboard.entries.find(({ battleId }) => battleId === leaderboardResultId);
+await page.locator(".leaderboard-row.leaderboard-current [data-leaderboard-mon]").first().click();
+await verifyTrainerTooltip(leaderboardEntry.team[0]);
+if (await page.locator(".result-modal").count()) throw new Error("Clicking a leaderboard Pokémon opened the battle result.");
+await page.keyboard.press("Escape");
 const leaderboardScrollStyle = await page.addStyleTag({ content: ".leaderboard-list { padding: 500px 0 !important; }" });
 const leaderboardScrollBefore = await page.locator(".leaderboard-content").evaluate((element) => {
   element.scrollTop = 500;
@@ -1266,7 +1272,7 @@ const leaderboardScrollBefore = await page.locator(".leaderboard-content").evalu
 });
 if (leaderboardScrollBefore < 100) throw new Error("The leaderboard scroll preservation test could not create a deep scroll position.");
 const publicResultResponse = page.waitForResponse((response) => response.url().includes(`/api/leaderboard/results/${leaderboardResultId}`) && response.request().method() === "GET");
-await page.locator(".leaderboard-row.leaderboard-current").click();
+await page.locator(".leaderboard-row.leaderboard-current .leaderboard-total").click();
 const loadedPublicResultResponse = await publicResultResponse;
 if (!loadedPublicResultResponse.ok()) throw new Error("The leaderboard battle result request failed.");
 const publicResult = await loadedPublicResultResponse.json();
@@ -1278,9 +1284,12 @@ const leaderboardDuringOverlay = await page.locator(".leaderboard-content").eval
 await page.click("[data-close-leaderboard-result].result-close");
 await page.waitForSelector(".result-modal", { state: "detached" });
 await page.locator("body").evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-const leaderboardAfterClose = await page.locator(".leaderboard-content").evaluate((element) => ({ scrollTop: element.scrollTop, activeResult: document.activeElement?.dataset?.leaderboardResult || null }));
+const leaderboardAfterClose = await page.locator(".leaderboard-content").evaluate((element) => ({ scrollTop: element.scrollTop, activeResult: document.activeElement?.closest("[data-leaderboard-result]")?.dataset.leaderboardResult }));
 if (Math.abs(leaderboardAfterClose.scrollTop - leaderboardScrollBefore) > 1 || leaderboardAfterClose.activeResult !== leaderboardResultId) throw new Error(`Closing a leaderboard result did not restore scroll and focus: ${JSON.stringify({ leaderboardScrollBefore, leaderboardDuringOverlay, leaderboardAfterClose })}`);
 await leaderboardScrollStyle.evaluate((element) => element.remove());
+await page.locator(".leaderboard-row.leaderboard-current .leaderboard-player-line").click();
+await page.waitForSelector(".result-modal:not(.result-loading)");
+await page.click("[data-close-leaderboard-result].result-close");
 const currentRowThemeAppearance = await page.locator(".leaderboard-row.leaderboard-current").evaluate((row) => {
   const root = document.documentElement;
   const previousTheme = root.dataset.theme;

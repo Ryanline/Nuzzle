@@ -32,7 +32,7 @@
   const app = document.querySelector("#app");
   const tooltip = document.querySelector("#tooltip");
   document.addEventListener("pointerdown", (event) => {
-    if (!event.target.closest("[data-trainer-pokemon], [data-battler-tip]")) hideTooltip();
+    if (!event.target.closest("[data-trainer-pokemon], [data-battler-tip], [data-leaderboard-mon]")) hideTooltip();
   }, true);
   const savedTheme = localStorage.getItem("nuzzleTheme");
   const showdownEffectPreloads = Object.values(window.BattleEffects || {}).flatMap((effect) => {
@@ -318,7 +318,7 @@
     leaderboardResultError = "";
     leaderboardScrollCaptureLocked = true;
     render();
-    requestAnimationFrame(() => document.querySelector(`[data-leaderboard-result="${CSS.escape(trigger || "")}"]`)?.focus({ preventScroll: true }));
+    requestAnimationFrame(() => document.querySelector(`[data-leaderboard-result="${CSS.escape(trigger || "")}"] .leaderboard-total`)?.focus({ preventScroll: true }));
   }
 
   async function refreshVictoryStanding() {
@@ -1212,17 +1212,17 @@
           ? `<ol class="leaderboard-list">${entries.map((entry) => {
             const trophy = trophyNames[entry.rank];
             const rank = trophy ? `<img class="leaderboard-trophy" src="assets/leaderboard/trophy-${trophy}.png" alt="">` : entry.rank;
-            const teamCards = entry.team.map((pokemon) => {
+            const teamCards = entry.team.map((pokemon, index) => {
               const bst = pokemon.bst ?? "—";
-              return `<span class="leaderboard-mon" title="${escapeHtml(pokemon.name)} · BST ${bst}">
-                <img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId, pokemon.shiny)}" alt="${escapeHtml(pokemon.name)}">
+              return `<button class="leaderboard-mon" type="button" data-leaderboard-mon="${index}" aria-label="Inspect ${escapeHtml(pokemon.name)}, BST ${bst}" ${pokemon.baseStats ? "" : "disabled"}>
+                <img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId, pokemon.shiny)}" alt="">
                 <span class="leaderboard-bst">${bst}</span>
-              </span>`;
+              </button>`;
             }).join("");
-            const totalCard = `<span class="leaderboard-mon leaderboard-total" title="Total starting team BST">
+            const totalCard = `<button class="leaderboard-mon leaderboard-total" type="button" aria-label="View ${escapeHtml(entry.username)}’s battle result, total BST ${entry.teamBst ?? "unavailable"}">
               <strong>TOTAL</strong><span class="leaderboard-bst">${entry.teamBst?.toLocaleString() ?? "—"}</span>
-            </span>`;
-            return `<li><button class="leaderboard-row${entry.won ? "" : " leaderboard-loss"}${entry.isCurrentPlayer ? " leaderboard-current" : ""}" type="button" data-leaderboard-result="${escapeHtml(entry.battleId)}"${entry.isCurrentPlayer ? ' aria-current="true"' : ""}><span class="leaderboard-rank" aria-label="Rank ${entry.rank}">${rank}</span><span class="leaderboard-entry"><span class="leaderboard-player-line"><strong class="leaderboard-player-name"><span>${escapeHtml(entry.username)}</span><small class="leaderboard-outcome">${entry.won ? "WIN" : "LOSS"}</small></strong><strong class="streak-count">${escapeHtml(entry.streakLabel || `${entry.streak}-day streak`)}</strong></span><span class="leaderboard-roster"><span class="leaderboard-avatar" aria-hidden="true">${avatarContent(entry)}</span><span class="leaderboard-team" aria-label="${entry.survivors} surviving Pokémon and ${entry.fainted} fainted Pokémon">${teamCards}${totalCard}</span></span></span><span class="visually-hidden">View ${escapeHtml(entry.username)}’s battle result</span></button></li>`;
+            </button>`;
+            return `<li><div class="leaderboard-row${entry.won ? "" : " leaderboard-loss"}${entry.isCurrentPlayer ? " leaderboard-current" : ""}" data-leaderboard-result="${escapeHtml(entry.battleId)}"${entry.isCurrentPlayer ? ' aria-current="true"' : ""}><span class="leaderboard-rank" aria-label="Rank ${entry.rank}">${rank}</span><span class="leaderboard-entry"><span class="leaderboard-player-line"><strong class="leaderboard-player-name"><span>${escapeHtml(entry.username)}</span><small class="leaderboard-outcome">${entry.won ? "WIN" : "LOSS"}</small></strong><strong class="streak-count">${escapeHtml(entry.streakLabel || `${entry.streak}-day streak`)}</strong></span><span class="leaderboard-roster"><span class="leaderboard-avatar" aria-hidden="true">${avatarContent(entry)}</span><span class="leaderboard-team" aria-label="${entry.survivors} surviving Pokémon and ${entry.fainted} fainted Pokémon">${teamCards}${totalCard}</span></span></span></div></li>`;
           }).join("")}</ol>`
           : '<div class="leaderboard-empty"><strong>No results yet</strong><span>Today’s first completed battle will appear here.</span></div>';
     return `<section class="screen">${header()}<div class="leaderboard-stage"><h2>Leaderboard</h2><div class="leaderboard-content">${content}</div>${backButton()}</div>${leaderboardResultOverlay()}</section>`;
@@ -2969,10 +2969,16 @@
       render();
       requestAnimationFrame(() => document.querySelector("[data-open-result]")?.focus({ preventScroll: true }));
     }));
-    document.querySelectorAll("[data-leaderboard-result]").forEach((button) => button.addEventListener("click", () => {
-      const entry = (leaderboardData?.entries || []).find((candidate) => candidate.battleId === button.dataset.leaderboardResult);
-      if (entry) void openLeaderboardResult(entry);
-    }));
+    document.querySelectorAll("[data-leaderboard-result]").forEach((row) => {
+      const entry = leaderboardData?.entries?.find((candidate) => candidate.battleId === row.dataset.leaderboardResult);
+      if (!entry) return;
+      row.addEventListener("click", (event) => {
+        if (!event.target.closest("[data-leaderboard-mon]")) void openLeaderboardResult(entry);
+      });
+      row.querySelectorAll("[data-leaderboard-mon]").forEach((button) => {
+        addInfoInteractions(button, () => monTip(entry.team[Number(button.dataset.leaderboardMon)]), true);
+      });
+    });
     document.querySelectorAll("[data-close-leaderboard-result]").forEach((element) => element.addEventListener("click", (event) => {
       if (element.classList.contains("result-backdrop") && event.target !== element) return;
       closeLeaderboardResult();
