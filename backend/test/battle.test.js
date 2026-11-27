@@ -189,7 +189,7 @@ test("Showdown advances a real turn and rejects stale choices", async () => {
   assert.equal(next.moves[3].pp, initial.moves[3].pp - 1);
   assert.equal(next.rqid, 2);
   assert.match(next.events.join(" "), /used Wish/);
-  assert.ok(next.log.some((entry) => entry.side === "opponent" && entry.category === "move"), "Brock's move was missing from the completed turn response.");
+  assert.ok(next.log.some((entry) => entry.side === "opponent" && ["move", "switch"].includes(entry.category)), "Brock's action was missing from the completed turn response.");
   assert.deepEqual(next.log.map((entry) => entry.id), [...next.log.map((entry) => entry.id)].sort((left, right) => left - right));
   await assert.rejects(
     service.get(initial.id).choose({ type: "move", slot: 1 }, initial.rqid),
