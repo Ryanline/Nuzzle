@@ -1254,7 +1254,7 @@
       },
       nuzlocke: {
         title: "What a Nuzlocke is",
-        content: `<p>A <a href="https://bulbapedia.bulbagarden.net/wiki/Nuzlocke_Challenge" target="_blank" rel="noopener noreferrer">Nuzlocke</a> is a fan-created way to make Pokémon more challenging through limited encounters and meaningful fainting.</p><p>Everyone chooses from the same daily encounters and gets one battle attempt. Wins with lower starting-team BST rank higher, with fewer faints breaking BST ties.</p>`,
+        content: `<p>A <a href="https://bulbapedia.bulbagarden.net/wiki/Nuzlocke_Challenge" target="_blank" rel="noopener noreferrer">Nuzlocke</a> is a fan-created way to make Pokémon more challenging through limited encounters and meaningful fainting.</p><p>Everyone chooses from the same limited encounters and gets one battle attempt. Wins with lower starting-team BST rank higher, with fewer faints breaking BST ties.</p>`,
       },
       schedule: {
         title: "Battle schedule",
