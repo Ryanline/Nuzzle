@@ -214,8 +214,9 @@ test("battle state exposes substitutes, screens, hazards, and weather for visual
   assert.ok(state.log.some((entry) => entry.text === "Mew made a substitute!"));
 });
 
-test("a slower move animates into an empty slot after Explosion without dealing damage", async () => {
+test("a slower move animates into an empty slot after Explosion without dealing damage", async (t) => {
   const { service } = await serviceFixture();
+  t.mock.method(BattleController.prototype, "legalSwitchSlots", () => []);
   const playerTeam = [{
     name: "Shuckle",
     species: "Shuckle",
