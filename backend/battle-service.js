@@ -29,13 +29,18 @@ function seed() {
   return Array.from({ length: 4 }, () => crypto.randomInt(0x10000));
 }
 
+function speciesBst(speciesName) {
+  const species = Dex.species.get(speciesName);
+  return species.exists ? Object.values(species.baseStats).reduce((sum, stat) => sum + stat, 0) : null;
+}
+
 function battleTeamBst(record) {
   if (!record.playerTeam?.length) return null;
   let total = 0;
   for (const set of record.playerTeam) {
-    const species = Dex.species.get(set.species);
-    if (!species.exists) return null;
-    total += Object.values(species.baseStats).reduce((sum, stat) => sum + stat, 0);
+    const bst = speciesBst(set.species);
+    if (bst === null) return null;
+    total += bst;
   }
   return total;
 }
@@ -481,6 +486,7 @@ function pokemonView(pokemon, ownSide) {
     name: species?.name || pokemon.name,
     spriteId: species?.spriteid || species?.id || toID(species?.name || pokemon.name),
     shiny: Boolean(pokemon.set?.shiny || pokemon.details?.toLowerCase().includes(", shiny")),
+    startingBst: speciesBst(pokemon.set?.species || pokemon.baseSpecies?.name),
     level: pokemon.level,
     hp: ownSide ? pokemon.hp : null,
     maxHp: ownSide ? pokemon.maxhp : null,
@@ -1598,6 +1604,7 @@ export class BattleService {
           name: pokemon.name,
           spriteId: pokemon.spriteId,
           shiny: pokemon.shiny,
+          bst: pokemon.startingBst,
           fainted: Boolean(battle.record.forfeited) || pokemon.fainted,
         }));
         return {
@@ -1652,6 +1659,7 @@ export class BattleService {
         name: pokemon.name,
         spriteId: pokemon.spriteId,
         shiny: pokemon.shiny,
+        bst: pokemon.startingBst,
         fainted: !won || Boolean(today.record.forfeited) || pokemon.fainted,
       }));
       let streak = 0;

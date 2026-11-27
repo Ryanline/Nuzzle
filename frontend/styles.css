@@ -926,7 +926,6 @@ button.encounter-card:active .encounter-mark img { transform: translateY(1px) sc
 .leaderboard-player-name { display: block; margin-bottom: 2px; overflow: hidden; font-size: 14px; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
 .leaderboard-player-line { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 8px; }
 .leaderboard-player-line .leaderboard-player-name { min-width: 0; margin-bottom: 2px; }
-.leaderboard-bst { margin-left: auto; color: var(--muted); font-size: 12px; white-space: nowrap; }
 .guest-label { margin-left: 5px; color: var(--muted); font-size: 9px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
 .leaderboard-player-name small { margin-left: 6px; color: #a34449; font-size: 10px; font-weight: 700; text-transform: uppercase; }
 .leaderboard-roster { display: grid; grid-template-columns: 38px minmax(0, 1fr); align-items: center; gap: 4px; }
@@ -934,11 +933,13 @@ button.encounter-card:active .encounter-mark img { transform: translateY(1px) sc
 .leaderboard-roster .leaderboard-avatar img { width: 36px; height: 42px; }
 .streak-row { grid-template-columns: 32px minmax(0, 1fr) auto; min-height: 62px; }
 .streak-count { color: #397443; font-size: 14px; font-weight: 700; white-space: nowrap; }
-.leaderboard-team { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; }
-.leaderboard-mon { display: grid; min-width: 0; height: 43px; overflow: hidden; place-items: center; border: 1px solid; border-radius: 5px; }
-.leaderboard-mon.survived { border-color: #6ea878; background: #ddf0e0; }
-.leaderboard-mon.fainted { border-color: #be777b; background: #f2d9db; }
-.leaderboard-mon img { width: 42px; max-width: 100%; height: 40px; }
+.leaderboard-team { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.leaderboard-mon { display: grid; min-width: 0; height: 52px; grid-template-rows: minmax(0, 1fr) 14px; overflow: hidden; place-items: center; border: 1px solid var(--line); border-radius: 5px; background: var(--surface); }
+.leaderboard-mon img { width: 42px; max-width: 100%; height: 36px; }
+.leaderboard-bst { color: var(--muted); font-size: 11px; line-height: 1; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.leaderboard-total { grid-column: 7; border-color: var(--muted); background: var(--raised); }
+.leaderboard-total strong { font-size: 10px; }
+.leaderboard-total .leaderboard-bst { color: var(--ink); font-weight: 700; }
 .leaderboard-empty { display: grid; min-height: 100%; place-content: center; gap: 3px; color: var(--muted); text-align: center; }
 .leaderboard-empty strong { color: var(--ink); font-size: 18px; font-weight: 400; }
 .leaderboard-empty span { font-size: 12px; }
@@ -1184,8 +1185,6 @@ html[data-theme="dark"] .leaderboard-row { border-color: #4c565e; }
 html[data-theme="dark"] .leaderboard-row.leaderboard-current { background: linear-gradient(90deg, #263746, #222b32); box-shadow: inset 3px 0 #5c91bb; }
 html[data-theme="dark"] .leaderboard-rank { color: #aebbc5; }
 html[data-theme="dark"] .streak-count { color: #91d19b; }
-html[data-theme="dark"] .leaderboard-mon.survived { border-color: #557d5d; background: #263e2b; }
-html[data-theme="dark"] .leaderboard-mon.fainted { border-color: #85575a; background: #452b2e; }
 html[data-theme="dark"] .stat-card { border-color: #59636c; background: #2c3238; }
 html[data-theme="dark"] .sheet-backdrop { background: rgba(0,0,0,.62); }
 html[data-theme="dark"] .mart-sheet { border-color: #59636c; background: #24282c; }
@@ -1371,8 +1370,10 @@ html[data-theme="dark"] .final-run-reminder { border-color: #965157; background:
   .leaderboard-row { grid-template-columns: 28px minmax(0, 1fr); min-height: 69px; padding: 6px 2px; }
   .streak-row { grid-template-columns: 28px minmax(0, 1fr) auto; min-height: 58px; }
   .leaderboard-rank { font-size: 18px; }
-  .leaderboard-mon { height: 39px; }
-  .leaderboard-mon img { width: 38px; height: 37px; }
+  .leaderboard-team { gap: 3px; }
+  .leaderboard-mon { height: 46px; }
+  .leaderboard-mon img { width: 36px; height: 31px; }
+  .leaderboard-total strong { font-size: 9px; }
   .leaderboard-stage .page-back { margin-bottom: 0; }
   .simple-stage { overflow-y: auto; overscroll-behavior: contain; }
 

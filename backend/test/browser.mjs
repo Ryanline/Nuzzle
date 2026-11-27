@@ -1308,7 +1308,18 @@ const leaderboardRowLayout = await page.locator(".leaderboard-row.leaderboard-lo
 if (Math.abs(leaderboardRowLayout.avatarCenter - leaderboardRowLayout.teamCenter) > 2) throw new Error("The leaderboard avatar was not aligned beside the Pokémon team.");
 if (leaderboardRowLayout.height > 85) throw new Error("The daily leaderboard row became too tall.");
 if ((await page.locator(".leaderboard-content").textContent()).toUpperCase().includes("LOSS")) throw new Error("The leaderboard still displayed the LOSS label.");
-if (await page.locator(".leaderboard-loss .leaderboard-mon.survived").count()) throw new Error("A forfeited battle showed surviving Pokémon on the leaderboard.");
+const bstCards = await page.locator(".leaderboard-row.leaderboard-loss .leaderboard-team").evaluate((team) => {
+  const total = team.querySelector(".leaderboard-total");
+  return {
+    perPokemon: [...team.querySelectorAll(".leaderboard-mon:not(.leaderboard-total) .leaderboard-bst")].map((label) => Number(label.textContent)),
+    totalBst: Number(total.querySelector(".leaderboard-bst").textContent.replace(/[^0-9]/g, "")),
+    totalColumn: getComputedStyle(total).gridColumnStart,
+    coloredCards: team.querySelectorAll(".survived, .fainted").length,
+  };
+});
+if (!bstCards.perPokemon.length || bstCards.perPokemon.some((bst) => !Number.isFinite(bst) || bst <= 0)
+  || bstCards.totalBst !== bstCards.perPokemon.reduce((sum, bst) => sum + bst, 0)
+  || bstCards.totalColumn !== "7" || bstCards.coloredCards) throw new Error(`Incorrect leaderboard BST cards: ${JSON.stringify(bstCards)}`);
 await page.click('.leaderboard-stage [data-route="home"]');
 await page.click('[data-route="settings"]');
 if (await page.locator("[data-reset-daily-battle]").count() !== 1) throw new Error("The admin settings did not expose the daily battle reset.");

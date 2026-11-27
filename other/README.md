@@ -121,7 +121,7 @@ The game is intentionally Nuzlocke-like and can be harsh. It should create inter
 
 - The combined leaderboard places wins ahead of losses. Wins are ranked by lowest total starting-team BST, then fewest casualties, longest current streak, smallest starting team, and earliest completion.
 - Selecting a leaderboard row opens the same result presentation used after battle, backed by a sanitized current-day result that exposes teams and KO attribution without commands, builds, inventory, or the private battle log. Closing it preserves the leaderboard's scroll position and restores focus to the selected row.
-- Leaderboard rows show rank, account/avatar, streak, battle team, green survivors, red casualties, and losses.
+- Leaderboard rows show rank, account and avatar, streak, each Pokémon's starting BST, and the team's total BST.
 - Streaks are currently derived from saved battle history rather than stored as a separate lifetime-record model.
 
 ### Trainer administration
