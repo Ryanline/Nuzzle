@@ -1307,7 +1307,7 @@ const leaderboardRowLayout = await page.locator(".leaderboard-row.leaderboard-lo
 });
 if (Math.abs(leaderboardRowLayout.avatarCenter - leaderboardRowLayout.teamCenter) > 2) throw new Error("The leaderboard avatar was not aligned beside the Pokémon team.");
 if (leaderboardRowLayout.height > 85) throw new Error("The daily leaderboard row became too tall.");
-if ((await page.locator(".leaderboard-content").textContent()).toUpperCase().includes("LOSS")) throw new Error("The leaderboard still displayed the LOSS label.");
+if ((await page.locator(".leaderboard-row.leaderboard-loss .leaderboard-outcome").textContent()) !== "LOSS") throw new Error("The leaderboard did not show the loss beside the player's name.");
 const bstCards = await page.locator(".leaderboard-row.leaderboard-loss .leaderboard-team").evaluate((team) => {
   const total = team.querySelector(".leaderboard-total");
   return {

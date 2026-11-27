@@ -923,11 +923,12 @@ button.encounter-card:active .encounter-mark img { transform: translateY(1px) sc
 .leaderboard-entry { display: block; min-width: 0; }
 .leaderboard-identity > strong { display: block; min-width: 0; overflow: hidden; font-size: 14px; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
 .leaderboard-identity > strong small { margin-left: 6px; color: #a34449; font-size: 10px; font-weight: 700; text-transform: uppercase; }
-.leaderboard-player-name { display: block; margin-bottom: 2px; overflow: hidden; font-size: 14px; font-weight: 400; text-overflow: ellipsis; white-space: nowrap; }
+.leaderboard-player-name { display: flex; align-items: baseline; gap: 6px; margin-bottom: 2px; font-size: 14px; font-weight: 400; white-space: nowrap; }
+.leaderboard-player-name > span { overflow: hidden; text-overflow: ellipsis; }
 .leaderboard-player-line { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 8px; }
 .leaderboard-player-line .leaderboard-player-name { min-width: 0; margin-bottom: 2px; }
-.guest-label { margin-left: 5px; color: var(--muted); font-size: 9px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
-.leaderboard-player-name small { margin-left: 6px; color: #a34449; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+.leaderboard-outcome { color: #397443; font-size: 10px; font-weight: 700; }
+.leaderboard-loss .leaderboard-outcome { color: #a34449; }
 .leaderboard-roster { display: grid; grid-template-columns: 38px minmax(0, 1fr); align-items: center; gap: 4px; }
 .leaderboard-roster .leaderboard-avatar { width: 38px; height: 43px; }
 .leaderboard-roster .leaderboard-avatar img { width: 36px; height: 42px; }
@@ -1185,6 +1186,8 @@ html[data-theme="dark"] .leaderboard-row { border-color: #4c565e; }
 html[data-theme="dark"] .leaderboard-row.leaderboard-current { background: linear-gradient(90deg, #263746, #222b32); box-shadow: inset 3px 0 #5c91bb; }
 html[data-theme="dark"] .leaderboard-rank { color: #aebbc5; }
 html[data-theme="dark"] .streak-count { color: #91d19b; }
+html[data-theme="dark"] .leaderboard-outcome { color: #91d19b; }
+html[data-theme="dark"] .leaderboard-loss .leaderboard-outcome { color: #f0a1a5; }
 html[data-theme="dark"] .stat-card { border-color: #59636c; background: #2c3238; }
 html[data-theme="dark"] .sheet-backdrop { background: rgba(0,0,0,.62); }
 html[data-theme="dark"] .mart-sheet { border-color: #59636c; background: #24282c; }
