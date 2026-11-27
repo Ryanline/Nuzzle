@@ -58,16 +58,16 @@ The game is intentionally Nuzlocke-like and can be harsh. It should create inter
 
 ### Encounters
 
-- Catching is guaranteed; there is no wild battle or capture roll. Starting November 24, 2026, each grass contains one persisted Pokémon rather than three choices.
-- Every game date starts with zero Pokémon and sixteen encounter cards shared identically by every player.
-- The first encounter is one fully evolved starter from the day's rotating starter generation; the other fifteen do not include starters.
+- Catching is guaranteed. Each newly generated grass encounter reveals three Pokémon, and the player keeps one.
+- Every game date starts with zero Pokémon and twelve encounter cards shared identically by every player.
+- The first encounter offers three fully evolved starters from the day's rotating starter generation. The other eleven do not include starters.
 - Each encounter is claimed individually. Claiming Pokémon adds them to the Box, and the player chooses up to six for Team before battling.
 - The shared box, roster, inventory, and budget reset together at midnight America/New_York.
 - Results are generated once and persisted server-side for the date, so every player sees the exact same Pokémon and refreshes cannot reroll them.
 - Only one encounter may be pending at a time. Other grass remains disabled until the player claims the revealed Pokémon.
 - A claimed result stays visible for the current visit, then disappears from the encounter screen after leaving.
 - Once every encounter is claimed, the centered empty state shows only a concise completion message and the countdown to new encounters.
-- Duplicate protection covers all sixteen encounter families in the shared daily box.
+- Duplicate protection covers all 36 candidates in the shared daily box.
 - Encounter eligibility comes only from the approvals CSV; never infer it from every Showdown species.
 
 ### PC
