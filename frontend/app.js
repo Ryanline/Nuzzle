@@ -1232,7 +1232,7 @@
           ? `<ol class="leaderboard-list">${entries.map((entry) => {
             const trophy = trophyNames[entry.rank];
             const rank = trophy ? `<img class="leaderboard-trophy" src="assets/leaderboard/trophy-${trophy}.png" alt="">` : entry.rank;
-            return `<li><button class="leaderboard-row${entry.won ? "" : " leaderboard-loss"}${entry.isCurrentPlayer ? " leaderboard-current" : ""}" type="button" data-leaderboard-result="${escapeHtml(entry.battleId)}"${entry.isCurrentPlayer ? ' aria-current="true"' : ""}><span class="leaderboard-rank" aria-label="Rank ${entry.rank}">${rank}</span><span class="leaderboard-entry"><span class="leaderboard-player-line"><strong class="leaderboard-player-name">${escapeHtml(entry.username)}${entry.isGuest ? '<small class="guest-label">guest</small>' : ""}</strong><strong class="streak-count">${escapeHtml(entry.streakLabel || `${entry.streak}-day streak`)}</strong></span><span class="leaderboard-roster"><span class="leaderboard-avatar" aria-hidden="true">${avatarContent(entry)}</span><span class="leaderboard-team" aria-label="${entry.survivors} surviving Pokémon and ${entry.fainted} fainted Pokémon">${entry.team.map((pokemon) => `<span class="leaderboard-mon ${pokemon.fainted ? "fainted" : "survived"}" title="${escapeHtml(pokemon.name)} — ${pokemon.fainted ? "fainted" : "survived"}"><img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId, pokemon.shiny)}" alt="${escapeHtml(pokemon.name)}"></span>`).join("")}</span></span></span><span class="visually-hidden">View ${escapeHtml(entry.username)}’s battle result</span></button></li>`;
+            return `<li><button class="leaderboard-row${entry.won ? "" : " leaderboard-loss"}${entry.isCurrentPlayer ? " leaderboard-current" : ""}" type="button" data-leaderboard-result="${escapeHtml(entry.battleId)}"${entry.isCurrentPlayer ? ' aria-current="true"' : ""}><span class="leaderboard-rank" aria-label="Rank ${entry.rank}">${rank}</span><span class="leaderboard-entry"><span class="leaderboard-player-line"><strong class="leaderboard-player-name">${escapeHtml(entry.username)}${entry.isGuest ? '<small class="guest-label">guest</small>' : ""}</strong>${entry.teamBst == null ? "" : `<span class="leaderboard-bst">${entry.teamBst} BST</span>`}<strong class="streak-count">${escapeHtml(entry.streakLabel || `${entry.streak}-day streak`)}</strong></span><span class="leaderboard-roster"><span class="leaderboard-avatar" aria-hidden="true">${avatarContent(entry)}</span><span class="leaderboard-team" aria-label="${entry.survivors} surviving Pokémon and ${entry.fainted} fainted Pokémon">${entry.team.map((pokemon) => `<span class="leaderboard-mon ${pokemon.fainted ? "fainted" : "survived"}" title="${escapeHtml(pokemon.name)} — ${pokemon.fainted ? "fainted" : "survived"}"><img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId, pokemon.shiny)}" alt="${escapeHtml(pokemon.name)}"></span>`).join("")}</span></span></span><span class="visually-hidden">View ${escapeHtml(entry.username)}’s battle result</span></button></li>`;
           }).join("")}</ol>`
           : '<div class="leaderboard-empty"><strong>No results yet</strong><span>Today’s first completed battle will appear here.</span></div>';
     return `<section class="screen">${header()}<div class="leaderboard-stage"><h2>Leaderboard</h2><div class="leaderboard-content">${content}</div>${backButton()}</div>${leaderboardResultOverlay()}</section>`;
@@ -1254,7 +1254,7 @@
       },
       nuzlocke: {
         title: "What a Nuzlocke is",
-        content: `<p>A <a href="https://bulbapedia.bulbagarden.net/wiki/Nuzlocke_Challenge" target="_blank" rel="noopener noreferrer">Nuzlocke</a> is a fan-created way to make Pokémon more challenging through limited encounters and meaningful fainting.</p><p>Nuzzle adapts those ideas into a shared daily puzzle: every player makes choices from the same limited encounters, gets one battle attempt, and tries to win with as few casualties as possible.</p>`,
+        content: `<p>A <a href="https://bulbapedia.bulbagarden.net/wiki/Nuzlocke_Challenge" target="_blank" rel="noopener noreferrer">Nuzlocke</a> is a fan-created way to make Pokémon more challenging through limited encounters and meaningful fainting.</p><p>Everyone chooses from the same daily encounters and gets one battle attempt. Wins with lower starting-team BST rank higher, with fewer faints breaking BST ties.</p>`,
       },
       schedule: {
         title: "Battle schedule",
@@ -1312,7 +1312,7 @@
       encountersRevealedThisVisit = new Set();
       encounterListScrollTop = 0;
       localStorage.removeItem("nuzzleBattleId");
-      wipeMeMessage = "Today reset. The same 12 shared encounters are ready.";
+      wipeMeMessage = `Today reset. The same ${encounters.length} shared encounters are ready.`;
     } catch (error) {
       wipeMeMessage = error.message;
     } finally {

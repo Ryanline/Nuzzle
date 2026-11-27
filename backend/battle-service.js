@@ -29,6 +29,22 @@ function seed() {
   return Array.from({ length: 4 }, () => crypto.randomInt(0x10000));
 }
 
+function battleTeamBst(record) {
+  if (!record.playerTeam?.length) return null;
+  let total = 0;
+  for (const set of record.playerTeam) {
+    const species = Dex.species.get(set.species);
+    if (!species.exists) return null;
+    total += Object.values(species.baseStats).reduce((sum, stat) => sum + stat, 0);
+  }
+  return total;
+}
+
+function compareWinningTeamBst(left, right) {
+  if (!left.won || !right.won) return 0;
+  return (left.teamBst ?? Number.MAX_SAFE_INTEGER) - (right.teamBst ?? Number.MAX_SAFE_INTEGER);
+}
+
 function isFainted(condition = "") {
   return condition.endsWith(" fnt");
 }
@@ -1591,11 +1607,13 @@ export class BattleService {
           completedAt: battle.record.completedAt || battle.record.createdAt,
           fainted: team.filter((pokemon) => pokemon.fainted).length,
           teamSize: team.length,
+          teamBst: battleTeamBst(battle.record),
           team,
         };
       })
       .filter(Boolean)
       .sort((left, right) => Number(right.won) - Number(left.won)
+        || compareWinningTeamBst(left, right)
         || left.fainted - right.fainted
         || left.teamSize - right.teamSize
         || String(left.completedAt).localeCompare(String(right.completedAt)))
@@ -1662,6 +1680,7 @@ export class BattleService {
         fainted,
         survivors: team.length - fainted,
         teamSize: team.length,
+        teamBst: battleTeamBst(today.record),
         streak: won ? streak : 0,
         lostStreak: won ? 0 : streak,
         streakLabel: challengeDate === emerlLeaderboardSpotlightDate && toID(identity.username) === "emerl"
@@ -1672,20 +1691,19 @@ export class BattleService {
       });
     }
 
-    entries.sort((left, right) => Number(right.leaderboardSpotlight) - Number(left.leaderboardSpotlight)
+    const compareEntries = (left, right) => Number(right.leaderboardSpotlight) - Number(left.leaderboardSpotlight)
       || Number(right.won) - Number(left.won)
+      || compareWinningTeamBst(left, right)
       || left.fainted - right.fainted
       || right.streak - left.streak
       || left.teamSize - right.teamSize
-      || String(left.completedAt).localeCompare(String(right.completedAt)));
+      || String(left.completedAt).localeCompare(String(right.completedAt));
+    entries.sort(compareEntries);
     let rank = 0;
-    let previousScore = null;
+    let previousEntry = null;
     return entries.map((entry) => {
-      const score = `${Number(entry.leaderboardSpotlight)}:${Number(entry.won)}:${entry.fainted}:${entry.streak}:${entry.teamSize}:${entry.completedAt}`;
-      if (score !== previousScore) {
-        rank++;
-        previousScore = score;
-      }
+      if (!previousEntry || compareEntries(previousEntry, entry) !== 0) rank++;
+      previousEntry = entry;
       return { rank, ...entry };
     });
   }

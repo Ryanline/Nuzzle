@@ -690,6 +690,17 @@ test("combined leaderboard ranks by outcome, casualties, streak, small teams, an
   assert.deepEqual(entries.map(({ battleId }) => battleId), ["guest-today", "d-today", "b-today", "a-today", "c-today", "loss-today"]);
   assert.equal(entries[5].lostStreak, 2);
   assert.equal(entries[5].streakLabel, "Lost 2-day streak");
+  service.battles.get("guest-today").record.playerTeam = Array.from({ length: 6 }, () => ({ species: "Charizard" }));
+  service.battles.get("a-today").record.playerTeam = Array.from({ length: 5 }, () => ({ species: "Venusaur" }));
+  service.battles.get("b-today").record.playerTeam = Array.from({ length: 5 }, () => ({ species: "Venusaur" }));
+  service.battles.get("loss-today").record.playerTeam = [{ species: "Magikarp" }];
+  const bstEntries = service.combinedLeaderboard("2026-10-24", (id) => ({ username: id }));
+  assert.deepEqual(bstEntries.slice(0, 3).map(({ battleId, teamBst }) => [battleId, teamBst]), [
+    ["b-today", 2625],
+    ["a-today", 2625],
+    ["guest-today", 3204],
+  ]);
+  assert.equal(bstEntries.at(-1).battleId, "loss-today");
   assert.deepEqual(leaderboardStanding(entries), {
     rank: 4,
     total: 6,

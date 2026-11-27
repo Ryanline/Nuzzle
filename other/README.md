@@ -119,7 +119,7 @@ The game is intentionally Nuzlocke-like and can be harsh. It should create inter
 
 ### Leaderboards
 
-- The combined leaderboard places wins ahead of losses, then ranks by fewest casualties, longest current streak, smallest starting team, and earliest completion.
+- The combined leaderboard places wins ahead of losses. Wins are ranked by lowest total starting-team BST, then fewest casualties, longest current streak, smallest starting team, and earliest completion.
 - Selecting a leaderboard row opens the same result presentation used after battle, backed by a sanitized current-day result that exposes teams and KO attribution without commands, builds, inventory, or the private battle log. Closing it preserves the leaderboard's scroll position and restores focus to the selected row.
 - Leaderboard rows show rank, account/avatar, streak, battle team, green survivors, red casualties, and losses.
 - Streaks are currently derived from saved battle history rather than stored as a separate lifetime-record model.

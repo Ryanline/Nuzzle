@@ -254,6 +254,31 @@ test("new daily boxes offer the same twelve choose-one-of-three encounters to ev
   assert.equal(encounteredFamilies.size, 36);
 });
 
+test("a saved single-choice box upgrades for new and returning players without undoing claims", async () => {
+  const date = new Date("2026-11-27T16:00:00Z");
+  const { filename, store } = await fixture(date);
+  const before = await store.claimEncounter("returning", 1);
+  await store.revealEncounter("returning", 0);
+  const shared = store.data.sharedDailyEncounters["2026-11-27"];
+  for (const encounters of [shared.encounters, store.data.runs.returning.daily.encounters]) {
+    for (const encounter of encounters) encounter.pokemon = encounter.pokemon.slice(0, 1);
+  }
+  await store.save();
+
+  const restored = new GameStore(filename, { timeZone: "America/New_York", now: () => date });
+  await restored.initialize();
+  const newcomer = await restored.revealEncounter("newcomer", 0);
+  assert.deepEqual(newcomer.encounters[0].pokemon.map(({ speciesId }) => speciesId), ["chesnaught", "delphox", "greninja"]);
+  assert.equal(newcomer.encounters.every(({ count }) => count === 3), true);
+
+  const returning = await restored.get("returning");
+  assert.deepEqual(returning.encounters[0].pokemon, newcomer.encounters[0].pokemon);
+  assert.equal(returning.encounters[1].claimed, true);
+  assert.equal(returning.roster[0].id, before.roster[0].id);
+  assert.equal(returning.encounters[2].count, 3);
+  await assert.rejects(restored.revealEncounter("returning", 2), /revealed encounter first/);
+});
+
 test("developer reset clears personal choices without rerolling the shared daily encounters", async () => {
   const { store } = await fixture(new Date("2026-11-22T16:00:00Z"));
   const before = await store.revealEncounter("developer-reset-user", 0);

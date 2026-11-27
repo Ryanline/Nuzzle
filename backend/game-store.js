@@ -125,10 +125,13 @@ function generateBatch(count, pool, reservedFamilies) {
   return generated;
 }
 
-function generateSharedDailyEncounters(date) {
+function dailyStarterIds(date) {
   const rotationOffset = dateDistance(starterRotationStartDate, date);
-  const starterIds = starterTrios[((rotationOffset % starterTrios.length) + starterTrios.length) % starterTrios.length];
-  const dailyStarterPokemon = starterIds.map((speciesId) => createPokemon(pokemonById.get(speciesId)));
+  return starterTrios[((rotationOffset % starterTrios.length) + starterTrios.length) % starterTrios.length];
+}
+
+function generateSharedDailyEncounters(date) {
+  const dailyStarterPokemon = dailyStarterIds(date).map((speciesId) => createPokemon(pokemonById.get(speciesId)));
   const reservedFamilies = new Set(dailyStarterPokemon.map((pokemon) => pokemon.encounterFamilyId));
   const encounters = [{
     kind: "starter",
@@ -173,16 +176,25 @@ function ensureLegacyDaily(run, date) {
 
 function ensureSharedDailyEncounters(data, date) {
   data.sharedDailyEncounters ||= {};
-  data.sharedDailyEncounters[date] ||= generateSharedDailyEncounters(date);
+  const shared = data.sharedDailyEncounters[date] ||= generateSharedDailyEncounters(date);
+  const starter = shared.encounters[0];
+  if (starter.kind === "starter" && starter.pokemon.length === 1) {
+    const [originalStarter] = starter.pokemon;
+    starter.pokemon = dailyStarterIds(date).map((id) =>
+      id === originalStarter.speciesId ? originalStarter : createPokemon(pokemonById.get(id)));
+    const reserved = new Set(shared.encounters.flatMap(({ pokemon }) => pokemon.map((mon) => mon.encounterFamilyId)));
+    for (const encounter of shared.encounters.slice(1)) {
+      if (encounter.pokemon.length === 1) encounter.pokemon.push(...generateBatch(2, encounterPokemon, reserved));
+    }
+  }
   const oldestRetainedDate = shiftGameDate(date, -runArchiveRetentionDays);
   for (const retainedDate of Object.keys(data.sharedDailyEncounters)) {
     if (retainedDate < oldestRetainedDate) delete data.sharedDailyEncounters[retainedDate];
   }
-  return data.sharedDailyEncounters[date];
+  return shared;
 }
 
-function dailyEncounterState(data, date) {
-  const shared = ensureSharedDailyEncounters(data, date);
+function dailyEncounterState(data, date, shared = ensureSharedDailyEncounters(data, date)) {
   return {
     date,
     encounters: shared.encounters.map((encounter) => ({
@@ -514,8 +526,15 @@ export class GameStore {
       }
       migrateDirectTraining(run);
       migrateSimplifiedPlayerStats(run);
-      if (sharedDailyBoxesActive) run.daily ||= dailyEncounterState(this.data, date);
-      else ensureLegacyDaily(run, date);
+      if (sharedDailyBoxesActive) {
+        const shared = ensureSharedDailyEncounters(this.data, date);
+        run.daily ||= dailyEncounterState(this.data, date, shared);
+        for (const [slot, encounter] of run.daily.encounters.entries()) {
+          if (!encounter.claimed && encounter.pokemon.length === 1 && shared.encounters[slot]?.pokemon.length === 3) {
+            encounter.pokemon = structuredClone(shared.encounters[slot].pokemon);
+          }
+        }
+      } else ensureLegacyDaily(run, date);
       result = await operation(run, date);
       await this.save();
     });
