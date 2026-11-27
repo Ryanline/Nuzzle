@@ -127,12 +127,6 @@ test("every player receives the same twelve persisted daily trios with an approv
   assert.equal(revealed.roster.length, 0);
   assert.equal(revealed.encounters[0].revealed, true);
   assert.equal(revealed.encounters[0].pokemon.length, 3);
-  const approvedStarterTrios = new Set([
-    "venusaur,charizard,blastoise", "meganium,typhlosion,feraligatr", "sceptile,blaziken,swampert",
-    "torterra,infernape,empoleon", "chesnaught,delphox,greninja", "decidueye,incineroar,primarina",
-    "rillaboom,cinderace,inteleon", "decidueyehisui,typhlosionhisui,samurotthisui", "meowscarada,skeledirge,quaquaval",
-  ]);
-  assert.equal(approvedStarterTrios.has(revealed.encounters[0].pokemon.map((pokemon) => pokemon.speciesId).join(",")), true);
   const revealedSpecies = revealed.encounters[0].pokemon.map((pokemon) => pokemon.speciesId);
 
   const otherPlayer = await store.revealEncounter("user-two", 0);
@@ -217,12 +211,22 @@ test("daily rollover clears every box and budget while advancing the starter rot
   assert.deepEqual(state.inventory, {});
   assert.deepEqual(state.encounters[0].pokemon.map((pokemon) => pokemon.speciesId), ["meganium", "typhlosion", "feraligatr"]);
 
-  now = new Date("2026-11-30T16:00:00Z");
-  state = await store.revealEncounter("daily-user", 0);
-  assert.deepEqual(state.encounters[0].pokemon.map((pokemon) => pokemon.speciesId), ["meowscarada", "skeledirge", "quaquaval"]);
-  now = new Date("2026-12-01T16:00:00Z");
-  state = await store.revealEncounter("daily-user", 0);
-  assert.deepEqual(state.encounters[0].pokemon.map((pokemon) => pokemon.speciesId), ["venusaur", "charizard", "blastoise"]);
+  const remainingTrios = [
+    ["sceptile", "blaziken", "swampert"],
+    ["torterra", "infernape", "empoleon"],
+    ["serperior", "emboar", "samurott"],
+    ["chesnaught", "delphox", "greninja"],
+    ["decidueye", "incineroar", "primarina"],
+    ["rillaboom", "cinderace", "inteleon"],
+    ["decidueyehisui", "typhlosionhisui", "samurotthisui"],
+    ["meowscarada", "skeledirge", "quaquaval"],
+    ["venusaur", "charizard", "blastoise"],
+  ];
+  for (const trio of remainingTrios) {
+    now = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    state = await store.revealEncounter("daily-user", 0);
+    assert.deepEqual(state.encounters[0].pokemon.map((pokemon) => pokemon.speciesId), trio);
+  }
 });
 
 test("new daily boxes offer the same twelve choose-one-of-three encounters to every player", async () => {

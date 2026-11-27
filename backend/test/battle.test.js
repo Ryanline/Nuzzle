@@ -670,6 +670,8 @@ test("combined leaderboard ranks by outcome, casualties, streak, small teams, an
   addBattle({ id: "a-prev", userId: "a", date: "2026-10-23", completedAt: "2026-10-23T12:00:00.000Z" });
   addBattle({ id: "b-prev", userId: "b", date: "2026-10-23", completedAt: "2026-10-23T12:00:00.000Z" });
   addBattle({ id: "d-prev", userId: "d", date: "2026-10-23", completedAt: "2026-10-23T12:00:00.000Z" });
+  addBattle({ id: "loss-prev-2", userId: "loss", date: "2026-10-22", completedAt: "2026-10-22T12:00:00.000Z" });
+  addBattle({ id: "loss-prev-1", userId: "loss", date: "2026-10-23", completedAt: "2026-10-23T12:00:00.000Z" });
   addBattle({ id: "b-today", userId: "b", date: "2026-10-24", completedAt: "2026-10-24T13:00:00.000Z", fainted: 1, teamSize: 5 });
   addBattle({ id: "a-today", userId: "a", date: "2026-10-24", completedAt: "2026-10-24T14:00:00.000Z", fainted: 1, teamSize: 5 });
   addBattle({ id: "c-today", userId: "c", date: "2026-10-24", completedAt: "2026-10-24T12:00:00.000Z", fainted: 1, teamSize: 1 });
@@ -686,6 +688,8 @@ test("combined leaderboard ranks by outcome, casualties, streak, small teams, an
     { rank: 6, username: "LOSS", teamSize: 1, fainted: 1, streak: 0 },
   ]);
   assert.deepEqual(entries.map(({ battleId }) => battleId), ["guest-today", "d-today", "b-today", "a-today", "c-today", "loss-today"]);
+  assert.equal(entries[5].lostStreak, 2);
+  assert.equal(entries[5].streakLabel, "Lost 2-day streak");
   assert.deepEqual(leaderboardStanding(entries), {
     rank: 4,
     total: 6,

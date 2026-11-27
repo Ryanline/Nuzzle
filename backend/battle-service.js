@@ -1638,7 +1638,7 @@ export class BattleService {
       }));
       let streak = 0;
       if (!identity.isGuest) {
-        let date = challengeDate;
+        let date = won ? challengeDate : previousDate(challengeDate);
         const identityBoundary = identity.streakStartDate || null;
         const streakBoundary = identityBoundary && identityBoundary > defaultLaunchDate ? identityBoundary : defaultLaunchDate;
         const hasSeasonBoundary = challengeDate >= streakBoundary;
@@ -1662,8 +1662,11 @@ export class BattleService {
         fainted,
         survivors: team.length - fainted,
         teamSize: team.length,
-        streak,
-        streakLabel: challengeDate === emerlLeaderboardSpotlightDate && toID(identity.username) === "emerl" ? "7-year streak" : null,
+        streak: won ? streak : 0,
+        lostStreak: won ? 0 : streak,
+        streakLabel: challengeDate === emerlLeaderboardSpotlightDate && toID(identity.username) === "emerl"
+          ? "7-year streak"
+          : !won && streak > 0 ? `Lost ${streak}-day streak` : null,
         leaderboardSpotlight: challengeDate === emerlLeaderboardSpotlightDate && toID(identity.username) === "emerl",
         team,
       });

@@ -41,6 +41,7 @@ const starterTrios = Object.freeze([
   Object.freeze(["meganium", "typhlosion", "feraligatr"]),
   Object.freeze(["sceptile", "blaziken", "swampert"]),
   Object.freeze(["torterra", "infernape", "empoleon"]),
+  Object.freeze(["serperior", "emboar", "samurott"]),
   Object.freeze(["chesnaught", "delphox", "greninja"]),
   Object.freeze(["decidueye", "incineroar", "primarina"]),
   Object.freeze(["rillaboom", "cinderace", "inteleon"]),

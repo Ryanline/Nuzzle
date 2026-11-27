@@ -1052,7 +1052,17 @@
         if (!encounter.claimed) {
           if (encounter.pokemon?.length) {
             const single = encounter.pokemon.length === 1;
-            return `<div class="encounter-choice${single ? " single" : ""}"><p class="encounter-choice-prompt">${single ? "Claim encounter" : "Choose one"}</p><div class="encounter-choice-set">${encounter.pokemon.map((mon, candidateIndex) => `<button class="encounter-card revealed" type="button" data-encounter-choice="${index}-${candidateIndex}" aria-label="${single ? "Claim" : "Choose"} ${escapeHtml(mon.name)}"><span class="encounter-sprite"><img class="sprite" src="${sprite(mon.id)}" alt="${escapeHtml(mon.name)}"/></span><span class="encounter-copy"><strong>${escapeHtml(mon.name)}</strong><span class="encounter-types">${mon.types.map((type) => `<span class="type-chip ${type.toLowerCase()}">${type}</span>`).join("")}</span></span></button>`).join("")}</div></div>`;
+            const choices = encounter.pokemon.map((mon, candidateIndex) => {
+              const bst = Object.values(mon.baseStats).reduce((total, stat) => total + stat, 0);
+              return `<button class="encounter-card revealed" type="button" data-encounter-choice="${index}-${candidateIndex}" aria-label="${single ? "Claim" : "Choose"} ${escapeHtml(mon.name)}, BST ${bst}">
+                <span class="encounter-sprite"><img class="sprite" src="${sprite(mon.id)}" alt=""/></span>
+                <span class="encounter-copy"><strong>${escapeHtml(mon.name)}</strong>
+                  <small class="encounter-bst">BST ${bst}</small>
+                  <span class="encounter-types">${mon.types.map((type) => `<span class="type-chip ${type.toLowerCase()}">${type}</span>`).join("")}</span>
+                </span>
+              </button>`;
+            }).join("");
+            return `<div class="encounter-choice${single ? " single" : ""}"><p class="encounter-choice-prompt">${single ? "Claim encounter" : "Choose one"}</p><div class="encounter-choice-set">${choices}</div></div>`;
           }
           return `<button class="encounter-card mystery" type="button" data-encounter="${index}" aria-label="Reveal encounter ${index + 1}" ${pendingSlot !== -1 ? "disabled" : ""}><span class="encounter-mark" aria-hidden="true"><img src="assets/pixel-grass.png" alt=""/></span><span class="encounter-copy"><strong>Unknown encounter</strong><small>Tap to reveal</small></span></button>`;
         }

@@ -586,9 +586,19 @@ for (let slot = 0; slot < 12; slot++) {
   } else {
     await page.click(`[data-encounter="${slot}"]`);
   }
-  if (!(await encounterResponse).ok()) throw new Error(`Opening encounter ${slot + 1} did not reveal.`);
+  const revealedResponse = await encounterResponse;
+  if (!revealedResponse.ok()) throw new Error(`Opening encounter ${slot + 1} did not reveal.`);
   await page.waitForSelector(`[data-encounter-choice="${slot}-2"]`);
   if (await page.locator(`[data-encounter-choice^="${slot}-"]`).count() !== 3) throw new Error(`Opening encounter ${slot + 1} did not reveal three choices.`);
+  if (slot === 0) {
+    const { encounters } = await revealedResponse.json();
+    const expected = encounters[slot].pokemon.map(({ baseStats }) => {
+      const bst = Object.values(baseStats).reduce((total, stat) => total + stat, 0);
+      return `BST ${bst}`;
+    });
+    const labels = await page.locator(".encounter-choice .encounter-bst").allTextContents();
+    if (labels.join(", ") !== expected.join(", ")) throw new Error(`Starter BST labels were incorrect: ${labels.join(", ")}.`);
+  }
   if (await page.locator("[data-encounter]:not(:disabled)").count()) throw new Error("Other grass remained available while an encounter choice was pending.");
   await page.waitForFunction((revealedCount) => document.querySelectorAll(".encounter-card.revealed").length === revealedCount, slot + 3);
   if (scrollTopBeforeReveal !== null) {
