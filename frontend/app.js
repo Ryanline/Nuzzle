@@ -31,6 +31,9 @@
   const defaultAccountAvatarId = "unknownf";
   const app = document.querySelector("#app");
   const tooltip = document.querySelector("#tooltip");
+  document.addEventListener("pointerdown", (event) => {
+    if (!event.target.closest("[data-trainer-pokemon], [data-battler-tip]")) hideTooltip();
+  }, true);
   const savedTheme = localStorage.getItem("nuzzleTheme");
   const showdownEffectPreloads = Object.values(window.BattleEffects || {}).flatMap((effect) => {
     if (!effect.url) return [];
@@ -124,7 +127,6 @@
   let victoryStandingRequest = 0;
   let balance = 50000;
   let selectedPcId = null;
-  let selectedTrainerPokemon = null;
   let pcDetailView = "summary";
   let pcSummaryMoveId = null;
   let pcSummaryAbilityId = null;
@@ -733,7 +735,7 @@
     const trainer = todayState.trainer;
     return `<section class="screen home-screen">${header()}<div class="landing">
       <div class="trainer-wrap"><img class="sprite trainer" src="${trainerSprite(trainer.spriteId)}" alt="${escapeHtml(trainer.name)}" /></div>
-      <div class="opponent-team" aria-label="${escapeHtml(trainer.name)}'s team">${trainer.pokemon.map((pokemon) => `<button type="button" aria-label="${escapeHtml(pokemon.name)}${pokemon.shiny ? ", shiny" : ""}"><img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId, pokemon.shiny)}" alt="${escapeHtml(pokemon.name)}" /></button>`).join("")}</div>
+      <div class="opponent-team" aria-label="${escapeHtml(trainer.name)}'s team">${trainer.pokemon.map((pokemon, index) => `<button type="button" data-trainer-pokemon="${index}" aria-label="${escapeHtml(pokemon.name)}${pokemon.shiny ? ", shiny" : ""}"><img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId, pokemon.shiny)}" alt="${escapeHtml(pokemon.name)}" /></button>`).join("")}</div>
       ${navigation()}
     </div></section>`;
   }
@@ -821,7 +823,7 @@
     }).join("");
     battleLogInitialized = true;
     const movesHtml = battleState.moves.map((move) => `<button class="move-button type-${move.type.toLowerCase()}" type="button" data-battle-move="${move.slot}" data-battle-move-tip="${move.slot}" ${move.disabled || battleLoading || battleAnimating || battleState.ended ? "disabled" : ""}><strong>${escapeHtml(move.name)}</strong><span>${escapeHtml(move.type)}</span><small>${move.pp}/${move.maxPp}</small></button>`).join("");
-    const switchesHtml = battleState.player.team.map((pokemon) => `<button class="switch-choice ${pokemon.active ? "selected" : ""} ${pokemon.fainted ? "fainted" : ""}" type="button" data-battle-switch="${pokemon.slot}" data-mon-tip="${pokemon.id}" ${!pokemon.canSwitch || battleLoading || battleAnimating || battleState.ended ? "disabled" : ""}><img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId, pokemon.shiny)}" alt=""/><span>${escapeHtml(pokemon.name)}</span><small>${pokemon.fainted ? "fainted" : `${pokemon.percent}%`}</small><i class="switch-hp ${healthTone(pokemon.percent)}" aria-hidden="true"><b style="width:${pokemon.fainted ? 0 : pokemon.percent}%"></b></i></button>`).join("");
+    const switchesHtml = battleState.player.team.map((pokemon) => `<button class="switch-choice ${pokemon.active ? "selected" : ""} ${pokemon.fainted ? "fainted" : ""}" type="button" data-battle-switch="${pokemon.slot}" ${!pokemon.canSwitch || battleLoading || battleAnimating || battleState.ended ? "disabled" : ""}><img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId, pokemon.shiny)}" alt=""/><span>${escapeHtml(pokemon.name)}</span><small>${pokemon.fainted ? "fainted" : `${pokemon.percent}%`}</small><i class="switch-hp ${healthTone(pokemon.percent)}" aria-hidden="true"><b style="width:${pokemon.fainted ? 0 : pokemon.percent}%"></b></i></button>`).join("");
     const prompt = battleState.ended
       ? `<strong>${battleState.winner === "Player" ? "You won!" : battleState.winner ? `${escapeHtml(battleState.winner)} won.` : "Battle over."}</strong>`
       : battleState.forcedSwitch
@@ -833,8 +835,8 @@
       ${battleFieldEffects(effects)}
       <div class="battle-fx-layer" aria-hidden="true"></div>
       <div class="battle-platform enemy" aria-hidden="true"></div><div class="battle-platform player" aria-hidden="true"></div>
-      ${enemy ? `<div class="battler-slot enemy${enemy.substitute ? " has-substitute" : ""}" data-pokemon="${escapeHtml(enemy.id)}"><img class="sprite active-sprite" src="${battleSpriteSource(enemy, "opponent")}" alt="${escapeHtml(enemy.name)}" /></div>${battleSubstitute("opponent", enemy.substitute)}<section class="battle-hud enemy" aria-label="Opponent ${escapeHtml(enemy.name)}"><div class="battle-hud-title"><strong>${escapeHtml(enemy.name)}</strong><span>Lv. ${enemy.level}</span></div><div class="hp-bar ${healthTone(enemy.percent)}"><i style="width:${enemy.percent}%"></i></div><div class="battle-hud-detail"><span>HP</span><small>${enemy.percent}%</small>${enemy.status ? `<b>${escapeHtml(enemy.status.toUpperCase())}</b>` : ""}</div></section>` : ""}
-      ${player ? `<div class="battler-slot player${player.substitute ? " has-substitute" : ""}" data-pokemon="${escapeHtml(player.id)}"><img class="sprite active-sprite" src="${battleSpriteSource(player, "player")}" alt="${escapeHtml(player.name)}" /></div>${battleSubstitute("player", player.substitute)}<section class="battle-hud player" aria-label="Your ${escapeHtml(player.name)}"><div class="battle-hud-title"><strong>${escapeHtml(player.name)}</strong><span>Lv. ${player.level}</span></div><div class="hp-bar ${healthTone(player.percent)}"><i style="width:${player.percent}%"></i></div><div class="battle-hud-detail"><span>HP</span><small>${player.percent}%</small>${player.status ? `<b>${escapeHtml(player.status.toUpperCase())}</b>` : ""}</div></section>` : ""}
+      ${enemy ? `<div class="battler-slot enemy${enemy.substitute ? " has-substitute" : ""}" data-pokemon="${escapeHtml(enemy.id)}"><img class="sprite active-sprite" data-battler-tip="opponent" tabindex="0" src="${battleSpriteSource(enemy, "opponent")}" alt="${escapeHtml(enemy.name)}" /></div>${battleSubstitute("opponent", enemy.substitute)}<section class="battle-hud enemy" aria-label="Opponent ${escapeHtml(enemy.name)}"><div class="battle-hud-title"><strong>${escapeHtml(enemy.name)}</strong><span>Lv. ${enemy.level}</span></div><div class="hp-bar ${healthTone(enemy.percent)}"><i style="width:${enemy.percent}%"></i></div><div class="battle-hud-detail"><span>HP</span><small>${enemy.percent}%</small>${enemy.status ? `<b>${escapeHtml(enemy.status.toUpperCase())}</b>` : ""}</div></section>` : ""}
+      ${player ? `<div class="battler-slot player${player.substitute ? " has-substitute" : ""}" data-pokemon="${escapeHtml(player.id)}"><img class="sprite active-sprite" data-battler-tip="player" tabindex="0" src="${battleSpriteSource(player, "player")}" alt="${escapeHtml(player.name)}" /></div>${battleSubstitute("player", player.substitute)}<section class="battle-hud player" aria-label="Your ${escapeHtml(player.name)}"><div class="battle-hud-title"><strong>${escapeHtml(player.name)}</strong><span>Lv. ${player.level}</span></div><div class="hp-bar ${healthTone(player.percent)}"><i style="width:${player.percent}%"></i></div><div class="battle-hud-detail"><span>HP</span><small>${player.percent}%</small>${player.status ? `<b>${escapeHtml(player.status.toUpperCase())}</b>` : ""}</div></section>` : ""}
     </div><div class="battle-panel${battleLogExpanded ? " log-expanded" : ""}"><section class="battle-log-card${battleLogExpanded ? " expanded" : ""}" aria-labelledby="battle-log-title"><header><h2 id="battle-log-title">Battle log</h2><div>${battleLogHasNew ? '<button type="button" data-battle-log-new>New events</button>' : ""}<button type="button" data-toggle-battle-log aria-expanded="${battleLogExpanded}">${battleLogExpanded ? "Collapse" : "Expand"}</button></div></header><div class="battle-log-body" data-battle-log role="log" aria-label="Battle events" tabindex="0"><div class="battle-log-stack">${logHtml || '<p class="battle-log-empty">The battle is starting…</p>'}</div></div></section><span class="visually-hidden" role="status" aria-live="polite">${escapeHtml(latestAnnouncement)}</span>
       <div class="battle-command-area" ${battleLogExpanded ? 'inert aria-hidden="true"' : ""}><p class="prompt">${prompt} <small>Turn ${battleState.turn}</small></p>${battleState.forcedSwitch || battleState.ended ? "" : `<h2 class="section-label attack">Attack</h2><div class="move-grid">${movesHtml}</div>`}
       <h2 class="section-label">Switch</h2><div class="switch-grid">${switchesHtml}</div>${battleError ? `<p class="battle-error" role="alert">${escapeHtml(battleError)}</p>` : ""}</div>
@@ -917,29 +919,7 @@
       <section class="pc-section trainer-reference-section" aria-labelledby="trainer-team-heading"><div class="pc-section-head"><h2 id="trainer-team-heading">${escapeHtml(trainer.name)}</h2><span>${trainer.pokemon.length} Pokémon</span></div><div class="party-strip">${trainerSlots}</div></section>
       <section class="pc-section party-section" aria-labelledby="party-heading"><div class="pc-section-head"><h2 id="party-heading">team</h2><span>${party.length}/6</span></div><div class="party-strip">${partySlots}</div></section>
       <section class="pc-section box-section" aria-labelledby="box-heading"><div class="pc-section-head"><h2 id="box-heading">box</h2><span>${boxIds.length} Pokémon</span></div><div class="pc-box">${boxMons}</div></section>
-      ${backButton()}</div>${selectedPcId ? pcPokemonSheet(selectedPcId) : ""}${selectedTrainerPokemon !== null ? trainerPokemonCard(trainer.pokemon[selectedTrainerPokemon]) : ""}</section>`;
-  }
-
-  function trainerPokemonCard(pokemon) {
-    const species = pokemonContent.get(pokemon.id) || {};
-    const types = pokemon.types?.length ? pokemon.types : species.types || ["Normal"];
-    const abilities = pokemon.possibleAbilities?.length
-      ? pokemon.possibleAbilities
-      : [...new Set([...(species.ordinaryAbilities || []), species.hiddenAbility].filter(Boolean))];
-    const baseSpeed = species.baseStats?.spe;
-    const fallbackSpeedStat = (iv, ev, natureNumerator) => {
-      const core = Math.floor((2 * baseSpeed + iv + Math.floor(ev / 4)) * 100 / 100) + 5;
-      return Math.floor(core * natureNumerator / 10);
-    };
-    const fallbackSpeed = Number.isFinite(baseSpeed)
-      ? {
-          min: fallbackSpeedStat(0, 0, 9),
-          max: fallbackSpeedStat(31, 252, 11),
-        }
-      : null;
-    const speedRange = pokemon.speedRange || fallbackSpeed;
-    const speed = Number.isFinite(speedRange?.min) && Number.isFinite(speedRange?.max) ? `${speedRange.min}–${speedRange.max}` : "—";
-    return `<div class="trainer-scout-backdrop" data-close-trainer-pokemon><section class="trainer-scout-card" role="dialog" aria-modal="true" aria-labelledby="trainer-scout-title"><button class="trainer-scout-close" type="button" data-close-trainer-pokemon aria-label="Close trainer Pokémon details">×</button><header><h2 id="trainer-scout-title">${escapeHtml(pokemon.name)}</h2><div class="sheet-types">${types.map((type) => `<span class="type-chip ${type.toLowerCase()}">${escapeHtml(type)}</span>`).join("")}</div></header><div class="trainer-scout-facts"><p><span>Possible abilities</span><strong>${escapeHtml(abilities.join(", ") || "Unknown")}</strong></p><p><span>Speed</span><strong>${speed}</strong><small>before items, abilities, or modifiers</small></p></div></section></div>`;
+      ${backButton()}</div>${selectedPcId ? pcPokemonSheet(selectedPcId) : ""}</section>`;
   }
 
   const trainingStats = [["hp", "HP"], ["atk", "Atk"], ["def", "Def"], ["spa", "SpA"], ["spd", "SpD"], ["spe", "Spe"]];
@@ -1464,9 +1444,22 @@
     updateCountdown();
   }
 
-  function monTip(id) {
-    const mon = mons[id];
-    return `<div class="tip-head">${mon.name}<span class="tip-types">${mon.types.map((type) => `<i class="type-chip ${type.toLowerCase()}">${type}</i>`).join("")}</span></div><div class="tip-row">HP: ${mon.hp}</div><div class="tip-row">Ability: ${mon.ability} / Item: ${mon.item}</div><div class="tip-row">${mon.stats}</div><div class="tip-row">${mon.moves.map((move) => `• ${move}`).join("<br>")}</div>`;
+  function monTip(mon) {
+    if (!mon?.calculatedStats) return "";
+    const maxHp = mon.calculatedStats.hp;
+    const hp = typeof mon.hp === "number" ? mon.hp : maxHp;
+    const percent = maxHp ? (100 * hp / maxHp).toFixed(1) : "0.0";
+    const types = mon.types.map((type) => `<i class="type-chip ${toId(type)}">${escapeHtml(type)}</i>`).join("");
+    const stats = trainingStats.slice(1).map(([key, label]) => `${label} ${mon.calculatedStats[key]}`).join(" / ");
+    const moveList = mon.moves.map((move) => `• ${escapeHtml(move)}`).join("<br>");
+    return `<div class="tip-head">${escapeHtml(mon.name)}<span class="tip-types">${types}</span></div>
+      <div class="tip-row">HP: ${percent}% (${hp}/${maxHp})</div>
+      <div class="tip-row">Ability: ${escapeHtml(mon.ability)} / Item: ${escapeHtml(mon.item)}</div>
+      <div class="tip-row">${stats}</div><div class="tip-row">${moveList}</div>`;
+  }
+
+  function bindBattlerTip(image, side) {
+    addInfoInteractions(image, () => battleAnimating ? "" : monTip(battleState?.[side].active), true);
   }
 
   function moveTip(id) {
@@ -1588,6 +1581,9 @@
     slot.dataset.pokemon = pokemon.id;
     const image = document.createElement("img");
     image.className = "sprite active-sprite";
+    image.dataset.battlerTip = side;
+    image.tabIndex = 0;
+    bindBattlerTip(image, side);
     image.src = battleSpriteSource(pokemon, side);
     image.alt = pokemon.name;
     slot.replaceChildren(image);
@@ -2245,6 +2241,10 @@
   }
 
   function showTooltip(target, html) {
+    if (!html) {
+      hideTooltip();
+      return;
+    }
     tooltip.innerHTML = html;
     tooltip.hidden = false;
     const rect = target.getBoundingClientRect();
@@ -2669,7 +2669,16 @@
     }
   }
 
-  function addInfoInteractions(element, html) {
+  function addInfoInteractions(element, html, inspectOnly = false) {
+    if (inspectOnly) {
+      const show = () => showTooltip(element, html());
+      element.addEventListener("mouseenter", show);
+      element.addEventListener("mouseleave", hideTooltip);
+      element.addEventListener("focus", show);
+      element.addEventListener("blur", hideTooltip);
+      element.addEventListener("click", show);
+      return;
+    }
     let timer = null;
     let held = false;
     const start = (event) => {
@@ -2844,7 +2853,6 @@
       }
       if (nextRoute !== "pc") {
         selectedPcId = null;
-        selectedTrainerPokemon = null;
         pcSummaryMoveId = null;
         pcSummaryAbilityId = null;
       }
@@ -3112,12 +3120,6 @@
       const count = document.querySelector("[data-bag-search-count]");
       if (count) count.textContent = `${matchCount} matching item${matchCount === 1 ? "" : "s"}`;
     });
-    document.querySelectorAll("[data-trainer-pokemon]").forEach((button) => button.addEventListener("click", () => { selectedTrainerPokemon = Number(button.dataset.trainerPokemon); render(); }));
-    document.querySelectorAll("[data-close-trainer-pokemon]").forEach((element) => element.addEventListener("click", (event) => {
-      if (element.classList.contains("trainer-scout-backdrop") && event.target !== element) return;
-      selectedTrainerPokemon = null;
-      render();
-    }));
     document.querySelectorAll("[data-pc-detail]").forEach((button) => button.addEventListener("click", () => { selectedPcId = button.dataset.pcDetail; pcDetailView = "summary"; pcSummaryMoveId = null; pcSummaryAbilityId = null; pcSwapMode = false; pcItemMode = false; pendingPcItemId = null; pendingPcItemTransfer = null; selectedNature = null; pcItemMessage = ""; trainingDraft = null; trainingMoveSlot = null; trainingMessage = ""; beginTraining(mons[selectedPcId]); render(); }));
     bindPcDetailSwipe();
     document.querySelectorAll("[data-close-pc-sheet]").forEach((element) => element.addEventListener("click", (event) => {
@@ -3278,10 +3280,14 @@
       selectedNature = null;
       render();
     });
-    document.querySelectorAll("[data-mon-tip]").forEach((element) => addInfoInteractions(element, () => monTip(element.dataset.monTip)));
+    document.querySelectorAll("[data-mon-tip]").forEach((element) => addInfoInteractions(element, () => monTip(mons[element.dataset.monTip])));
+    document.querySelectorAll("[data-trainer-pokemon]").forEach((element) => addInfoInteractions(element, () => monTip(todayState.trainer.pokemon[Number(element.dataset.trainerPokemon)]), true));
+    document.querySelectorAll("[data-battler-tip]").forEach((element) => bindBattlerTip(element, element.dataset.battlerTip));
+    document.querySelectorAll("[data-battle-switch]").forEach((element) => addInfoInteractions(element, () => monTip(battleState?.player.team.find((mon) => mon.slot === Number(element.dataset.battleSwitch)))));
     document.querySelectorAll("[data-move-tip]").forEach((element) => addInfoInteractions(element, () => moveTip(element.dataset.moveTip)));
     document.querySelectorAll("[data-battle-move-tip]").forEach((element) => addInfoInteractions(element, () => battleMoveTip(element.dataset.battleMoveTip)));
     document.onkeydown = (event) => {
+      if (event.key === "Escape") hideTooltip();
       if (event.key === "Escape" && moreCardOpen) {
         const trigger = moreCardOpen;
         moreCardOpen = null;
@@ -3297,9 +3303,6 @@
         battleLogExpanded = false;
         render();
         requestAnimationFrame(() => document.querySelector("[data-toggle-battle-log]")?.focus());
-      } else if (event.key === "Escape" && selectedTrainerPokemon !== null) {
-        selectedTrainerPokemon = null;
-        render();
       } else if (event.key === "Escape" && selectedPcId) {
         if (pcSummaryMoveId) pcSummaryMoveId = null;
         else if (pcSummaryAbilityId) pcSummaryAbilityId = null;

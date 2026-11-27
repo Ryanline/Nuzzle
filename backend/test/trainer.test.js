@@ -119,11 +119,10 @@ test("queued trainers can be reordered and publish one immutable snapshot per da
   assert.equal(first.number, 1);
   assert.equal(first.trainer.name, "Brock");
   assert.deepEqual(first.trainer.pokemon[0].types, ["Steel", "Ground"]);
-  assert.ok(first.trainer.pokemon[0].possibleAbilities.includes("Sturdy"));
-  assert.deepEqual(first.trainer.pokemon[0].speedRange, { min: 58, max: 174 });
-  assert.equal(first.trainer.pokemon[0].speed, undefined, "public scouting data must not reveal the configured Speed stat");
-  assert.equal(first.trainer.pokemon[0].ability, undefined, "public scouting data must not reveal the configured ability");
-  assert.equal(first.trainer.pokemon[0].moves, undefined, "public scouting data must not reveal the configured moves");
+  assert.deepEqual(first.trainer.pokemon[0].calculatedStats, { hp: 296, atk: 232, def: 441, spa: 135, spd: 171, spe: 101 });
+  assert.equal(first.trainer.pokemon[0].ability, "Sturdy");
+  assert.equal(first.trainer.pokemon[0].item, "None");
+  assert.deepEqual(first.trainer.pokemon[0].moves, ["Earthquake", "Heavy Slam", "Rock Slide", "Stealth Rock"]);
 
   await store.add({ name: "Misty", spriteId: "misty", teamText: mistyTeam });
   await store.add({ name: "Erika", spriteId: "erika", teamText: erikaTeam.replace("Ability: Chlorophyll", "Ability: Chlorophyll\nShiny: Yes") });

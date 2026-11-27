@@ -288,6 +288,7 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
   transform: none;
 }
 .battler-slot.player.is-aligned .active-sprite { opacity: 1; }
+.battler-slot .active-sprite[data-battler-tip] { pointer-events: auto; cursor: help; }
 .battler-slot.has-substitute .active-sprite { opacity: .42; filter: saturate(.7) drop-shadow(0 5px 2px rgba(42,39,35,.18)); }
 .battler-slot.player.has-substitute .active-sprite { transform: translateX(-16px); }
 .battler-slot.enemy.has-substitute .active-sprite { transform: translateX(16px); }
@@ -729,17 +730,6 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .ability-picker-option strong { font-size: 13px; font-weight: 600; }
 .ability-picker-option small { color: var(--muted); font-size: 10px; line-height: 1.3; }
 .ability-picker-option b { color: #27658f; font-size: 10px; font-weight: 400; white-space: nowrap; }
-.trainer-scout-backdrop { position: fixed; z-index: 250; inset: 0; display: grid; place-items: center; padding: max(14px, var(--safe-top)) max(14px, var(--safe-right)) max(14px, var(--safe-bottom)) max(14px, var(--safe-left)); background: rgba(15,18,21,.32); }
-.trainer-scout-card { position: relative; width: min(380px, 100%); padding: 14px; border: 1px solid #89939a; border-radius: 8px; background: var(--page); box-shadow: 0 9px 28px rgba(0,0,0,.3); }
-.trainer-scout-close { position: absolute; top: 6px; right: 7px; width: 32px; height: 32px; padding: 0; border: 0; border-radius: 50%; background: transparent; cursor: pointer; font-size: 26px; line-height: 28px; }
-.trainer-scout-close:hover { background: color-mix(in srgb, var(--ink) 8%, transparent); }
-.trainer-scout-card > header { padding-right: 32px; }
-.trainer-scout-card h2 { margin: 0 0 4px; font-size: 20px; font-weight: 600; }
-.trainer-scout-facts { margin-top: 11px; border-top: 1px solid var(--line); }
-.trainer-scout-facts p { display: grid; grid-template-columns: 115px minmax(0, 1fr); gap: 3px 10px; margin: 0; padding: 9px 2px; border-bottom: 1px solid var(--line); font-size: 13px; }
-.trainer-scout-facts p > span { color: var(--muted); }
-.trainer-scout-facts strong { font-weight: 600; }
-.trainer-scout-facts small { grid-column: 2; color: var(--muted); font-size: 10px; }
 @media (min-width: 521px) {
   .training-moves { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .training-footer-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1070,7 +1060,6 @@ html[data-theme="dark"] .move-replace-grid span,
 html[data-theme="dark"] .nature-options button { border-color: #59636c; background: linear-gradient(#30363d, #242a30); color: var(--ink); }
 html[data-theme="dark"] .sheet-move { border-color: color-mix(in srgb, var(--move-type) 76%, #434a50); border-left-color: var(--move-type); background: linear-gradient(105deg, color-mix(in srgb, var(--move-type) 45%, #252a2f), color-mix(in srgb, var(--move-type) 24%, #202428)); color: #fff; }
 html[data-theme="dark"] .summary-move-card,
-html[data-theme="dark"] .trainer-scout-card { border-color: #59636c; background: var(--page); color: var(--ink); }
 html[data-theme="dark"] .encounter-card { border-color: #3d484f; background: linear-gradient(#20262b, #1a1f23); color: var(--ink); }
 html[data-theme="dark"] button.encounter-card:hover { border-color: #53685d; background: linear-gradient(#242d2b, #1d2422); }
 html[data-theme="dark"] button.encounter-card:active { background: #19201d; }

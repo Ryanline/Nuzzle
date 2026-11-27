@@ -290,6 +290,19 @@ page.on("pageerror", (error) => errors.push(error.message));
 await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
 await page.waitForSelector(".home-screen .screen-title");
 const todayState = await page.evaluate(() => fetch("/api/today").then((response) => response.json()));
+async function verifyTrainerTooltip(pokemon) {
+  const tooltip = page.locator("#tooltip");
+  await tooltip.waitFor({ state: "visible" });
+  const text = await tooltip.textContent();
+  const statLabels = { atk: "Atk", def: "Def", spa: "SpA", spd: "SpD", spe: "Spe" };
+  const stats = Object.entries(statLabels).map(([key, label]) => `${label} ${pokemon.calculatedStats[key]}`);
+  const expected = [pokemon.name, ...pokemon.types, `/${pokemon.calculatedStats.hp})`, ...stats, `Ability: ${pokemon.ability}`, `Item: ${pokemon.item}`, ...pokemon.moves];
+  if (expected.some((value) => !text.includes(value))) throw new Error(`Incomplete tooltip for ${pokemon.name}: ${text}`);
+  return text;
+}
+await page.locator(".opponent-team [data-trainer-pokemon]").first().hover();
+const landingTooltip = await verifyTrainerTooltip(todayState.trainer.pokemon[0]);
+await page.keyboard.press("Escape");
 if (await page.evaluate(() => typeof window.BattleMoveAnims?.aquastep?.anim !== "function" || typeof window.BattleOtherAnims !== "object" || typeof window.BattleEffects !== "object")) throw new Error("The official Pokémon Showdown animation tables did not load.");
 const localSpriteResponse = await fetch(`${baseUrl}/assets/showdown/gen5/charizard.png`);
 if (!localSpriteResponse.ok || localSpriteResponse.headers.get("content-type") !== "image/png" || !localSpriteResponse.headers.get("cache-control")?.includes("immutable")) {
@@ -768,21 +781,11 @@ if (await page.locator(".team-mark, .pc-help").count()) throw new Error("The obs
 if (await page.locator(".party-section [data-quick-team-remove]").count() !== generatedGame.teamIds.length || await page.locator(".box-section [data-quick-team-add]").count() !== generatedGame.roster.length - generatedGame.teamIds.length) throw new Error("The PC cards did not expose the expected quick team controls.");
 if (await page.locator(".trainer-reference-section .pc-quick-action").count()) throw new Error("The trainer reference cards incorrectly exposed team controls.");
 if (!await page.locator(`[data-quick-team-remove="${outgoingId}"].remove[aria-label="Remove ${outgoingPokemon.name} from team"]`).count() || !await page.locator(`[data-quick-team-add="${replacementId}"].add[aria-label="Add ${replacementName} to team"]`).count()) throw new Error("The quick team controls did not use the requested action styling or accessible labels.");
-await page.locator("[data-trainer-pokemon]").first().click();
-const trainerScout = await page.locator(".trainer-scout-card").evaluate((card) => ({
-  name: card.querySelector("h2")?.textContent.trim(),
-  types: [...card.querySelectorAll(".type-chip")].map((type) => type.textContent.trim()),
-  abilities: card.querySelector(".trainer-scout-facts p:first-child strong")?.textContent.trim(),
-  speed: card.querySelector(".trainer-scout-facts p:nth-child(2) strong")?.textContent.trim(),
-  speedNote: card.querySelector(".trainer-scout-facts p:nth-child(2) small")?.textContent.trim(),
-  text: card.textContent,
-}));
-const scoutedPokemon = todayState.trainer.pokemon[0];
-if (trainerScout.name !== scoutedPokemon.name || trainerScout.types.join(",") !== scoutedPokemon.types.join(",") || !scoutedPokemon.possibleAbilities.every((ability) => trainerScout.abilities?.includes(ability)) || trainerScout.speed !== `${scoutedPokemon.speedRange.min}–${scoutedPokemon.speedRange.max}` || trainerScout.speedNote !== "before items, abilities, or modifiers") throw new Error(`The trainer scouting card did not show the requested public species details: ${JSON.stringify(trainerScout)}`);
-if (/Earthquake|Heavy Slam|Adamant|Rock Slide|Psycho Cut|Waterfall|Rapid Spin/.test(trainerScout.text)) throw new Error("The trainer scouting card leaked private set details.");
-await assertMobileLayout("trainer Pokémon scouting card");
-await assertDesktopLayout("trainer Pokémon scouting card");
-await page.click(".trainer-scout-close");
+await page.locator(".trainer-reference-section [data-trainer-pokemon]").first().click();
+const pcTooltip = await verifyTrainerTooltip(todayState.trainer.pokemon[0]);
+if (pcTooltip !== landingTooltip) throw new Error("The landing and PC trainer tooltips showed different details.");
+await page.keyboard.press("Escape");
+await page.waitForSelector("#tooltip", { state: "hidden" });
 await assertMobileLayout("PC", [".box-section .pc-box"]);
 await assertDesktopLayout("PC", [".box-section .pc-box"], [
   { first: ".trainer-reference-section", second: ".party-section", direction: "above" },
@@ -1049,6 +1052,11 @@ await page.waitForFunction(() => !document.querySelector(".battle-arena")?.class
 await assertBattleStageAspectRatio(".battle-arena", "The active battlefield");
 await page.evaluate(() => window.dispatchEvent(new Event("resize")));
 await page.locator(".battle-arena").evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+const opponentSprite = page.locator(".battler-slot.enemy [data-battler-tip]");
+const opponentName = await opponentSprite.getAttribute("alt");
+await opponentSprite.hover();
+await verifyTrainerTooltip(todayState.trainer.pokemon.find(({ name }) => name === opponentName));
+await page.keyboard.press("Escape");
 
 const battlePanelFallback = await page.locator(".battle-panel").evaluate((panel) => {
   const originalStyle = panel.getAttribute("style");

@@ -477,7 +477,7 @@ export function eventEntry(line, context) {
   return { turn: context.logTurn, side, category, text, ...(animation ? { animation } : {}) };
 }
 
-function pokemonView(pokemon, ownSide) {
+function pokemonView(pokemon) {
   const roundedPercent = pokemon.maxhp ? Math.round((pokemon.hp / pokemon.maxhp) * 100) : 0;
   const percent = pokemon.hp > 0 ? Math.max(1, roundedPercent) : 0;
   const species = pokemon.species;
@@ -488,8 +488,13 @@ function pokemonView(pokemon, ownSide) {
     shiny: Boolean(pokemon.set?.shiny || pokemon.details?.toLowerCase().includes(", shiny")),
     startingBst: speciesBst(pokemon.set?.species || pokemon.baseSpecies?.name),
     level: pokemon.level,
-    hp: ownSide ? pokemon.hp : null,
-    maxHp: ownSide ? pokemon.maxhp : null,
+    hp: pokemon.hp,
+    maxHp: pokemon.maxhp,
+    types: pokemon.getTypes(),
+    calculatedStats: { ...pokemon.storedStats, hp: pokemon.maxhp },
+    ability: pokemon.getAbility().name || "None",
+    item: pokemon.getItem().name || "None",
+    moves: pokemon.moveSlots.map((slot) => slot.move),
     percent,
     status: pokemon.status || "",
     active: pokemon.isActive,
@@ -1448,8 +1453,8 @@ export class BattleController {
     const battle = this.stream.battle;
     if (!battle) throw new Error("The battle has not initialized.");
     const request = this.currentRequest;
-    const playerTeam = battle.p1.pokemon.map((pokemon) => pokemonView(pokemon, true));
-    const opponentTeam = battle.p2.pokemon.map((pokemon) => pokemonView(pokemon, false));
+    const playerTeam = battle.p1.pokemon.map(pokemonView);
+    const opponentTeam = battle.p2.pokemon.map(pokemonView);
     const moves = request?.active?.[0]?.moves.map((move, index) => {
       const data = Dex.moves.get(move.id);
       return {
