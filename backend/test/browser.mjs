@@ -777,6 +777,16 @@ if (await page.locator(".trainer-reference-section .trainer-party-slot").count()
 if (await page.locator(".trainer-reference-section button.trainer-party-slot").count() !== 6) throw new Error("The trainer Pokémon were not exposed as tappable controls.");
 if (await page.locator(".party-section [data-pc-detail]").count() !== generatedGame.teamIds.length) throw new Error("The PC Team section did not show only the active team.");
 if (await page.locator(".box-section [data-pc-mon]").count() !== generatedGame.roster.length - generatedGame.teamIds.length) throw new Error("The PC Box section did not exclude active team members.");
+const pcBstLabels = await page.locator("[data-trainer-pokemon], [data-pc-detail], [data-pc-mon]").evaluateAll((cards) => cards.map((card) => ({
+  trainerSlot: card.dataset.trainerPokemon,
+  rosterId: card.dataset.pcDetail ?? card.dataset.pcMon,
+  bst: card.querySelector(".pc-bst")?.textContent,
+})));
+for (const { trainerSlot, rosterId, bst } of pcBstLabels) {
+  const pokemon = rosterId ? generatedGame.roster.find(({ id }) => id === rosterId) : todayState.trainer.pokemon[Number(trainerSlot)];
+  const expected = Object.values(pokemon.baseStats).reduce((total, stat) => total + stat, 0);
+  if (bst !== String(expected)) throw new Error(`The PC displayed BST ${bst} for ${pokemon.name}, expected ${expected}.`);
+}
 if (await page.locator(".team-mark, .pc-help").count()) throw new Error("The obsolete PC team labels or helper text are still visible.");
 if (await page.locator(".party-section [data-quick-team-remove]").count() !== generatedGame.teamIds.length || await page.locator(".box-section [data-quick-team-add]").count() !== generatedGame.roster.length - generatedGame.teamIds.length) throw new Error("The PC cards did not expose the expected quick team controls.");
 if (await page.locator(".trainer-reference-section .pc-quick-action").count()) throw new Error("The trainer reference cards incorrectly exposed team controls.");
@@ -818,7 +828,7 @@ const pcDetailOrder = await page.locator(".party-section [data-pc-detail], .box-
 const outgoingDetailIndex = pcDetailOrder.indexOf(outgoingId);
 const nextDetailId = pcDetailOrder[outgoingDetailIndex + 1];
 if (!nextDetailId) throw new Error("The swipe test could not find a next PC Pokémon.");
-const nextDetailName = (await page.locator(`[data-pc-detail="${nextDetailId}"], [data-pc-mon="${nextDetailId}"]`).first().textContent()).trim();
+const nextDetailName = generatedGame.roster.find(({ id }) => id === nextDetailId)?.name;
 await swipePcSheet("next");
 if ((await page.locator("#pokemon-sheet-title").textContent())?.trim() !== nextDetailName) throw new Error("Swiping left did not open the next Pokémon.");
 await swipePcSheet("previous");

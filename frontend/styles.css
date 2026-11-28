@@ -505,9 +505,9 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .pc-section-head span { color: var(--muted); font-size: 12px; }
 .party-strip { display: grid; width: 100%; min-width: 0; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; padding: 8px; }
 .party-card, .pc-mon-card { position: relative; min-width: 0; }
-.pc-held-item-badge { position: absolute; z-index: 2; bottom: 14px; left: 4px; display: grid; width: 21px; height: 21px; place-items: center; pointer-events: none; }
+.pc-held-item-badge { position: absolute; z-index: 2; bottom: 24px; left: 4px; display: grid; width: 21px; height: 21px; place-items: center; pointer-events: none; }
 .pc-held-item-badge .held-item-sprite { transform: scale(.875); }
-.party-slot { display: flex; min-width: 0; height: 78px; flex-direction: column; align-items: center; justify-content: center; padding: 2px; overflow: hidden; border: 1px solid #aaa; border-radius: 6px; background: #fff; cursor: pointer; }
+.party-slot { display: flex; min-width: 0; height: 88px; flex-direction: column; align-items: center; justify-content: center; padding: 2px; overflow: hidden; border: 1px solid #aaa; border-radius: 6px; background: #fff; cursor: pointer; }
 .party-card .party-slot { width: 100%; }
 .party-slot:hover { border-color: #777; background: #f7fbff; }
 .party-slot img { width: 58px; max-width: 100%; height: 55px; }
@@ -516,11 +516,12 @@ button:focus-visible { outline: 3px solid #276fe6; outline-offset: 2px; }
 .trainer-party-slot { cursor: pointer; }
 .trainer-party-slot:hover { border-color: #6f8799; background: #edf6fc; }
 .pc-box { display: grid; width: 100%; min-width: 0; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 7px; padding: 10px; }
-.pc-mon { position: relative; display: flex; min-width: 0; height: 86px; flex-direction: column; align-items: center; justify-content: flex-end; padding: 2px; overflow: hidden; border: 1px solid transparent; border-radius: 6px; background: #fff; cursor: grab; touch-action: none; }
+.pc-mon { position: relative; display: flex; min-width: 0; height: 96px; flex-direction: column; align-items: center; justify-content: flex-end; padding: 2px; overflow: hidden; border: 1px solid transparent; border-radius: 6px; background: #fff; cursor: grab; touch-action: none; }
 .pc-mon-card .pc-mon { width: 100%; }
 .pc-mon:hover { border-color: #999; }
 .pc-mon img { width: 68px; max-width: 120%; height: 65px; }
 .pc-mon-name { width: 100%; overflow: hidden; font-size: 10px; line-height: 15px; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
+.pc-bst { flex: 0 0 auto; color: var(--muted); font-size: 10px; line-height: 11px; font-variant-numeric: tabular-nums; }
 .pc-mon.dragging { opacity: .35; cursor: grabbing; }
 .pc-mon.drag-over { border-radius: 8px; background: rgba(255,255,255,.35); }
 .pc-quick-action { position: absolute; z-index: 2; top: -3px; right: -3px; display: grid; width: 18px; height: 18px; place-items: center; padding: 0 0 1px; border: 1px solid var(--page); border-radius: 50%; color: #fff; cursor: pointer; font-size: 14px; font-weight: 700; line-height: 1; }
@@ -1340,14 +1341,14 @@ html[data-theme="dark"] .final-run-reminder { border-color: #965157; background:
   .pc-section-head { flex: 0 0 29px; }
   .pc-section-head h2 { font-size: 15px; }
   .party-strip { gap: 3px; padding: 5px; }
-  .party-slot { height: 67px; }
+  .party-slot { height: 77px; }
   .party-slot img { width: 51px; height: 48px; }
   .party-slot span { font-size: 9px; }
   .pc-section + .pc-section { margin-top: 7px; }
   .box-section { display: flex; min-height: 0; flex: 1 1 auto; flex-direction: column; }
   .pc-box { gap: 3px; padding: 5px; }
   .box-section .pc-box { min-height: 0; flex: 1 1 auto; align-content: start; overflow-y: auto; overscroll-behavior: contain; }
-  .pc-mon { height: 76px; }
+  .pc-mon { height: 86px; }
   .pc-mon img { width: 60px; height: 57px; }
   .pokemon-sheet { align-self: flex-end; width: 100%; height: min(590px, calc(var(--viewport-height) - max(8px, var(--safe-top)) - var(--safe-bottom))); max-height: calc(var(--viewport-height) - max(8px, var(--safe-top)) - var(--safe-bottom)); padding: 10px 12px 8px; border-radius: 13px 13px 0 0; }
   .sheet-backdrop { --pc-backdrop-blur: 4px; align-items: flex-end; padding: max(8px, var(--safe-top)) var(--safe-right) var(--safe-bottom) var(--safe-left); overflow: hidden; }

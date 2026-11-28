@@ -898,22 +898,31 @@
     return `<div class="result-backdrop" ${closeAttribute}><section class="result-modal ${victory ? "victory" : "defeat"}" role="dialog" aria-modal="true" aria-labelledby="result-title"><button class="result-close" type="button" aria-label="Close result" ${closeAttribute}>×</button><header><span>${leaderboard ? "leaderboard battle result" : "daily battle result"}</span><h2 id="result-title">${heading}</h2><p>${escapeHtml(subheading)}</p></header>${standing}<div class="result-legend"><span class="green-key">▲ ${escapeHtml(owner)} Pokémon that KO'd it</span><span class="red-key">▼ ${escapeHtml(owner)} Pokémon it KO'd</span></div><div class="result-grid">${cards}</div></section></div>`;
   }
 
+  function baseStatTotal(pokemon) {
+    return Object.values(pokemon.baseStats).reduce((total, stat) => total + stat, 0);
+  }
+
   function pc() {
     const trainer = todayState.trainer;
-    const trainerSlots = trainer.pokemon.map((pokemon, index) => `<button class="party-slot trainer-party-slot" type="button" data-trainer-pokemon="${index}" aria-label="View ${escapeHtml(pokemon.name)}${pokemon.shiny ? ", shiny" : ""}"><img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId, pokemon.shiny)}" alt=""/><span>${escapeHtml(pokemon.name)}</span></button>`).join("");
+    const trainerSlots = trainer.pokemon.map((pokemon, index) => {
+      const bst = baseStatTotal(pokemon);
+      return `<button class="party-slot trainer-party-slot" type="button" data-trainer-pokemon="${index}" aria-label="View ${escapeHtml(pokemon.name)}${pokemon.shiny ? ", shiny" : ""}, BST ${bst}"><img class="sprite" src="${sprite(pokemon.id, false, pokemon.spriteId, pokemon.shiny)}" alt=""/><span>${escapeHtml(pokemon.name)}</span><small class="pc-bst">${bst}</small></button>`;
+    }).join("");
     const party = [...team].slice(0, 6);
     const partySlots = Array.from({ length: 6 }, (_, index) => {
       const id = party[index];
       if (!id) return `<div class="party-slot empty" aria-label="Empty team slot"><span>empty</span></div>`;
       const mon = mons[id];
       const heldItem = mon.heldItemId ? shopItems.find((item) => item.id === mon.heldItemId) : null;
-      return `<div class="party-card"><button class="party-slot" type="button" data-pc-detail="${id}" aria-label="View ${mon.name}${heldItem ? `, holding ${escapeHtml(heldItem.name)}` : ""}"><img class="sprite" src="${sprite(id)}" alt=""/><span>${mon.name}</span></button>${pcHeldItemBadge(heldItem)}<button class="pc-quick-action remove" type="button" data-quick-team-remove="${id}" aria-label="Remove ${mon.name} from team">×</button></div>`;
+      const bst = baseStatTotal(mon);
+      return `<div class="party-card"><button class="party-slot" type="button" data-pc-detail="${id}" aria-label="View ${escapeHtml(mon.name)}${heldItem ? `, holding ${escapeHtml(heldItem.name)}` : ""}, BST ${bst}"><img class="sprite" src="${sprite(id)}" alt=""/><span>${escapeHtml(mon.name)}</span><small class="pc-bst">${bst}</small></button>${pcHeldItemBadge(heldItem)}<button class="pc-quick-action remove" type="button" data-quick-team-remove="${id}" aria-label="Remove ${mon.name} from team">×</button></div>`;
     }).join("");
     const boxIds = pcOrder.filter((id) => !team.has(id));
     const boxMons = boxIds.map((id) => {
       const mon = mons[id];
       const heldItem = mon.heldItemId ? shopItems.find((item) => item.id === mon.heldItemId) : null;
-      return `<div class="pc-mon-card"><button class="pc-mon" type="button" draggable="false" data-pc-mon="${id}" aria-label="View ${mon.name}${heldItem ? `, holding ${escapeHtml(heldItem.name)}` : ""}"><img class="sprite" src="${sprite(id)}" alt=""/><span class="pc-mon-name">${mon.name}</span></button>${pcHeldItemBadge(heldItem)}<button class="pc-quick-action add" type="button" data-quick-team-add="${id}" aria-label="Add ${mon.name} to team">+</button></div>`;
+      const bst = baseStatTotal(mon);
+      return `<div class="pc-mon-card"><button class="pc-mon" type="button" draggable="false" data-pc-mon="${id}" aria-label="View ${escapeHtml(mon.name)}${heldItem ? `, holding ${escapeHtml(heldItem.name)}` : ""}, BST ${bst}"><img class="sprite" src="${sprite(id)}" alt=""/><span class="pc-mon-name">${escapeHtml(mon.name)}</span><small class="pc-bst">${bst}</small></button>${pcHeldItemBadge(heldItem)}<button class="pc-quick-action add" type="button" data-quick-team-add="${id}" aria-label="Add ${mon.name} to team">+</button></div>`;
     }).join("");
     return `<section class="screen">${header()}<div class="pc-stage">
       <section class="pc-section trainer-reference-section" aria-labelledby="trainer-team-heading"><div class="pc-section-head"><h2 id="trainer-team-heading">${escapeHtml(trainer.name)}</h2><span>${trainer.pokemon.length} Pokémon</span></div><div class="party-strip">${trainerSlots}</div></section>
@@ -1033,7 +1042,7 @@
           if (encounter.pokemon?.length) {
             const single = encounter.pokemon.length === 1;
             const choices = encounter.pokemon.map((mon, candidateIndex) => {
-              const bst = Object.values(mon.baseStats).reduce((total, stat) => total + stat, 0);
+              const bst = baseStatTotal(mon);
               return `<button class="encounter-card revealed" type="button" data-encounter-choice="${index}-${candidateIndex}" aria-label="${single ? "Claim" : "Choose"} ${escapeHtml(mon.name)}, BST ${bst}">
                 <span class="encounter-sprite"><img class="sprite" src="${sprite(mon.id)}" alt=""/></span>
                 <span class="encounter-copy"><strong>${escapeHtml(mon.name)}</strong>
