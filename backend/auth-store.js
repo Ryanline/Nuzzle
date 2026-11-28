@@ -6,7 +6,10 @@ import { avatarSpriteIds } from "./trainer-sprite-ids.js";
 
 const scrypt = promisify(crypto.scrypt);
 const SESSION_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
-const ADMIN_USERNAME_KEY = String(process.env.NUZZLE_ADMIN_USERNAME || "ryanline").trim().toLowerCase();
+const adminUsernameKeys = new Set([
+  String(process.env.NUZZLE_ADMIN_USERNAME || "ryanline").trim().toLowerCase(),
+  "shade",
+]);
 const selectableAvatarSpriteIds = new Set(avatarSpriteIds);
 
 function authError(message, statusCode = 400) {
@@ -21,7 +24,7 @@ function publicUser(user) {
     welcomeSeen: Boolean(user.welcomeSeenAt),
     createdAt: user.createdAt,
     streakStartDate: user.streakStartDate || null,
-    isAdmin: user.usernameKey === ADMIN_USERNAME_KEY,
+    isAdmin: adminUsernameKeys.has(user.usernameKey),
     isGuest: false,
   };
 }
